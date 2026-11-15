@@ -461,7 +461,10 @@ function polar(theta, d) { const r = shoreR(theta) - d; return [r * Math.cos(the
    ========================================================= */
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+// start at up to 1.5x on high-DPI screens; adjusted on the fly to keep the frame rate smooth
+const MAX_PR = Math.min(window.devicePixelRatio || 1, 1.5);
+let pixelRatio = MAX_PR;
+renderer.setPixelRatio(pixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.autoClear = false; // world pass + first-person overlay pass
@@ -628,7 +631,7 @@ scene.add(water);
    Palm trees
    ========================================================= */
 function frondGeo(len, droop) {
-  const n = 16, pos = [], rows = [];
+  const n = 10, pos = [], rows = [];
   for (let i = 0; i <= n; i++) {
     const t = i / n, x = t * len, y = 0.7 * t * len * 0.2 - droop * t * t;
     const w = (0.8 * Math.sin(Math.PI * Math.min(1, t * 1.1)) * (i % 2 === 0 ? 1 : 0.55) + 0.03) * (len / 4.2);
@@ -661,10 +664,10 @@ function crownGeo(seed) {
     const f = frondGeo(2.2, 0.4); f.rotateZ(0.9 + r() * 0.3); f.rotateY(r() * Math.PI * 2); parts.push(f);
   }
   for (let k = 0; k < 3 + Math.floor(r() * 2); k++) {
-    const a = k * 2.1 + r(), c = bake(new THREE.SphereGeometry(0.26, 10, 8), pick([0x7a5233, 0x8f6a2c, 0x6a8f33]));
+    const a = k * 2.1 + r(), c = bake(new THREE.SphereGeometry(0.26, 7, 5), pick([0x7a5233, 0x8f6a2c, 0x6a8f33]));
     c.translate(Math.cos(a) * 0.32, -0.35 - r() * 0.15, Math.sin(a) * 0.32); parts.push(c);
   }
-  parts.push(bake(new THREE.SphereGeometry(0.36, 10, 8), 0x6f8f3a));
+  parts.push(bake(new THREE.SphereGeometry(0.36, 7, 5), 0x6f8f3a));
   return merge(parts);
 }
 const crowns = [crownGeo(11), crownGeo(23), crownGeo(37), crownGeo(51)];
@@ -682,6 +685,7 @@ const inRanchZone = (x, z, pad = 0) => Math.hypot(x - RANCH_X, z - RANCH_Z) < RA
 const ranchWorld = (u, v) => [RANCH_X + RANCH_SIDE[0] * u + RANCH_OUT[0] * v, RANCH_Z + RANCH_SIDE[1] * u + RANCH_OUT[1] * v];
 const ranchLocal = (x, z) => { const dx = x - RANCH_X, dz = z - RANCH_Z; return [dx * RANCH_SIDE[0] + dz * RANCH_SIDE[1], dx * RANCH_OUT[0] + dz * RANCH_OUT[1]]; };
 
+const TRUNK_SLICES = 24, trunkParts = [];
 function makePalm(x, z, outward, scale = 1) {
   const H = rr(7, 11) * scale, lean = rr(1.5, 4.2) * scale, N = 11;
   const lx = outward[0] + rr(-0.5, 0.5), lz = outward[1] + rr(-0.5, 0.5), ll = Math.hypot(lx, lz);
@@ -698,9 +702,10 @@ function makePalm(x, z, outward, scale = 1) {
     parts.push(g);
   }
   const y = heightAt(x, z) - 0.25;
-  const trunk = new THREE.Mesh(merge(parts), trunkMat);
-  trunk.position.set(x, y, z); trunk.castShadow = true; trunk.receiveShadow = true;
-  scene.add(trunk);
+  // trunks never move, so they're merged into slices of the island (crowns stay separate: they sway, and cull per palm)
+  const tg = merge(parts); tg.translate(x, y, z);
+  const slice = Math.min(TRUNK_SLICES - 1, Math.floor((Math.atan2(z, x) + Math.PI) / (Math.PI * 2) * TRUNK_SLICES));
+  (trunkParts[slice] = trunkParts[slice] || []).push(tg);
   const top = P(1);
   const crown = new THREE.Mesh(crowns[palms.length % crowns.length], palmMat);
   crown.position.set(x + top.x, y + top.y, z + top.z);
@@ -736,32 +741,50 @@ function trunkAt(p, wy, out) {
   // palms poking out of the jungle edge
   for (let i = 0; i < 40; i++) { const th = rr(0, Math.PI * 2), [x, z] = polar(th, rr(78, 110)); makePalm(x, z, [Math.cos(th), Math.sin(th)], rr(1.0, 1.3)); }
 }
+trunkParts.forEach(list => { if (!list) return; const m = new THREE.Mesh(merge(list), trunkMat); m.geometry.computeBoundingSphere(); m.castShadow = m.receiveShadow = true; scene.add(m); });
 
 /* =========================================================
    Instanced scatter: shells, starfish, rocks, plants, jungle
    ========================================================= */
 const dummy = new THREE.Object3D();
+// Scattered decoration is split into slices round the island, each with its own bounds,
+// so slices behind you or out of the shadow area are skipped, and tiny things far away are hidden.
+const decorChunks = [], DECOR_SLICES = 16;
 function instanced(geo, mat, items, opts = {}) {
-  const mesh = new THREE.InstancedMesh(geo, mat, items.length);
-  const col = new THREE.Color();
-  items.forEach((it, i) => {
-    dummy.position.set(it.x, it.y, it.z);
-    dummy.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
-    if (typeof it.s === 'number') dummy.scale.setScalar(it.s); else dummy.scale.set(...it.s);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-    if (it.c !== undefined) mesh.setColorAt(i, col.set(it.c));
+  geo.computeBoundingSphere();
+  const geoR = geo.boundingSphere.radius + geo.boundingSphere.center.length(), col = new THREE.Color();
+  const N = opts.slices || DECOR_SLICES, slices = Array.from({ length: N }, () => []);
+  items.forEach(it => { const a = (Math.atan2(it.z, it.x) + Math.PI) / (Math.PI * 2); slices[Math.min(N - 1, Math.floor(a * N))].push(it); });
+  slices.forEach(list => {
+    if (!list.length) return;
+    const g = geo.clone(), mesh = new THREE.InstancedMesh(g, mat, list.length);
+    const box = new THREE.Box3(); let maxS = 0;
+    list.forEach((it, i) => {
+      dummy.position.set(it.x, it.y, it.z);
+      dummy.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
+      if (typeof it.s === 'number') dummy.scale.setScalar(it.s); else dummy.scale.set(...it.s);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      if (it.c !== undefined) mesh.setColorAt(i, col.set(it.c));
+      box.expandByPoint(dummy.position); maxS = Math.max(maxS, dummy.scale.x, dummy.scale.y, dummy.scale.z);
+    });
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    g.boundingSphere = box.getBoundingSphere(new THREE.Sphere()); g.boundingSphere.radius += geoR * maxS;
+    mesh.frustumCulled = true;               // InstancedMesh switches this off by default; our per-slice bounds make it safe
+    mesh.castShadow = !!opts.cast; mesh.receiveShadow = !!opts.receive;
+    scene.add(mesh);
+    decorChunks.push({ mesh, far: opts.far || 110 });
   });
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  mesh.castShadow = !!opts.cast; mesh.receiveShadow = !!opts.receive;
-  scene.add(mesh);
-  return mesh;
+}
+const _dc = new THREE.Vector3();
+function cullDecor() {
+  for (const d of decorChunks) { const s = d.mesh.geometry.boundingSphere; d.mesh.visible = _dc.copy(s.center).distanceTo(camera.position) - s.radius < d.far; }
 }
 function scallopGeo() {
-  const pos = [], R = 0.2, rings = 5, segs = 20, spread = Math.PI * 0.9;
+  const pos = [], R = 0.2, rings = 3, segs = 12, spread = Math.PI * 0.9;
   const pt = (j, k) => {
     const rad = (j / rings) * R, ang = -spread / 2 + (k / segs) * spread;
-    const ridge = Math.abs(Math.sin((k / segs) * Math.PI * 9)) * 0.018 * (j / rings);
+    const ridge = Math.abs(Math.sin((k / segs) * Math.PI * 6)) * 0.018 * (j / rings);
     const dome = (1 - Math.pow(j / rings, 2)) * 0.05 + 0.005;
     return [Math.sin(ang) * rad, dome * (j / rings) * 1.6 + ridge, Math.cos(ang) * rad - R * 0.4];
   };
@@ -773,8 +796,8 @@ function scallopGeo() {
 }
 function conchGeo() {
   const pts = [];
-  for (let i = 0; i <= 14; i++) { const t = i / 14; pts.push(new THREE.Vector2(0.09 * Math.sin(Math.PI * Math.pow(t, 0.7)) * (1 + 0.25 * Math.sin(t * 30)) + 0.004, t * 0.3)); }
-  const g = new THREE.LatheGeometry(pts, 12); g.rotateZ(Math.PI / 2); g.translate(0.15, 0.06, 0); return g;
+  for (let i = 0; i <= 9; i++) { const t = i / 9; pts.push(new THREE.Vector2(0.09 * Math.sin(Math.PI * Math.pow(t, 0.7)) * (1 + 0.25 * Math.sin(t * 30)) + 0.004, t * 0.3)); }
+  const g = new THREE.LatheGeometry(pts, 8); g.rotateZ(Math.PI / 2); g.translate(0.15, 0.06, 0); return g;
 }
 function starGeo() {
   const s = new THREE.Shape(), arms = 5, ro = 0.22, ri = 0.08;
@@ -795,11 +818,11 @@ function scatterOnBeach(count, dMin, dMax, bias = 1) {
 }
 instanced(scallopGeo(), shellMat, scatterOnBeach(1100, -12, 62, 1.7).map(p => ({ ...p, y: p.y + 0.01, ry: rr(0, 6.28), rx: rr(-0.15, 0.15), s: rr(0.7, 1.5), c: pick(shellColors) })), { receive: true });
 instanced(conchGeo(), shellMat, scatterOnBeach(380, -6, 55, 1.6).map(p => ({ ...p, y: p.y + 0.02, ry: rr(0, 6.28), rz: rr(-0.2, 0.2), s: rr(0.8, 1.6), c: pick([0xffe0c2, 0xf6c6a8, 0xffd9ea, 0xfff4dc]) })), { receive: true });
-instanced(new THREE.SphereGeometry(0.1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), shellMat,
+instanced(new THREE.SphereGeometry(0.1, 7, 3, 0, Math.PI * 2, 0, Math.PI / 2), shellMat,
   scatterOnBeach(900, -10, 50, 1.8).map(p => ({ ...p, y: p.y - 0.005, ry: rr(0, 6.28), s: [rr(0.7, 1.3), rr(0.3, 0.45), rr(0.6, 1.0)], c: pick(shellColors) })), { receive: true });
 instanced(starGeo(), new THREE.MeshLambertMaterial({ color: 0xffffff }),
   scatterOnBeach(220, -14, 30, 1.3).map(p => ({ ...p, y: p.y + 0.02, ry: rr(0, 6.28), s: rr(0.8, 1.7), c: pick([0xff8a5c, 0xff6fa5, 0xffc23d, 0xb98bff]) })));
-instanced(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 16), shellMat,   // sand dollars
+instanced(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), shellMat,   // sand dollars
   scatterOnBeach(160, -8, 20, 1).map(p => ({ ...p, y: p.y + 0.01, s: rr(0.8, 1.3), c: 0xf4eadb })));
 
 // rocks: clusters near the waterline
@@ -812,13 +835,13 @@ instanced(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 16), shellMat,   // sand 
       rocks.push({ x, z, y: heightAt(x, z) - s * 0.2, rx: rr(0, 3), ry: rr(0, 3), s: [s * rr(1, 1.6), s * rr(0.6, 1), s], c: pick([0xb8aecb, 0xa59cbc, 0xc9bfd8, 0x9fb0c4]) });
     }
   }
-  instanced(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 }), rocks, { cast: true, receive: true });
+  instanced(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 }), rocks, { cast: true, receive: true, far: 260 });
 }
 // driftwood
 {
   const wood = [];
   for (let i = 0; i < 16; i++) { const th = rr(0, Math.PI * 2), [x, z] = polar(th, rr(3, 40)); wood.push({ x, z, y: heightAt(x, z) + 0.1, rz: Math.PI / 2, ry: rr(0, 6.28), s: [rr(0.8, 1.4), rr(1.5, 3.5), rr(0.8, 1.4)], c: pick([0xd9c2a8, 0xc8ad92, 0xe6d6c2]) }); }
-  instanced(new THREE.CylinderGeometry(0.14, 0.18, 1, 7), new THREE.MeshLambertMaterial({ color: 0xffffff }), wood, { cast: true });
+  instanced(new THREE.CylinderGeometry(0.14, 0.18, 1, 7), new THREE.MeshLambertMaterial({ color: 0xffffff }), wood, { cast: true, far: 160 });
 }
 // beach grass tufts near the jungle edge
 {
@@ -849,8 +872,8 @@ const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true
       }
     }
   }
-  instanced(blobGeo, flatMat, bushes, { cast: true, receive: true });
-  instanced(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x331122 }), flowers);
+  instanced(blobGeo, flatMat, bushes, { cast: true, receive: true, far: 1000, slices: 4 });
+  instanced(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x331122 }), flowers, { far: 300 });
 }
 // placeholder jungle canopy (the rest of the island, for later)
 {
@@ -862,8 +885,8 @@ const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true
     trunks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x8d6a52 });
     tops.push({ x, z, y: y + h + s * 0.5, ry: rr(0, 6), s: [s, s * rr(0.7, 1), s], c: pick([0x2f9a58, 0x3aad5e, 0x268a52, 0x4cbf63, 0x1f7d4f]) });
   }
-  instanced(new THREE.CylinderGeometry(0.35, 0.5, 1, 6), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true });
-  instanced(blobGeo, flatMat, tops, { cast: true, receive: true });
+  instanced(new THREE.CylinderGeometry(0.35, 0.5, 1, 6), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true, far: 1000, slices: 4 });
+  instanced(blobGeo, flatMat, tops, { cast: true, receive: true, far: 1000, slices: 4 });
 }
 // "coming soon" signs at the jungle edge
 function signTexture() {
@@ -1487,6 +1510,40 @@ const starTex = spriteTex((g, s) => {
   g.closePath(); g.fill(); g.stroke();
 });
 
+/* Scrumblies are modelled from lots of little parts. Rigid parts that share a parent are fused
+   into one vertex-coloured mesh, so each creature costs a handful of draw calls instead of dozens.
+   Anything the animation touches directly (eyes, mouths, limbs, colour flushes) is left alone. */
+const creatureMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+const _cc = new THREE.Color();
+function compactCreature(c) {
+  const keep = new Set(), keepMats = new Set();
+  for (const v of Object.values(c)) {
+    for (const o of Array.isArray(v) ? v : [v]) {
+      if (o && o.isMesh) keep.add(o);
+      if (o && o.isMaterial) keepMats.add(o);
+    }
+  }
+  const groups = [];
+  c.root.traverse(o => { if (o.children && o.children.some(ch => ch.isMesh)) groups.push(o); });
+  for (const g of groups) {
+    const parts = [], used = [];
+    for (const m of g.children) {
+      const mat = m.material;
+      if (!m.isMesh || keep.has(m) || m.children.length || !mat || Array.isArray(mat) || mat.map || mat.transparent || keepMats.has(mat) || mat.side === THREE.DoubleSide) continue;
+      if (!(mat.isMeshLambertMaterial || mat.isMeshBasicMaterial)) continue;
+      _cc.copy(mat.color); if (mat.emissive) _cc.add(mat.emissive);
+      _cc.setRGB(Math.min(1, _cc.r), Math.min(1, _cc.g), Math.min(1, _cc.b));     // getHex overflows above 1
+      m.updateMatrix();
+      const geo = bake(m.geometry.clone(), _cc.getHex()); geo.applyMatrix4(m.matrix);
+      parts.push(geo); used.push(m);
+    }
+    if (used.length < 2) continue;
+    used.forEach(m => g.remove(m));
+    const fused = new THREE.Mesh(merge(parts), creatureMat); fused.castShadow = true;
+    g.add(fused);
+  }
+  return c;
+}
 const BOBO_R = 0.4, BOBO_H = 0.62;
 const boboGeo = (() => {
   const g = new THREE.SphereGeometry(BOBO_R, 32, 20), p = g.attributes.position;
@@ -1552,7 +1609,7 @@ function applySize(c, size) { c.size = size; c.s = size ? SIZES[size].scale : 1;
 const sizeWord = size => size ? SIZES[size].label + ' ' : '';
 
 function newBobo(home) {
-  const b = Object.assign(makeBoboMesh(), { state: 'idle', t: 0, hx: home.x, hz: home.z, x: 0, y: 0, z: 0, tx: 0, tz: 0, wait: 1, hop: 0, face: Math.random() * 6.28, sink: 0, squeakT: 2 + Math.random() * 4, stunPhase: 0 });
+  const b = Object.assign(compactCreature(makeBoboMesh()), { state: 'idle', t: 0, hx: home.x, hz: home.z, x: 0, y: 0, z: 0, tx: 0, tz: 0, wait: 1, hop: 0, face: Math.random() * 6.28, sink: 0, squeakT: 2 + Math.random() * 4, stunPhase: 0 });
   applySize(b, rollSize());
   setBoboAt(b, home.x, home.z);
   bobos.push(b);
@@ -1918,6 +1975,7 @@ function makeMermMesh() {
   return { root, body, head, tail1, tail2, fin, arms, ex, mad, fur: m.fur };
 }
 
+const MERM_CROSS = new THREE.Color(0xff7a6b);
 const MERM_COUNT = 5, MERM_ALERT_R = 9;
 const mermigglies = [];
 const depthAt = (x, z) => water.position.y - heightAt(x, z);
@@ -1933,7 +1991,7 @@ function waterSpot(cx, cz, rMin, rMax, dMin, dMax, awayFrom, awayDist) {
 }
 function shoreSpot(theta) { const [x, z] = polar(theta, -6 - Math.random() * 10); return { x, z }; }
 function newMerm(x, z) {
-  const m = Object.assign(makeMermMesh(), { x, z, face: Math.random() * 6.28, state: 'swim', t: 0, tx: x, tz: z, under: 0, lean: 0, rise: 0, splashT: 1, waveCD: 4 + Math.random() * 6, leap: -1, spin: 0, playT: 0, ribbitT: 3 + Math.random() * 5, red: 0 });
+  const m = Object.assign(compactCreature(makeMermMesh()), { x, z, face: Math.random() * 6.28, state: 'swim', t: 0, tx: x, tz: z, under: 0, lean: 0, rise: 0, splashT: 1, waveCD: 4 + Math.random() * 6, leap: -1, spin: 0, playT: 0, ribbitT: 3 + Math.random() * 5, red: 0 });
   applySize(m, rollSize());
   pickSwimTarget(m);
   mermigglies.push(m);
@@ -2101,7 +2159,7 @@ function updateMermigglies(dt) {
     if (armMad) { aR.rotation.set(-0.3, 0, 2.6 + Math.sin(m.t * 22) * 0.25); aL.rotation.set(0, 0, -0.9); }
     else if (armWave) { aR.rotation.set(0, 0, 2.5 + Math.sin(m.t * 9) * 0.45); aL.rotation.set(0, 0, -0.45); }
     else { const p = Math.sin(time * (speed > 0 ? 6 : 2.2) + m.tz) * (speed > 0 ? 0.6 : 0.2); aL.rotation.set(p, 0, -0.55); aR.rotation.set(-p, 0, 0.55); }
-    m.fur.color.setHex(FROG_GREEN).lerp(new THREE.Color(0xff7a6b), m.red * 0.75);
+    m.fur.color.setHex(FROG_GREEN).lerp(MERM_CROSS, m.red * 0.75);
   }
 }
 // rocks thrown at a Mermiggly just make it cross
@@ -2158,7 +2216,8 @@ function makeSpeshulMesh() {
   scene.add(root);
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
-function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : makeBoboMesh(); }
+function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -2184,7 +2243,7 @@ function freeTree(near, rMin, rMax, awayFrom, except) {
   return best;
 }
 function newSpeshul(p) {
-  const m = Object.assign(makeSpeshulMesh(), { state: 'perch', t: 0, x: 0, y: 0, z: 0, face: 0, vy: 0, chatter: 2 + Math.random() * 5, look: 0, panicT: 0, tx: 0, tz: 0, retarget: 0, stunPhase: 0 });
+  const m = Object.assign(compactCreature(makeSpeshulMesh()), { state: 'perch', t: 0, x: 0, y: 0, z: 0, face: 0, vy: 0, chatter: 2 + Math.random() * 5, look: 0, panicT: 0, tx: 0, tz: 0, retarget: 0, stunPhase: 0 });
   applySize(m, rollSize());
   perchAt(m, p, Math.random() * Math.PI * 2);
   speshuls.push(m);
@@ -2420,7 +2479,7 @@ const pengins = [];
 const nearestNook = (x, z) => nooks.reduce((a, n) => (!a || Math.hypot(n.x - x, n.z - z) < Math.hypot(a.x - x, a.z - z) ? n : a), null);
 function penginSpotOK(x, z) { return boboSpotOK(x, z) && nooks.every(n => Math.hypot(n.x - x, n.z - z) > 2.2); }
 function newPengin(n) {
-  const q = Object.assign(makePenginMesh(), { state: 'waddle', t: 0, home: n, x: n.ex, z: n.ez, y: 0, face: Math.random() * 6.28, tx: n.ex, tz: n.ez, wait: 1, phase: Math.random() * 6, peepT: 2 + Math.random() * 6, nook: null });
+  const q = Object.assign(compactCreature(makePenginMesh()), { state: 'waddle', t: 0, home: n, x: n.ex, z: n.ez, y: 0, face: Math.random() * 6.28, tx: n.ex, tz: n.ez, wait: 1, phase: Math.random() * 6, peepT: 2 + Math.random() * 6, nook: null });
   applySize(q, rollSize()); q.y = heightAt(q.x, q.z);
   pengins.push(q);
   return q;
@@ -2585,7 +2644,7 @@ function makeDucksharkMesh() {
 const DUCKSHARK_COUNT = 4, SHARK_SEE = 13, SHARK_MIN_DEPTH = 0.14;
 const ducksharks = [];
 function newDuckshark(x, z) {
-  const d = Object.assign(makeDucksharkMesh(), { x, z, face: Math.random() * 6.28, state: 'float', t: 0, tx: x, tz: z, wait: 1, quackT: 3 + Math.random() * 5, dabble: 0, jawOpen: 0, stunPhase: 0, lunge: 0 });
+  const d = Object.assign(compactCreature(makeDucksharkMesh()), { x, z, face: Math.random() * 6.28, state: 'float', t: 0, tx: x, tz: z, wait: 1, quackT: 3 + Math.random() * 5, dabble: 0, jawOpen: 0, stunPhase: 0, lunge: 0 });
   applySize(d, rollSize());
   ducksharks.push(d);
   return d;
@@ -2791,7 +2850,7 @@ for (let i = 0; i < WEEVIL_COUNT; i++) {
     m4.makeTranslation(x, heightAt(x, z) + 0.02, z); paws.setMatrixAt(k, m4);
   }
   paws.renderOrder = 1; scene.add(paws);
-  const w = Object.assign(makeWeevilMesh(), { track: tr, u: Math.random(), state: 'run', t: 0, x: 0, y: 0, z: 0, face: 0, cross: 0, yapT: 2 + Math.random() * 4, run: 0 });
+  const w = Object.assign(compactCreature(makeWeevilMesh()), { track: tr, u: Math.random(), state: 'run', t: 0, x: 0, y: 0, z: 0, face: 0, cross: 0, yapT: 2 + Math.random() * 4, run: 0 });
   applySize(w, rollSize());
   weevils.push(w);
 }
@@ -2894,7 +2953,7 @@ const BEE_COUNT = 4, BEE_LOW = 1.0, BEE_HIGH = 6.0, BEE_PERIOD = 12;
 const beeappies = [];
 function beeGround(x, z) { return Math.max(heightAt(x, z), water.position.y); }
 function newBeeappy(x, z) {
-  const b = Object.assign(makeBeeappyMesh(), { x, z, hx: x, hz: z, y: 0, tx: x, tz: z, face: Math.random() * 6.28, state: 'drift', t: 0, phase: Math.random() * 6.28, buzzT: Math.random() * 2, red: 0, wait: 0 });
+  const b = Object.assign(compactCreature(makeBeeappyMesh()), { x, z, hx: x, hz: z, y: 0, tx: x, tz: z, face: Math.random() * 6.28, state: 'drift', t: 0, phase: Math.random() * 6.28, buzzT: Math.random() * 2, red: 0, wait: 0 });
   applySize(b, rollSize());
   b.y = beeGround(x, z) + 3;
   beeappies.push(b);
@@ -3508,6 +3567,7 @@ function writeSave(key, data) { try { localStorage.setItem(key, JSON.stringify(d
 function saveGame() { if (autosaveOn) writeSave(SAVE_KEY, snapshot()); }
 
 /* ---------- the device in your hand ---------- */
+const WHITE = new THREE.Color(0xffffff);
 const dexModel = new THREE.Group();
 const dexScreenMat = new THREE.MeshBasicMaterial({ color: 0x8ef0e8 }), dexLensMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
 {
@@ -3530,7 +3590,7 @@ function poseDexHand(bx, by, eqDrop, cbk) {
   dexModel.visible = climbBlend < 0.5;
   // screen shows a pulse while scanning, otherwise a gentle shimmer
   const flash = scan ? 0.5 + 0.5 * Math.sin(time * 30) : 0.15 + 0.1 * Math.sin(time * 2.5);
-  dexScreenMat.color.setHex(0x8ef0e8).lerp(new THREE.Color(0xffffff), flash);
+  dexScreenMat.color.setHex(0x8ef0e8).lerp(WHITE, flash);
   dexLensMat.color.setHex(scan ? 0xfff8b0 : 0xffd23f);
   _a.set(0.012, -0.135, 0.015).multiplyScalar(dexModel.scale.x).applyQuaternion(dexModel.quaternion).add(dexModel.position);
   handR.g.position.copy(_a);
@@ -3773,6 +3833,25 @@ const fenceSegs = [];   // [u0, v0, u1, v1] in ranch space, for collision
   }
   rPut(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.32, 0.25, 20), lam(0xff9ec0)), -1.8, gy(-1.8, -3.6) + 0.12, -3.6);
   rPut(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 20), lam(0xffe08a)), -1.8, gy(-1.8, -3.6) + 0.24, -3.6);
+}
+// The hut, fence, gate, pond stones and flowers never move, so fold all the plain-coloured
+// pieces into one vertex-coloured mesh: a few hundred draw calls become one.
+{
+  const parts = [], drop = [];
+  ranch.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(ranch.matrixWorld).invert(), all = [];
+  ranch.traverse(o => { if (o !== ranch) all.push(o); });
+  for (const m of all) {
+    const mat = m.material;
+    if (!m.isMesh || !mat || !mat.isMeshLambertMaterial || mat.map || mat.transparent || mat.emissive.getHex() !== 0 || m === ranch.userData.heart || m.geometry.type === 'ExtrudeGeometry') continue;
+    const g = bake(m.geometry.clone(), mat.color.getHex());
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
+    parts.push(g); drop.push(m);
+  }
+  drop.forEach(m => { m.parent.remove(m); m.children.slice().forEach(c => { if (!drop.includes(c)) ranch.add(c); }); });
+  const merged = new THREE.Mesh(merge(parts), vcLambert());
+  merged.castShadow = merged.receiveShadow = true;
+  ranch.add(merged);
 }
 // canvas signs need the display font loaded
 (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => {
@@ -4851,8 +4930,30 @@ canvas.addEventListener('wheel', e => { if (!playing || paused) return; e.preven
 const clock = new THREE.Clock();
 let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
+/* ---------- performance helpers ---------- */
+// far-off scrumblies keep living their lives, but their bodies aren't drawn
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies], CREATURE_FAR = 150;
+function cullCreatures() {
+  const cx = camera.position.x, cz = camera.position.z;
+  for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
+}
+// adaptive resolution: drop the render scale a notch if frames run long, raise it again when there's headroom
+let perfAcc = 0, perfFrames = 0, perfCool = 3;
+function adaptResolution(rawDt) {
+  if (!playing || paused || document.hidden) return;
+  perfAcc += rawDt; perfFrames++;
+  if (perfAcc < 1.5) return;
+  const avg = perfAcc / perfFrames; perfAcc = 0; perfFrames = 0;
+  if (perfCool > 0) { perfCool--; return; }                     // let things settle after loading
+  let next = pixelRatio;
+  if (avg > 1 / 45 && pixelRatio > 0.6) next = Math.max(0.6, pixelRatio - 0.15);
+  else if (avg < 1 / 57 && pixelRatio < MAX_PR) next = Math.min(MAX_PR, pixelRatio + 0.1);
+  if (next !== pixelRatio) { pixelRatio = next; renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); }
+}
 function frame() {
-  tick(Math.min(clock.getDelta(), 0.05));
+  const raw = clock.getDelta();
+  adaptResolution(raw);
+  tick(Math.min(raw, 0.05));
   requestAnimationFrame(frame);
 }
 function tick(dt) {
@@ -4873,6 +4974,8 @@ function tick(dt) {
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
+  cullDecor();
+  cullCreatures();
   updateTutorial(dt);
   updateTraps(dt);
   updateRocks(dt);
@@ -4915,6 +5018,8 @@ function tick(dt) {
   if (playing) { renderer.clearDepth(); renderer.render(viewScene, viewCam); }
   else if (titlePal) { updateTitlePartner(dt); renderer.clearDepth(); renderer.render(titleScene, viewCam); }
 }
+// compile every shader up front so the first few seconds don't stutter
+try { renderer.compile(scene, camera); renderer.compile(viewScene, viewCam); renderer.compile(titleScene, viewCam); } catch (e) {}
 requestAnimationFrame(frame);
 
 window.addEventListener('resize', () => {
@@ -4925,6 +5030,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, renderer, scene, weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
