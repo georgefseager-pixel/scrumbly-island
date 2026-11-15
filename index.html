@@ -69,6 +69,9 @@
   #jumpBtn { position: fixed; z-index: 13; right: calc(28px + env(safe-area-inset-right, 0px)); bottom: calc(36px + env(safe-area-inset-bottom, 0px));
              width: 84px; height: 84px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: 1.1rem;
              background: var(--pink); color: var(--cream); box-shadow: 0 5px 0 var(--pink-deep); }
+  #netBtn { position: fixed; z-index: 13; right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+            width: 68px; height: 68px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: 1rem;
+            background: var(--lagoon); color: var(--cream); box-shadow: 0 5px 0 #0d7f7b; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
 
@@ -83,6 +86,8 @@
       <li><kbd>Shift</kbd>run</li>
       <li><kbd>Space</kbd>jump</li>
       <li><kbd>Mouse</kbd>look</li>
+      <li><kbd>Click</kbd>swing net</li>
+      <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
     </ul>
     <button class="play" id="playBtn">Play</button>
@@ -92,11 +97,12 @@
 <div id="pause" hidden><div>Paused. Click to keep exploring</div></div>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · M music · Esc pause</div>
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click swing net · Walk into a palm to climb · M music · Esc pause</div>
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div id="joy" hidden><i></i></div>
 <button id="jumpBtn" hidden>Jump</button>
+<button id="netBtn" hidden>Net</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -159,6 +165,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.autoClear = false; // world pass + first-person overlay pass
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const FOG_COLOR = new THREE.Color(0xc4ebf6);
@@ -393,7 +400,13 @@ function makePalm(x, z, outward, scale = 1) {
   crown.scale.setScalar(scale);
   crown.castShadow = true;
   scene.add(crown);
-  palms.push({ x, z, crown, phase: rand() * 10, baseRot: crown.rotation.y });
+  palms.push({ x, y, z, H, lean, ux: lx / ll, uz: lz / ll, scale, crown, phase: rand() * 10, baseRot: crown.rotation.y });
+}
+// trunk axis + radius at a given world height (for collision and climbing)
+function trunkAt(p, wy, out) {
+  const t = clamp((wy - p.y) / p.H, 0, 1), o = p.lean * t * t;
+  out.x = p.x + p.ux * o; out.z = p.z + p.uz * o; out.r = lerp(0.36, 0.2, t) * p.scale * 1.05; out.t = t;
+  return out;
 }
 {
   const spots = [];
@@ -612,6 +625,21 @@ function splash(x, z, n, power = 1) {
     Object.assign(d, { life: 0.6 + Math.random() * 0.4, x: x + Math.cos(a) * 0.3, y: water.position.y + 0.05, z: z + Math.sin(a) * 0.3, vx: Math.cos(a) * s, vy: (2 + Math.random() * 2.5) * power, vz: Math.sin(a) * s });
   }
 }
+// pink sand puffs (net slams)
+const PUFF_N = 90;
+const puffGeo = new THREE.BufferGeometry();
+puffGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PUFF_N * 3), 3));
+const puffPts = new THREE.Points(puffGeo, new THREE.PointsMaterial({ color: 0xf6b9c9, size: 0.14, transparent: true, opacity: 0.95, depthWrite: false }));
+puffPts.frustumCulled = false; scene.add(puffPts);
+const grains = Array.from({ length: PUFF_N }, () => ({ life: 0, x: 0, y: -99, z: 0, vx: 0, vy: 0, vz: 0, floor: 0 }));
+let grainIdx = 0;
+function sandPuff(x, z, n) {
+  const y = heightAt(x, z);
+  for (let i = 0; i < n; i++) {
+    const d = grains[grainIdx++ % PUFF_N], a = Math.random() * 6.28, s = 0.8 + Math.random() * 1.8;
+    Object.assign(d, { life: 0.45 + Math.random() * 0.35, x: x + Math.cos(a) * 0.35, y: y + 0.05, z: z + Math.sin(a) * 0.35, vx: Math.cos(a) * s, vy: 1.5 + Math.random() * 2.2, vz: Math.sin(a) * s, floor: y });
+  }
+}
 
 /* =========================================================
    Audio: procedural island groove + ocean + footsteps
@@ -748,6 +776,33 @@ function sfxStep(inWater) {
 }
 function sfxJump() { if (!actx) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(720, t + 0.12); o.connect(g); g.connect(sfxBus); env(g, t, 0.08, 0.01, 0.14); o.start(t); o.stop(t + 0.2); }
 function sfxLand(inWater) { if (!actx) return; const t = actx.currentTime; if (inWater) noiseHit(t, 'lowpass', 1400, 0.4, 0.35, sfxBus, 0.5); else { noiseHit(t, 'lowpass', 600, 0.25, 0.12, sfxBus); } }
+function sfxWhoosh() {
+  if (!actx) return;
+  const t = actx.currentTime, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = 'bandpass'; f.Q.value = 1.4;
+  f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2600, t + 0.16); f.frequency.exponentialRampToValueAtTime(900, t + 0.28);
+  s.connect(f); f.connect(g); g.connect(sfxBus);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+  s.start(t, Math.random()); s.stop(t + 0.35);
+}
+function sfxThump(inWater) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  if (inWater) { noiseHit(t, 'lowpass', 1600, 0.45, 0.4, sfxBus, 0.5); noiseHit(t + 0.04, 'bandpass', 3200, 0.12, 0.25, sfxBus, 1); }
+  else { noiseHit(t, 'lowpass', 500, 0.4, 0.16, sfxBus); noiseHit(t, 'bandpass', 2600, 0.08, 0.12, sfxBus, 0.7); }
+  const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine';
+  o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.12);
+  o.connect(g); g.connect(sfxBus); env(g, t, 0.25, 0.004, 0.14); o.start(t); o.stop(t + 0.2);
+}
+function sfxGrab() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  noiseHit(t, 'bandpass', 1200, 0.18, 0.08, sfxBus, 1.5);
+  const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle';
+  o.frequency.setValueAtTime(260, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.08);
+  o.connect(g); g.connect(sfxBus); env(g, t, 0.12, 0.004, 0.1); o.start(t); o.stop(t + 0.15);
+}
+function sfxClimbStep() { if (!actx) return; noiseHit(actx.currentTime, 'bandpass', 1500 + Math.random() * 700, 0.1, 0.07, sfxBus, 1.8); }
 function sfxSplash() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 1800, 0.35, 0.45, sfxBus, 0.4); noiseHit(t + 0.05, 'bandpass', 3000, 0.1, 0.25, sfxBus, 1); }
 
 /* =========================================================
@@ -774,28 +829,144 @@ function blockedMessage(x, z) {
   else toast("Whoa, too deep! You're a catcher, not a swimmer.");
 }
 
+/* ---------- gamepad (standard mapping) ---------- */
+const pad = { mx: 0, my: 0, lx: 0, ly: 0, run: false, prev: [] };
+const dz = v => Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82;
+function pollPad() {
+  pad.mx = pad.my = pad.lx = pad.ly = 0; pad.run = false;
+  const gp = navigator.getGamepads ? Array.from(navigator.getGamepads()).find(g => g && g.connected) : null;
+  if (!gp) return;
+  const ax = gp.axes, b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+  pad.mx = dz(ax[0] || 0); pad.my = dz(ax[1] || 0); pad.lx = dz(ax[2] || 0); pad.ly = dz(ax[3] || 0);
+  pad.run = b(10) || b(4) || Math.hypot(pad.mx, pad.my) > 0.95;
+  const now = gp.buttons.map(x => x.pressed);
+  const tap = i => now[i] && !pad.prev[i];
+  if (playing && !paused) {
+    if (tap(0)) jumpQueued = true;                    // A / Cross
+    if (tap(7) || tap(5) || tap(2)) swingQueued = true; // RT / RB / X / Square
+    if (tap(3)) toggleMusic();                        // Y / Triangle
+  } else if (!playing && (tap(0) || tap(9))) startGame();
+  pad.prev = now;
+}
+
+/* ---------- palm trunks: collision + climbing ---------- */
+const PLAYER_R = 0.38, CLIMB_GAP = 0.55, CLIMB_SPEED = 2.6;
+const tk = { x: 0, z: 0, r: 0, t: 0 };
+let climbCooldown = 0, climbHintShown = false, topHintShown = false, grabTimer = 0;
+// pushes the player out of trunks; returns the palm touched (if any)
+function collideTrunks(px, pz, py) {
+  let hit = null;
+  for (const p of palms) {
+    if (Math.abs(p.x - px) > 8 || Math.abs(p.z - pz) > 8) continue;
+    if (py + 1.7 < p.y || py > p.y + p.H - 0.6) continue;
+    trunkAt(p, py + 0.9, tk);
+    const dx = px - tk.x, dzz = pz - tk.z, d = Math.hypot(dx, dzz), min = tk.r + PLAYER_R;
+    if (d < min) {
+      const k = d > 1e-4 ? 1 / d : 0;
+      const nx = d > 1e-4 ? dx * k : 1, nz = d > 1e-4 ? dzz * k : 0;
+      px = tk.x + nx * min; pz = tk.z + nz * min;
+      hit = { p, nx, nz, px, pz };
+    }
+  }
+  return hit ? hit : { p: null, px, pz };
+}
+function startClimb(p) {
+  trunkAt(p, player.y + 0.9, tk);
+  player.climb = { p, ang: Math.atan2(player.z - tk.z, player.x - tk.x), phase: 0, face: 0.35, lastStep: 0 };
+  player.vx = player.vz = player.vy = 0; player.grounded = false;
+  swing.t = -1; sfxGrab();
+  if (!climbHintShown) { climbHintShown = true; toast(isTouch ? 'Up and down to climb · Jump to leap off' : 'W / S to climb · A / D to shimmy round · Space to leap off'); }
+}
+function endClimb(jump) {
+  const c = player.climb; player.climb = null; climbCooldown = jump ? 0.5 : 0.35;
+  trunkAt(c.p, player.y + 0.9, tk);
+  const ox = Math.cos(c.ang), oz = Math.sin(c.ang);
+  if (jump) { player.vx = ox * 4.2 + fwd.x * 1.5; player.vz = oz * 4.2 + fwd.z * 1.5; player.vy = 6.2; sfxJump(); }
+  else { player.vx = ox * 1.5; player.vz = oz * 1.5; }
+}
+const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+function updateClimb(dt, ix, iz) {
+  const c = player.climb, p = c.p;
+  // turn to face the trunk right after grabbing
+  if (c.face > 0) {
+    c.face -= dt;
+    const want = Math.atan2(Math.cos(c.ang), Math.sin(c.ang)); // facing -outward
+    player.yaw += angDiff(player.yaw, want) * Math.min(1, dt * 9);
+  }
+  if (jumpQueued) { jumpQueued = false; endClimb(true); return; }
+  // up / down along the trunk
+  const minY = heightAt(player.x, player.z), maxY = p.y + p.H - 1.75;
+  const dy = iz * CLIMB_SPEED * dt;
+  player.y = clamp(player.y + dy, minY - 0.01, maxY);
+  if (iz < -0.1 && player.y <= minY) { player.y = minY; endClimb(false); player.grounded = true; return; }
+  if (player.y >= maxY - 0.01 && iz > 0.1 && !topHintShown) { topHintShown = true; toast('What a view! Spot any scrumblies?'); }
+  // shimmy around: move along camera-right, re-project onto the trunk
+  trunkAt(p, player.y + 0.9, tk);
+  const dist = tk.r + CLIMB_GAP;
+  let px = tk.x + Math.cos(c.ang) * dist, pz = tk.z + Math.sin(c.ang) * dist;
+  if (Math.abs(ix) > 0.05) {
+    px += right.x * ix * 1.8 * dt; pz += right.z * ix * 1.8 * dt;
+    c.ang = Math.atan2(pz - tk.z, px - tk.x);
+    px = tk.x + Math.cos(c.ang) * dist; pz = tk.z + Math.sin(c.ang) * dist;
+  }
+  player.x = px; player.z = pz;
+  const moved = Math.abs(dy) + Math.abs(ix) * 1.8 * dt;
+  c.phase += moved * 4.2;
+  const st = Math.floor(c.phase / Math.PI);
+  if (st !== c.lastStep) { c.lastStep = st; sfxClimbStep(); }
+}
+
 const fwd = new THREE.Vector3(), right = new THREE.Vector3();
 function updatePlayer(dt) {
+  pollPad();
+  if (pad.lx || pad.ly) onLook(pad.lx * 900 * dt, pad.ly * 650 * dt, 0.0035);
   let ix = 0, iz = 0;
   if (keys.KeyW || keys.ArrowUp) iz += 1;
   if (keys.KeyS || keys.ArrowDown) iz -= 1;
   if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   if (keys.KeyD || keys.ArrowRight) ix += 1;
-  let run = keys.ShiftLeft || keys.ShiftRight;
+  let run = keys.ShiftLeft || keys.ShiftRight || pad.run;
+  ix += pad.mx; iz -= pad.my;
   if (joy.active) { ix += joy.x; iz += -joy.y; if (Math.hypot(joy.x, joy.y) > 0.85) run = true; }
   const il = Math.hypot(ix, iz); if (il > 1) { ix /= il; iz /= il; }
+  fwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+  climbCooldown = Math.max(0, climbCooldown - dt);
+
+  if (player.climb) {
+    updateClimb(dt, ix, iz);
+    if (player.climb) {
+      const cb = Math.sin(player.climb.phase * 2) * 0.03;
+      camera.position.set(player.x, player.y + 1.65 + cb, player.z);
+      camera.fov = lerp(camera.fov, 72, Math.min(1, dt * 5)); camera.updateProjectionMatrix();
+      swingQueued = false;
+      return;
+    }
+  }
 
   const ground = heightAt(player.x, player.z), wy = water.position.y;
   const depth = Math.max(0, wy - ground), wet = clamp(depth / MAX_DEPTH, 0, 1);
   const speed = (run ? 9.5 : 5) * (1 - 0.5 * wet);
-  fwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
-  right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   const tvx = (fwd.x * iz + right.x * ix) * speed, tvz = (fwd.z * iz + right.z * ix) * speed;
   const acc = player.grounded ? 11 : 2.5;
   player.vx += (tvx - player.vx) * Math.min(1, acc * dt);
   player.vz += (tvz - player.vz) * Math.min(1, acc * dt);
 
-  const nx = player.x + player.vx * dt, nz = player.z + player.vz * dt;
+  let nx = player.x + player.vx * dt, nz = player.z + player.vz * dt;
+  const hit = collideTrunks(nx, nz, player.y);
+  nx = hit.px; nz = hit.pz;
+  if (hit.p) {
+    // cancel velocity into the trunk
+    const vn = player.vx * hit.nx + player.vz * hit.nz;
+    if (vn < 0) { player.vx -= vn * hit.nx; player.vz -= vn * hit.nz; }
+    // pushing into the trunk (or jumping at it) grabs on
+    const tl = Math.hypot(tvx, tvz);
+    const into = tl > 0.1 ? -(tvx * hit.nx + tvz * hit.nz) / tl : 0;
+    if (into > 0.4 && climbCooldown <= 0) {
+      grabTimer += dt;
+      if (!player.grounded || into > 0.6 || grabTimer > 0.1) { grabTimer = 0; player.x = nx; player.z = nz; startClimb(hit.p); return; }
+    } else grabTimer = 0;
+  } else grabTimer = 0;
   if (walkable(nx, nz)) { player.x = nx; player.z = nz; }
   else {
     if (walkable(nx, player.z)) { player.x = nx; player.vz *= 0.5; }
@@ -803,6 +974,8 @@ function updatePlayer(dt) {
     else { player.vx = player.vz = 0; }
     if (il > 0.1) blockedMessage(nx, nz);
   }
+
+  if (swingQueued) { swingQueued = false; if (swing.t < 0) startSwing(); }
 
   if (jumpQueued && player.grounded) { player.vy = 7.6 * (1 - 0.3 * wet); player.grounded = false; sfxJump(); if (depth > 0.1) splash(player.x, player.z, 10, 0.7); }
   jumpQueued = false;
@@ -868,7 +1041,7 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  document.getElementById('hint').textContent = 'Drag to look · WASD walk · Shift run · Space jump · M music';
+  document.getElementById('hint').textContent = 'Drag to look · Click or F swing net · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
@@ -892,7 +1065,7 @@ musicBtn.addEventListener('click', e => { e.stopPropagation(); toggleMusic(); ca
 
 // touch controls
 if (isTouch) {
-  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li>';
+  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li><li><kbd>Net</kbd>swing</li><li><kbd>Walk into a palm</kbd>climb</li>';
 }
 const joyEl = document.getElementById('joy'), knob = joyEl.querySelector('i'), jumpBtn = document.getElementById('jumpBtn');
 jumpBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); jumpQueued = true; }, { passive: false });
@@ -923,7 +1096,7 @@ function startGame() {
   if (actx && actx.state === 'suspended') actx.resume();
   document.getElementById('title').hidden = true;
   musicBtn.hidden = false;
-  if (isTouch) { joyEl.hidden = false; jumpBtn.hidden = false; }
+  if (isTouch) { joyEl.hidden = false; jumpBtn.hidden = false; document.getElementById('netBtn').hidden = false; }
   else { document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer(); }
   player.pitch = -0.05;
   const area = document.getElementById('area'); area.style.opacity = 1; setTimeout(() => area.style.opacity = 0, 4200);
@@ -932,17 +1105,172 @@ function startGame() {
 document.getElementById('playBtn').addEventListener('click', startGame);
 
 /* =========================================================
+   First-person viewmodel: the big net + hands
+   (own scene/camera, drawn on top after the world)
+   ========================================================= */
+const viewScene = new THREE.Scene();
+const viewCam = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.02, 10);
+viewScene.add(new THREE.HemisphereLight(0xdff6ff, 0xffb8cc, 0.7));
+{ const l = new THREE.DirectionalLight(0xfff0d8, 0.65); l.position.set(0.6, 1, 0.5); viewScene.add(l); }
+
+function netTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#ffffff'; g.lineWidth = 5; g.lineCap = 'round';
+  for (let i = -128; i <= 256; i += 32) {
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 128, 128); g.stroke();
+    g.beginPath(); g.moveTo(i + 128, 0); g.lineTo(i, 128); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 2);
+  return t;
+}
+const NET_L = 0.95, NET_R = 0.3, NET_D = 0.55;
+const net = new THREE.Group();
+{
+  const wood = new THREE.MeshLambertMaterial({ color: 0xe0b07a });
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.032, NET_L + 0.3, 10), wood);
+  handle.position.y = (NET_L - 0.3) / 2; net.add(handle);
+  const tape = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.26, 10), new THREE.MeshLambertMaterial({ color: 0xff6fa5 }));
+  tape.position.y = -0.04; net.add(tape);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 8), new THREE.MeshLambertMaterial({ color: 0xffd23f }));
+  knob.position.y = -0.3; net.add(knob);
+  const hoopMat = new THREE.MeshLambertMaterial({ color: 0x19b3ae });
+  const hoop = new THREE.Mesh(new THREE.TorusGeometry(NET_R, 0.022, 8, 40), hoopMat);
+  hoop.position.y = NET_L + NET_R; net.add(hoop);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.03, 0.09, 10), hoopMat);
+  collar.position.y = NET_L - 0.02; net.add(collar);
+  // the mesh bag: open cone hanging out of the hoop along +Z (towards you at rest)
+  const bagGeo = new THREE.CylinderGeometry(0.07, NET_R * 0.98, NET_D, 18, 6, true);
+  bagGeo.rotateX(Math.PI / 2); bagGeo.translate(0, 0, NET_D / 2);
+  { const pa = bagGeo.attributes.position; for (let i = 0; i < pa.count; i++) { const k = pa.getZ(i) / NET_D; pa.setY(i, pa.getY(i) - k * k * 0.12); } bagGeo.computeVertexNormals(); }
+  const bag = new THREE.Mesh(bagGeo, new THREE.MeshLambertMaterial({ map: netTexture(), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, color: 0xfff6fa }));
+  bag.position.y = NET_L + NET_R; net.add(bag);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), new THREE.MeshLambertMaterial({ map: netTexture(), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide }));
+  tip.position.set(0, NET_L + NET_R - 0.12, NET_D); net.add(tip);
+}
+viewScene.add(net);
+
+const SKIN = 0xd9976c, SLEEVE = 0xff8db6;
+function makeHand(mirror) {
+  const g = new THREE.Group(), skin = new THREE.MeshLambertMaterial({ color: SKIN });
+  const palm = new THREE.Mesh(new THREE.SphereGeometry(0.062, 14, 10), skin); palm.scale.set(1, 1.15, 0.72); g.add(palm);
+  const fingers = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), skin); fingers.scale.set(1.05, 0.7, 0.8); fingers.position.set(0, 0.07, -0.02); g.add(fingers);
+  const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), skin); thumb.scale.set(1, 1.6, 1); thumb.position.set(-0.058 * mirror, 0.01, -0.02); thumb.rotation.z = 0.5 * mirror; g.add(thumb);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.058, 0.05, 14), new THREE.MeshLambertMaterial({ color: 0xffffff })); cuff.position.y = -0.085; g.add(cuff);
+  viewScene.add(g);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.062, 1, 14), new THREE.MeshLambertMaterial({ color: SLEEVE }));
+  viewScene.add(arm);
+  return { g, arm };
+}
+const handR = makeHand(1), handL = makeHand(-1);
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _q = new THREE.Quaternion();
+function placeArm(h, shoulder) {
+  _a.set(0, -0.11, 0).applyQuaternion(h.g.quaternion).add(h.g.position); // wrist
+  _b.copy(shoulder).sub(_a); const len = _b.length();
+  h.arm.position.copy(_a).addScaledVector(_b, 0.5);
+  h.arm.quaternion.setFromUnitVectors(_up, _b.normalize());
+  h.arm.scale.set(1, len, 1);
+}
+const SHOULDER_R = new THREE.Vector3(0.36, -0.62, 0.15);
+const CLIMB_SHOULDER_R = new THREE.Vector3(0.34, -0.7, 0.05), CLIMB_SHOULDER_L = new THREE.Vector3(-0.34, -0.7, 0.05);
+
+// net poses: [x, y, z, pitch, roll, yaw]
+const POSE_REST = [0.3, -0.36, -0.75, -0.75, -0.12, -0.05];
+const POSE_WIND = [0.38, -0.25, -0.55, -0.1, -0.3, -0.12];
+const POSE_HIT  = [0.12, -0.72, -0.5, -1.72, 0.12, 0.05];
+const SWING_T = 0.72; // seconds
+const swing = { t: -1, hit: false };
+let swingQueued = false, climbBlend = 0;
+function startSwing() { swing.t = 0; swing.hit = false; sfxWhoosh(); }
+const easeOut = x => 1 - Math.pow(1 - x, 3), easeIn = x => x * x * x, easeIO = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+const pose = new Array(6);
+function mixPose(a, b, k) { for (let i = 0; i < 6; i++) pose[i] = lerp(a[i], b[i], k); }
+function netSlam() {
+  // where the hoop lands: ~1.9 m in front of the player
+  const x = player.x + fwd.x * 1.9, z = player.z + fwd.z * 1.9;
+  const inWater = water.position.y - heightAt(x, z) > 0.05;
+  if (inWater) { splash(x, z, 22, 0.9); spawnRipple(x, z, 1.4); } else sandPuff(x, z, 34);
+  sfxThump(inWater);
+  shake = 0.09;
+}
+let shake = 0;
+
+function updateViewmodel(dt) {
+  const walkPhase = player.bob, hs = Math.hypot(player.vx, player.vz);
+  const sway = player.grounded ? clamp(hs / 5, 0, 1.6) : 0;
+  climbBlend = clamp(climbBlend + (player.climb ? dt : -dt) * 4.5, 0, 1);
+  const cbk = easeIO(climbBlend);
+
+  // ----- net -----
+  if (swing.t >= 0) {
+    swing.t += dt / SWING_T;
+    const t = swing.t;
+    if (t < 0.28) mixPose(POSE_REST, POSE_WIND, easeOut(t / 0.28));
+    else if (t < 0.46) { mixPose(POSE_WIND, POSE_HIT, easeIn((t - 0.28) / 0.18)); }
+    else if (t < 0.6) { mixPose(POSE_HIT, POSE_HIT, 0); if (!swing.hit) { swing.hit = true; netSlam(); } }
+    else mixPose(POSE_HIT, POSE_REST, easeIO(Math.min(1, (t - 0.6) / 0.4)));
+    if (t >= 1) swing.t = -1;
+  } else mixPose(POSE_REST, POSE_REST, 0);
+  const bx = Math.cos(walkPhase) * 0.018 * sway, by = -Math.abs(Math.sin(walkPhase)) * 0.022 * sway + Math.sin(time * 1.6) * 0.006;
+  net.position.set(pose[0] + bx, pose[1] + by - cbk * 1.3, pose[2]);
+  net.rotation.set(pose[3] - cbk * 0.6, pose[5], pose[4], 'YXZ');
+  net.visible = climbBlend < 0.99;
+
+  // ----- hands -----
+  if (climbBlend < 0.5) {
+    // right hand grips the handle; left hand tucked away
+    net.updateMatrixWorld();
+    handR.g.position.set(0, 0.02, 0).applyMatrix4(net.matrixWorld);
+    handR.g.quaternion.copy(net.quaternion);
+    handR.g.rotateY(-0.3);
+    placeArm(handR, SHOULDER_R);
+    handR.g.visible = handR.arm.visible = net.visible;
+    handL.g.visible = handL.arm.visible = false;
+  } else {
+    // climbing: hands reach up the trunk one after another
+    const ph = player.climb ? player.climb.phase : 0, lift = (1 - cbk) * 0.9;
+    [[handL, -1, 0], [handR, 1, Math.PI]].forEach(([h, s, off]) => {
+      const c = Math.sin(ph + off);
+      const reach = Math.max(0, Math.cos(ph + off)); // pull hand off the bark on the way up
+      h.g.position.set(s * (0.19 + reach * 0.03), -0.06 + c * 0.17 - lift, -0.64 + reach * 0.07);
+      h.g.rotation.set(0.25 + c * 0.2, s * 0.3, -s * 0.2);
+      placeArm(h, s > 0 ? CLIMB_SHOULDER_R : CLIMB_SHOULDER_L);
+      h.g.visible = h.arm.visible = true;
+    });
+  }
+}
+
+/* ---------- swing input ---------- */
+let downX = 0, downY = 0;
+canvas.addEventListener('mousedown', e => {
+  if (!playing || paused || e.button !== 0) return;
+  if (document.pointerLockElement === canvas) swingQueued = true;
+  downX = e.clientX; downY = e.clientY;
+});
+canvas.addEventListener('mouseup', e => {
+  if (dragLook && playing && e.button === 0 && Math.hypot(e.clientX - downX, e.clientY - downY) < 6) swingQueued = true;
+});
+window.addEventListener('keydown', e => { if (playing && !paused && (e.code === 'KeyF' || e.code === 'KeyE') && !e.repeat) swingQueued = true; });
+const netBtn = document.getElementById('netBtn');
+netBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); swingQueued = true; }, { passive: false });
+
+/* =========================================================
    Main loop
    ========================================================= */
 const clock = new THREE.Clock();
 let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  tick(Math.min(clock.getDelta(), 0.05));
+  requestAnimationFrame(frame);
+}
+function tick(dt) {
   time += dt;
   if (playing && !paused) updatePlayer(dt);
   else if (!playing) { player.yaw += dt * 0.04; camera.position.set(player.x, player.y + 1.65, player.z); }
   camera.rotation.set(player.pitch, player.yaw, 0);
+  if (shake > 0) { shake = Math.max(0, shake - dt * 0.5); camera.position.y -= shake * Math.sin(time * 60) * 0.3; camera.rotation.x -= shake * 0.25; }
+  if (playing) updateViewmodel(dt);
 
   water.position.y = Math.sin(time * 0.5) * 0.05;
   waterUniforms.uTime.value = time;
@@ -967,18 +1295,27 @@ function frame() {
     arr[i * 3] = d.x; arr[i * 3 + 1] = d.life > 0 ? d.y : -999; arr[i * 3 + 2] = d.z;
   }
   splashGeo.attributes.position.needsUpdate = true;
+  const parr = puffGeo.attributes.position.array;
+  for (let i = 0; i < PUFF_N; i++) {
+    const d = grains[i];
+    if (d.life > 0) { d.life -= dt; d.vy -= 11 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.vx *= 0.97; d.vz *= 0.97; if (d.y < d.floor) d.life = 0; }
+    parr[i * 3] = d.x; parr[i * 3 + 1] = d.life > 0 ? d.y : -999; parr[i * 3 + 2] = d.z;
+  }
+  puffGeo.attributes.position.needsUpdate = true;
 
+  renderer.clear();
   renderer.render(scene, camera);
-  requestAnimationFrame(frame);
+  if (playing) { renderer.clearDepth(); renderer.render(viewScene, viewCam); }
 }
 requestAnimationFrame(frame);
 
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  viewCam.aspect = camera.aspect; viewCam.updateProjectionMatrix();
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { player, startGame, keys, heightAt, inland };
+window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
