@@ -1679,7 +1679,8 @@ const SHINY = {
   pengin: { shift: 0.62, tint: 0.95, sat: 0.35, css: 'hue-rotate(225deg) saturate(1.4)' },
   duckshark: { shift: 0, tint: 0.83, sat: 0.4, css: 'sepia(.5) hue-rotate(250deg) saturate(2.2)' },
   weevil: { shift: 0.04, tint: 0.1, sat: 0.3, light: 1.6, css: 'brightness(1.5) saturate(1.3) hue-rotate(10deg)' },
-  beeappy: { shift: 0.52, tint: 0.62, sat: 0.35, css: 'hue-rotate(185deg) saturate(1.3)' }
+  beeappy: { shift: 0.52, tint: 0.62, sat: 0.35, css: 'hue-rotate(185deg) saturate(1.3)' },
+  beeangy: { shift: 0.78, tint: 0.85, sat: 0.35, css: 'hue-rotate(280deg) saturate(1.2)' },
 };
 const _hsl = {};
 function shinyColor(col, d) {
@@ -2342,7 +2343,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -3105,6 +3106,15 @@ function makeBeeappyMesh() {
   return { root, body, wings, eyes, mad, yellow };
 }
 
+function makeBeeangyMesh() {
+  const c = makeBeeappyMesh();
+  c.yellow.color.setHex(0xff3b3b); c.yellow.emissive.setHex(0x3a0606);
+  c.mad.visible = true;
+  // furrowed brows over the button eyes
+  const brow = new THREE.MeshLambertMaterial({ color: 0x24222a });
+  [-1, 1].forEach(s => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.025, 0.03), brow); b.position.set(s * 0.22, 0.14, 0.41); b.rotation.z = s * 0.45; b.castShadow = true; c.body.add(b); });
+  return c;
+}
 const BEE_COUNT = 4, BEE_LOW = 1.0, BEE_HIGH = 6.0, BEE_PERIOD = 12;
 const beeappies = [];
 function beeGround(x, z) { return Math.max(heightAt(x, z), water.position.y); }
@@ -3152,7 +3162,11 @@ function netBeeappies() {
   let got = false;
   for (const b of beeappies) {
     if (!b.root.visible || !['drift', 'angry', 'calm'].includes(b.state) || !beeInNet(b)) continue;
-    if (catchScrumbly('beeappy', b.size, false, b.shiny)) { b.state = 'caught'; b.t = 0; got = true; }
+    const kind = b.state === 'angry' ? 'beeangy' : 'beeappy';        // caught mid-tantrum, it stays that way
+    if (catchScrumbly(kind, b.size, false, b.shiny)) {
+      if (kind === 'beeangy' && !beeHints.angy) { beeHints.angy = true; setTimeout(() => toast('Whoa, it was so cross it stayed red! That’s a whole different scrumbly...'), 1600); }
+      b.state = 'caught'; b.t = 0; got = true;
+    }
   }
   return got;
 }
@@ -3695,6 +3709,12 @@ SPECIES.beeappy = {
   fact: 'A Beeappy is always, always happy. It hums a little tune as it floats along and has never once stopped smiling. Except that one time. Nobody talks about that time.',
   hint: 'Floats overhead, bobbing up and down, and never once lands. Wait for it to dip low enough to reach, or leap at it from somewhere high. And whatever you do, don\'t throw things at it.'
 };
+SPECIES.beeangy = {
+  name: 'Beeangy', num: 8, where: 'Pinksand Shore · wherever a Beeappy has been annoyed',
+  icon: '<svg viewBox="0 0 48 48"><ellipse cx="17" cy="13" rx="9" ry="5.5" fill="#fff" stroke="#e4e4e4" stroke-width="1.2" transform="rotate(-18 17 13)"/><ellipse cx="31" cy="12" rx="8" ry="5" fill="#fff" stroke="#e4e4e4" stroke-width="1.2" transform="rotate(15 31 12)"/><ellipse cx="24" cy="28" rx="19" ry="15" fill="#ff3b3b"/><path d="M11 17.5 C8 23 8 33 11 38.5 L15.5 41 C12.5 35 12.5 21 15.5 15.5 Z" fill="#24222a"/><path d="M19 14 C16.5 21 16.5 35 19 42.5 L23 43 C20.5 35 20.5 21 23 13.2 Z" fill="#24222a"/><circle cx="33" cy="25.5" r="2.6" fill="#0c0c10"/><circle cx="41.5" cy="26.5" r="1.6" fill="#0c0c10"/><path d="M29.5 20.5 L36 22.5 M39.5 22.8 L44 21.5" stroke="#24222a" stroke-width="2" stroke-linecap="round"/><path d="M34 33.5 Q37 31 40 33.5" stroke="#24222a" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M41 9 l3 3 M44 9 l-3 3 M40.5 12.5 l1-1" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"/></svg>',
+  fact: 'A Beeangy is what happens when a Beeappy gets so cross that it simply forgets how to calm down. It is red, it is furious, and deep down it is still a big softie.',
+  hint: 'You won\'t find one just floating about. It only exists for the brief, buzzing moment a Beeappy is truly furious with you...'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -3763,7 +3783,7 @@ function scrumblyCandidates() {
   for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
   for (const m of speshuls) if (m.root.visible && m.state !== 'caught') out.push({ o: m, id: 'speshul', y: 0.4 * m.s });
   for (const q of pengins) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'pengin', y: 0.3 * q.s });
-  for (const b of beeappies) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: 'beeappy', y: 0 });
+  for (const b of beeappies) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: b.state === 'angry' ? 'beeangy' : 'beeappy', y: 0 });
   for (const w of weevils) if (w.root.visible && w.state !== 'caught') out.push({ o: w, id: 'weevil', y: 0.25 * w.s });
   for (const d of ducksharks) if (d.root.visible && d.state !== 'caught') out.push({ o: d, id: 'duckshark', y: 0.5 * d.s });
   return out;
@@ -4198,7 +4218,7 @@ function updateResidents(dt) {
     }
     const [x, z] = ranchWorld(r.u, r.v);
     const y = r.water ? POND.y - 0.05 : gy(r.u, r.v);
-    const hover = r.p.species === 'beeappy' ? 1.2 + Math.sin(time * 2 + r.u) * 0.2 : 0;
+    const hover = ['beeappy', 'beeangy'].includes(r.p.species) ? 1.2 + Math.sin(time * 2 + r.u) * 0.2 : 0;
     if (r.c.wings) r.c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
     r.c.root.position.set(x, y + hopY * r.c.s + hover, z);
     r.c.root.rotation.y = RANCH_YAW + r.face;
@@ -4409,7 +4429,7 @@ function updatePartner(dt) {
   }
   if (P.squish > 0) { P.squish = Math.max(0, P.squish - dt * 2.2); const w = Math.sin(P.squish * 18) * P.squish; sy -= w * 0.25; sx += w * 0.18; }
   P.y = lerp(P.y, partnerY(P.x, P.z), Math.min(1, dt * 10));
-  const hover = P.p.species === 'beeappy' ? 1.1 + Math.sin(time * 2.2) * 0.15 : 0;
+  const hover = ['beeappy', 'beeangy'].includes(P.p.species) ? 1.1 + Math.sin(time * 2.2) * 0.15 : 0;
   if (P.c.wings) P.c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
   P.c.root.position.set(P.x, P.y + hopY * s + hover, P.z);
   P.c.root.rotation.set(0, P.face, 0);
@@ -4454,6 +4474,7 @@ const BOND_SPECIES_LINES = {
   ,duckshark: ['{name} quacked at you. You’re fairly sure it was a quack.', '{name} is trying very hard not to bite anything today.', '{name} paddled a little circle of joy.', '{name} is guarding you very fiercely. From a seagull.', '{name} did a dabble. It’s very proud of it.']
   ,weevil: ['{name} ran three laps round you out of sheer joy.', '{name} has stopped running in circles. For now.', '{name} wagged so hard its whole body wiggled.', '{name} is very, very good at being a sausage.', '{name} would like you to throw something. Anything. Please.']
   ,beeappy: ['{name} hummed you a happy little tune.', '{name} did a loop-the-loop just for you.', '{name} is very glad you never throw things at it.', '{name} is buzzing with joy. Literally.', '{name} bumped gently into your head. On purpose. With love.']
+  ,beeangy: ['{name} is still a tiny bit cross. About what, nobody knows.', '{name} glared at a seagull until it left. You’re very safe.', '{name} buzzed something grumpy. You think it was a compliment.', '{name} is secretly very fond of you. Don’t tell it you know.', '{name} is trying out being calm. It lasted four seconds.']
 };
 let bondTimer = 70 + Math.random() * 50, bondBag = [];
 const bondEl = document.getElementById('bond');
@@ -4878,7 +4899,8 @@ const WELCOME_SPECIES = {
   pengin: 'I came all the way out of my nook just to say hello...',
   duckshark: 'QUACK! That means "welcome back". Probably.',
   weevil: 'I ran four hundred laps while you were gone! Let\'s go!',
-  beeappy: 'Bzzz! I\'m absolutely buzzing to see you!'
+  beeappy: 'Bzzz! I\'m absolutely buzzing to see you!',
+  beeangy: 'Hmph. You took your time. ...Fine. I missed you. A bit.'
 };
 function showTitlePartner() {
   const s = readSave(SAVE_KEY), p = s && Array.isArray(s.party) && unpackP(s.party[0]);
@@ -4905,7 +4927,7 @@ function updateTitlePartner(dt) {
   T.next -= dt; if (T.next <= 0) { T.hop = 1; T.next = 2.5 + Math.random() * 2.5; }
   T.hop = Math.max(0, T.hop - dt * 1.8);
   const h = Math.sin(T.hop * Math.PI) * 0.25;
-  const fly = T.p.species === 'beeappy' ? 0.45 + Math.sin(time * 2) * 0.06 : 0;
+  const fly = ['beeappy', 'beeangy'].includes(T.p.species) ? 0.45 + Math.sin(time * 2) * 0.06 : 0;
   c.root.position.set(Math.min(1.25, 0.62 * aspect), -0.95 + h + fly, -2.6);
   c.root.scale.setScalar(c.s * T.base);
   c.root.rotation.set(0.08, -0.35 + Math.sin(time * 0.8) * 0.12, 0);
