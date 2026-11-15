@@ -101,6 +101,14 @@
                   background: rgba(255,250,246,.88); padding: 2px 8px; border-radius: 8px; width: max-content; max-width: 170px; line-height: 1.15; }
   .pslot .pname b { font-weight: 700; color: var(--ink); }
   .pslot .pname span { font-weight: 500; color: rgba(44,37,82,.65); }
+  .pslot .pname em { font-style: normal; font-weight: 700; color: var(--cream); padding: 0 5px; border-radius: 6px; }
+  .pslot .pname em.big { background: #e59a2f; }
+  .pslot .pname em.small { background: var(--lagoon); }
+  .pslot.big .pic { width: 96%; height: 96%; }
+  .pslot.small .pic { width: 54%; height: 54%; }
+  #dexCard .rare { text-align: center; margin: 0 0 6px; font-family: var(--display); font-weight: 600; color: var(--cream); border-radius: 8px; padding: 2px 8px; }
+  #dexCard .rare.big { background: #e59a2f; }
+  #dexCard .rare.small { background: var(--lagoon); }
   .pslot .pname:empty { display: none; }
   /* bracket drawn round a scrumbly you're about to hit / scan */
   .target { left: 0; top: 0; width: 64px; height: 64px; }
@@ -1329,8 +1337,15 @@ function pickHome(awayFrom, minDist) {
   return { x: spawnX, z: spawnZ };
 }
 function setBoboAt(b, x, z) { b.x = x; b.z = z; b.y = heightAt(x, z); b.tx = x; b.tz = z; }
+/* ---------- rare sizes: about 1 in 20 is big, 1 in 20 is small ---------- */
+const SIZES = { big: { label: 'Big', scale: 1.65 }, small: { label: 'Small', scale: 0.55 } };
+function rollSize() { const r = Math.random(); return r < 0.05 ? 'big' : r < 0.10 ? 'small' : null; }
+function applySize(c, size) { c.size = size; c.s = size ? SIZES[size].scale : 1; c.root.scale.setScalar(c.s); }
+const sizeWord = size => size ? SIZES[size].label + ' ' : '';
+
 function newBobo(home) {
   const b = Object.assign(makeBoboMesh(), { state: 'idle', t: 0, hx: home.x, hz: home.z, x: 0, y: 0, z: 0, tx: 0, tz: 0, wait: 1, hop: 0, face: Math.random() * 6.28, sink: 0, squeakT: 2 + Math.random() * 4, stunPhase: 0 });
+  applySize(b, rollSize());
   setBoboAt(b, home.x, home.z);
   bobos.push(b);
   return b;
@@ -1373,7 +1388,7 @@ function tryNetCatch() {
     else if (b.state === 'stunned') {
       setState(b, 'caught'); caughtCount++; sfx.caught();
       dexMarkCaught('bobo');
-      const p = addToParty('bobo');
+      const p = addToParty('bobo', null, false, b.size);
       toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
       got = true;
     }
@@ -1449,15 +1464,16 @@ function pickName() {
   const free = NAME_POOL.filter(n => !used.has(n));
   return free[Math.floor(Math.random() * free.length)] || 'Mystery';
 }
-const fullName = p => `${p.name} the ${SPECIES[p.species].name}`;
+const fullName = p => `${p.name} the ${sizeWord(p.size)}${SPECIES[p.species].name}`;
 
-function addToParty(species, name, quiet) {
-  const p = { species, name: name || pickName() };
+function addToParty(species, name, quiet, size) {
+  const p = { species, name: name || pickName(), size: SIZES[size] ? size : null };
   party.push(p);
   const el = partyEl.children[party.length - 1];
   el.classList.add('filled'); if (!quiet) el.classList.add('pop');
   el.querySelector('.pic').innerHTML = SPECIES[species].icon;
-  el.querySelector('.pname').innerHTML = `<b></b> <span>the ${SPECIES[species].name}</span>`;
+  el.querySelector('.pname').innerHTML = `<b></b> <span>the ${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em> ` : ''}${SPECIES[species].name}</span>`;
+  el.classList.toggle('big', p.size === 'big'); el.classList.toggle('small', p.size === 'small');
   el.querySelector('.pname b').textContent = p.name;
   if (!quiet) saveGame();
   return p;
@@ -1536,7 +1552,7 @@ function updateBobos(dt) {
       }
       case 'gone': {
         if (b.t > b.respawn) {
-          const h = pickHome(player, 28); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z);
+          const h = pickHome(player, 28); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z); applySize(b, rollSize());
           setState(b, 'emerge'); b.root.visible = true; sandPuff(b.x, b.z, 22);
         }
         break;
@@ -1551,7 +1567,7 @@ function updateBobos(dt) {
     b.eyes.forEach(e => { e.scale.y = stunned ? 0.25 : (b.state === 'alert' ? 1.35 : 1); });
     b.mouth.scale.set(stunned ? 0.6 : 1, stunned ? -1 : 1, 1);
     if (b.state !== 'alert') b.ex.visible = false;
-    b.root.position.set(b.x, b.y + hopY - b.sink * (BOBO_H + 0.1), b.z);
+    b.root.position.set(b.x, b.y + hopY * b.s - b.sink * (BOBO_H + 0.1) * b.s, b.z);
     b.root.rotation.set(0, b.face, 0);
     b.body.scale.set(sx, sy, sx);
     b.body.rotation.z = wob;
@@ -1561,16 +1577,16 @@ function updateBobos(dt) {
 function boboPlayerContact() {
   for (const b of bobos) {
     if (!b.root.visible || b.sink > 0.3 || b.state === 'caught' || b.state === 'gone') continue;
-    const dx = player.x - b.x, dzz = player.z - b.z, d = Math.hypot(dx, dzz), top = b.y + BOBO_H;
-    if (player.vy < -1 && d < 0.75 && player.y < top + 0.15 && player.y > top - 0.45) {
+    const dx = player.x - b.x, dzz = player.z - b.z, d = Math.hypot(dx, dzz), top = b.y + BOBO_H * b.s;
+    if (player.vy < -1 && d < 0.75 * Math.max(b.s, 0.8) && player.y < top + 0.15 && player.y > top - 0.45) {
       player.y = top; player.vy = 8.5; player.grounded = false;
       sfx.boing(); sandPuff(b.x, b.z, 10);
       b.body.scale.set(1.3, 0.55, 1.3);
       stunBobo(b);
       continue;
     }
-    if (d < BOBO_R + PLAYER_R && player.y < top - 0.2) {
-      const k = (BOBO_R + PLAYER_R) / Math.max(d, 1e-3);
+    if (d < BOBO_R * b.s + PLAYER_R && player.y < top - 0.2) {
+      const k = (BOBO_R * b.s + PLAYER_R) / Math.max(d, 1e-3);
       player.x = b.x + dx * k; player.z = b.z + dzz * k;
     }
   }
@@ -1671,6 +1687,7 @@ function waterSpot(cx, cz, rMin, rMax, dMin, dMax, awayFrom, awayDist) {
 function shoreSpot(theta) { const [x, z] = polar(theta, -6 - Math.random() * 10); return { x, z }; }
 function newMerm(x, z) {
   const m = Object.assign(makeMermMesh(), { x, z, face: Math.random() * 6.28, state: 'swim', t: 0, tx: x, tz: z, under: 0, lean: 0, rise: 0, splashT: 1, waveCD: 4 + Math.random() * 6, leap: -1, spin: 0, playT: 0, ribbitT: 3 + Math.random() * 5, red: 0 });
+  applySize(m, rollSize());
   pickSwimTarget(m);
   mermigglies.push(m);
   return m;
@@ -1787,7 +1804,7 @@ function updateMermigglies(dt) {
       case 'gone': {
         if (m.t > m.respawn) {
           const c = shoreSpot(Math.random() * 6.28), s = waterSpot(c.x, c.z, 0, 8, 0.4, 1.8, player, 30);
-          if (s) { m.x = s.x; m.z = s.z; m.red = 0; m.state = 'surface'; m.t = 0; m.root.visible = true; mermSplash(m, 14, 0.9, true); }
+          if (s) { m.x = s.x; m.z = s.z; m.red = 0; applySize(m, rollSize()); m.state = 'surface'; m.t = 0; m.root.visible = true; mermSplash(m, 14, 0.9, true); }
           else m.t = m.respawn - 2;
         }
         break;
@@ -1824,7 +1841,7 @@ function updateMermigglies(dt) {
     m.lean = lerp(m.lean, wantLean, Math.min(1, dt * 4));
     m.rise = lerp(m.rise, wantRise, Math.min(1, dt * 6));
     const bob = Math.sin(time * 2.4 + m.tx) * 0.04;
-    m.root.position.set(m.x, water.position.y - 0.02 + bob + m.rise + leapY - m.under * 1.5, m.z);
+    m.root.position.set(m.x, water.position.y - 0.02 + bob + m.rise + leapY - m.under * 1.5 * m.s, m.z);
     m.root.rotation.set(0, m.face, 0);
     m.body.rotation.x = m.leap >= 0 ? leapPitch : m.lean + m.under * 1.3;
     m.body.rotation.z = Math.sin(time * 1.7 + m.tz) * 0.05;
@@ -1845,8 +1862,8 @@ function rockHitsMerm(r) {
   for (const m of mermigglies) {
     if (!m.root.visible || m.under > 0.5) continue;
     // upright capsule round its body and head
-    const base = water.position.y + m.rise - 0.15, top = base + 1.05 + (m.leap >= 0 ? 1.2 : 0);
-    if (Math.hypot(r.x - m.x, r.z - m.z) < 0.55 && r.y > base && r.y < top && angerMerm(m)) return m;
+    const base = water.position.y + m.rise - 0.15, top = base + (1.05 + (m.leap >= 0 ? 1.2 : 0)) * m.s;
+    if (Math.hypot(r.x - m.x, r.z - m.z) < 0.55 * m.s && r.y > base && r.y < top && angerMerm(m)) return m;
   }
   return null;
 }
@@ -1975,12 +1992,12 @@ function updateAim() {
     sim.vy -= ROCK_G * dt; sim.x += sim.vx * dt; sim.y += sim.vy * dt; sim.z += sim.vz * dt;
     for (const b of bobos) {
       if (!b.root.visible || b.sink > 0.6 || !canStun(b)) continue;
-      if (Math.hypot(sim.x - b.x, sim.y - (b.y + 0.3), sim.z - b.z) < BOBO_R + 0.25) { hit = b; land = { x: b.x, y: b.y, z: b.z }; }
+      if (Math.hypot(sim.x - b.x, sim.y - (b.y + 0.3 * b.s), sim.z - b.z) < BOBO_R * b.s + 0.25) { hit = b; land = { x: b.x, y: b.y, z: b.z }; }
     }
     for (const m of mermigglies) {
       if (!m.root.visible || m.under > 0.5 || m.state === 'angry' || m.state === 'leave') continue;
       const base = water.position.y + m.rise - 0.15;
-      if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 && sim.y > base && sim.y < base + 1.05) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
+      if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 * m.s && sim.y > base && sim.y < base + 1.05 * m.s) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
     }
     if (land) break;
     const g = heightAt(sim.x, sim.z), floor = Math.max(g + 0.07, water.position.y);
@@ -2009,8 +2026,8 @@ function updateRocks(dt) {
     // hit a Bobo?
     for (const b of bobos) {
       if (!b.root.visible || b.sink > 0.6 || r.bounces > 1) continue;
-      const cy = b.y + 0.3 - b.sink * BOBO_H;
-      if (Math.hypot(r.x - b.x, r.y - cy, r.z - b.z) < BOBO_R + 0.25 && canStun(b)) {
+      const cy = b.y + (0.3 - b.sink * BOBO_H) * b.s;
+      if (Math.hypot(r.x - b.x, r.y - cy, r.z - b.z) < BOBO_R * b.s + 0.25 && canStun(b)) {
         stunBobo(b); sfx.thud(); b.body.scale.set(1.25, 0.7, 1.25);
         const nx = r.x - b.x, nz = r.z - b.z, nl = Math.hypot(nx, nz) || 1;
         r.vx = nx / nl * 2.5; r.vz = nz / nl * 2.5; r.vy = 3.5; r.bounces = 2;
@@ -2246,13 +2263,13 @@ function dexMarkCaught(id) { dexState.caught.add(id); dexState.scanned.add(id); 
 /* ---------- save: party (with names) + Scrumblydex progress, kept in this browser ---------- */
 const SAVE_KEY = 'scrumbly-island-save-v1';
 function saveGame() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ party: party.map(p => ({ species: p.species, name: p.name })), scanned: [...dexState.scanned], caught: [...dexState.caught] })); } catch (e) {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ party: party.map(p => ({ species: p.species, name: p.name, size: p.size })), scanned: [...dexState.scanned], caught: [...dexState.caught] })); } catch (e) {}
 }
 (function loadGame() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
   if (!s) return;
-  (s.party || []).slice(0, PARTY_MAX).forEach(p => { if (SPECIES[p.species] && p.name) addToParty(p.species, String(p.name), true); });
+  (s.party || []).slice(0, PARTY_MAX).forEach(p => { if (SPECIES[p.species] && p.name) addToParty(p.species, String(p.name), true, p.size); });
   (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
 })();
@@ -2293,8 +2310,8 @@ let scan = null, scanTarget = null, dexToggleQueued = false;
 const scanEl = document.getElementById('scanTarget'), scanLabel = scanEl.querySelector('b');
 function scrumblyCandidates() {
   const out = [];
-  for (const b of bobos) if (b.root.visible && b.sink < 0.5 && b.state !== 'caught') out.push({ o: b, id: 'bobo', y: 0.35 });
-  for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 });
+  for (const b of bobos) if (b.root.visible && b.sink < 0.5 && b.state !== 'caught') out.push({ o: b, id: 'bobo', y: 0.35 * b.s });
+  for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
   return out;
 }
 function findScanTarget(slack = 1) {
@@ -2314,18 +2331,18 @@ function startScan() {
   scan = { target: scanTarget, t: 0 }; sfx.dexScan();
 }
 function finishScan() {
-  const id = scan.target.id, isNew = !dexState.scanned.has(id);
+  const id = scan.target.id, isNew = !dexState.scanned.has(id), scan_size = scan.target.o.size;
   dexState.scanned.add(id); scan = null; saveGame();
-  sfx.dexDone(isNew); showDexCard(id, isNew);
+  sfx.dexDone(isNew); showDexCard(id, isNew, scan_size);
 }
 
 /* ---------- info card after a scan ---------- */
 const cardEl = document.getElementById('dexCard');
 let cardTimer = 0;
-function showDexCard(id, isNew) {
+function showDexCard(id, isNew, size) {
   const s = SPECIES[id];
   cardEl.innerHTML = `<header><span class="num">#${pad3(s.num)}</span><h3>${s.name}</h3>${isNew ? '<span class="new">NEW!</span>' : ''}${dexState.caught.has(id) ? '<span class="got">Caught</span>' : ''}</header>
-    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>
+    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>${size ? `<p class="rare ${size}">${size === 'big' ? 'Whoa! This one is unusually BIG.' : 'Aww! This one is unusually small.'} Rare!</p>` : ''}
     <h4>Did you know?</h4><p>${s.fact}</p><h4>Catching tip</h4><p>${s.hint}</p><footer><kbd>Tab</kbd>open Scrumblydex</footer>`;
   cardEl.hidden = false; cardEl.classList.remove('in'); void cardEl.offsetWidth; cardEl.classList.add('in');
   clearTimeout(cardTimer); cardTimer = setTimeout(() => cardEl.classList.remove('in'), 9000);
@@ -2412,7 +2429,7 @@ function updateDex(dt) {
     scanEl.hidden = false; scanEl.classList.toggle('scanning', !!scan);
     scanEl.style.width = scanEl.style.height = size + 'px';
     scanEl.style.transform = `translate(${(_sp.x * 0.5 + 0.5) * innerWidth}px, ${(-_sp.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -50%)`;
-    scanLabel.textContent = scan ? 'Scanning…' : (dexState.scanned.has(t.id) ? SPECIES[t.id].name : '???');
+    scanLabel.textContent = scan ? 'Scanning…' : (dexState.scanned.has(t.id) ? sizeWord(t.o.size) + SPECIES[t.id].name : '???');
     scanEl.style.setProperty('--p', scan ? Math.min(1, scan.t / SCAN_T) : 0);
   } else scanEl.hidden = true;
 }
@@ -2504,6 +2521,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, water, dexState, NAME_POOL, openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, water, dexState, NAME_POOL, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
