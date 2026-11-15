@@ -316,6 +316,29 @@
   #ko span { font-weight: 800; color: rgba(44,37,82,.6); }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
+  /* ===== TV-friendly layout: everything scales with --ui and keeps clear of the screen edges (--sx / --sy).
+     The UI is enlarged with CSS zoom, which also scales viewport units, so edge offsets are divided by --ui. ===== */
+  :root { --ui: 1.5; --sx: 5vw; --sy: 5vh; --ex: calc(var(--sx) / var(--ui)); --ey: calc(var(--sy) / var(--ui)); }
+  #area, #toast, #hint, .chip, #prompt, #hotbar, #party, #objective, #health, #bond, #dexCard, #titleGreet, #dialog, .title-card, .menu, .dex-shell, .box-shell, #crosshair { zoom: var(--ui); }
+  #title { padding: var(--sy) var(--sx); }
+  .title-card { margin: 0; }
+  #area { top: var(--ey); }
+  .chip { top: var(--ey); right: var(--ex); }
+  #hint { top: var(--ey); left: var(--ex); max-width: min(30rem, calc((100vw - 2 * var(--sx)) / var(--ui) - 150px)); }
+  #objective { top: calc(var(--ey) + 50px); right: var(--ex); }
+  #dexCard { top: calc(var(--ey) + 112px); right: var(--ex); }
+  #bond { top: calc(var(--ey) + 54px); }
+  #party { left: var(--ex); }
+  #health { left: var(--ex); bottom: var(--ey); }
+  #hotbar { bottom: var(--ey); }
+  #toast { bottom: calc(var(--ey) + 96px); }
+  #prompt { bottom: calc(var(--ey) + 138px); }
+  #dialog { bottom: calc(var(--ey) + 90px); width: min(720px, calc((100vw - 2 * var(--sx)) / var(--ui))); }
+  #titleGreet { right: calc(4vw / var(--ui) + var(--ex) * 0.4); bottom: calc(46vh / var(--ui) + 10px); }
+  .menu { width: min(340px, calc((100vw - 2 * var(--sx)) / var(--ui))); }
+  .menu.wide { width: min(560px, calc((100vw - 2 * var(--sx)) / var(--ui))); max-height: calc((100vh - 2 * var(--sy)) / var(--ui)); }
+  .dex-shell, .box-shell { width: min(980px, calc((100vw - 2 * var(--sx)) / var(--ui))); height: min(590px, calc((100vh - 2 * var(--sy)) / var(--ui) - 24px)); }
+  #pause, #saves, #panel, #dex, #box { padding: var(--sy) var(--sx); }
 </style>
 
 <canvas id="game" tabindex="0"></canvas>
@@ -1000,8 +1023,17 @@ function sandPuff(x, z, n) {
 const BPM = 104, STEP = 60 / BPM / 4;
 /* ---------- player settings (kept in this browser, separate from saves) ---------- */
 const SETTINGS_KEY = 'scrumbly-island-settings';
-const settings = Object.assign({ sens: 1, invertY: false, music: 1, sfx: 1, shadows: true }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { return {}; } })());
+const settings = Object.assign({ sens: 1, invertY: false, music: 1, sfx: 1, shadows: true, ui: 1.5, margin: 5 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { return {}; } })());
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
+// interface size + TV-safe edge margin (scaled down automatically if the window is too small to fit it)
+function applyLayout() {
+  const fit = Math.min(innerWidth / 760, innerHeight / 560);
+  const ui = Math.max(0.7, Math.min(settings.ui, fit));
+  const r = document.documentElement.style;
+  r.setProperty('--ui', ui.toFixed(3)); r.setProperty('--sx', settings.margin + 'vw'); r.setProperty('--sy', settings.margin + 'vh');
+}
+applyLayout();
+addEventListener('resize', applyLayout);
 let actx = null, musicBus, sfxBus, ambBus, panBus, noiseBuf, oceanGain, musicOn = true;
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 const CHORDS = [
@@ -4653,6 +4685,7 @@ function applySettings() {
     ambBus.gain.setTargetAtTime(0.5 * settings.sfx, actx.currentTime, 0.1);
   }
   sun.castShadow = settings.shadows;
+  applyLayout();
 }
 function openPanel(which) {
   document.getElementById('panelTitle').textContent = which === 'settings' ? 'Settings' : 'Controls';
@@ -4663,13 +4696,15 @@ function openPanel(which) {
       <label class="setrow"><span>Invert look up/down</span><input type="checkbox" id="setInvert" ${settings.invertY ? 'checked' : ''}><output></output></label>
       <label class="setrow"><span>Music volume</span><input type="range" id="setMusic" min="0" max="1.5" step="0.05" value="${settings.music}"><output>${pct(settings.music)}</output></label>
       <label class="setrow"><span>Sound effects</span><input type="range" id="setSfx" min="0" max="1.5" step="0.05" value="${settings.sfx}"><output>${pct(settings.sfx)}</output></label>
+      <label class="setrow"><span>Interface size</span><input type="range" id="setUi" min="0.8" max="2" step="0.05" value="${settings.ui}"><output>${Math.round(settings.ui * 100)}%</output></label>
+      <label class="setrow"><span>Screen edge margin</span><input type="range" id="setMargin" min="0" max="10" step="0.5" value="${settings.margin}"><output>${settings.margin}%</output></label>
       <label class="setrow"><span>Shadows</span><input type="checkbox" id="setShadows" ${settings.shadows ? 'checked' : ''}><output>${settings.shadows ? 'on' : 'off (faster)'}</output></label>`;
     const bind = (id, key, fmt, num = true) => panelBody.querySelector('#' + id).addEventListener('input', e => {
       settings[key] = num ? parseFloat(e.target.value) : e.target.checked;
       e.target.nextElementSibling.textContent = fmt(settings[key]); applySettings(); saveSettings();
       if (key === 'sfx' && actx) sfx.pickup();
     });
-    bind('setSens', 'sens', v => v.toFixed(2) + '×'); bind('setInvert', 'invertY', () => '', false);
+    bind('setSens', 'sens', v => v.toFixed(2) + '×'); bind('setUi', 'ui', v => Math.round(v * 100) + '%'); bind('setMargin', 'margin', v => v + '%'); bind('setInvert', 'invertY', () => '', false);
     bind('setMusic', 'music', pct); bind('setSfx', 'sfx', pct); bind('setShadows', 'shadows', v => v ? 'on' : 'off (faster)', false);
   } else {
     const row = (k, a) => `<tr><td>${k}</td><td>${a}</td></tr>`;
