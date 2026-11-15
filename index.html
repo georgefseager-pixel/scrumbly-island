@@ -72,6 +72,18 @@
   #netBtn { position: fixed; z-index: 13; right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
             width: 68px; height: 68px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: 1rem;
             background: var(--lagoon); color: var(--cream); box-shadow: 0 5px 0 #0d7f7b; }
+  #grabBtn { position: fixed; z-index: 13; right: calc(40px + env(safe-area-inset-right, 0px)); bottom: calc(136px + env(safe-area-inset-bottom, 0px));
+             width: 64px; height: 64px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: .95rem;
+             background: #ffd23f; color: var(--ink); box-shadow: 0 5px 0 #e59a2f; }
+  #prompt { left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-weight: 800; font-size: .95rem; background: rgba(255,250,246,.9);
+            padding: 6px 12px; border-radius: 12px; box-shadow: 0 3px 0 rgba(44,37,82,.18); white-space: nowrap; }
+  #catches { top: calc(14px + env(safe-area-inset-top, 0px)); left: calc(14px + env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 8px;
+             font-family: var(--display); font-weight: 600; font-size: .95rem; background: var(--cream); padding: 6px 12px 6px 8px; border-radius: 12px; box-shadow: 0 3px 0 rgba(44,37,82,.2); }
+  #catches b { font-weight: 700; color: var(--pink-deep); font-size: 1.1rem; }
+  #catches i { width: 24px; height: 20px; border-radius: 50% 50% 42% 42% / 62% 62% 38% 38%; background: #fffbf4; box-shadow: inset 0 -3px 0 #f0e2d6, 0 0 0 2px #e9d9cc; position: relative; }
+  #catches i::after { content: ''; position: absolute; left: 6px; top: 8px; width: 3px; height: 4px; border-radius: 2px; background: #8a3d1c; box-shadow: 9px 0 0 #8a3d1c; }
+  #catches.pop { animation: pop .5s; }
+  @keyframes pop { 30% { transform: scale(1.25) rotate(-4deg); } }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
 
@@ -86,7 +98,8 @@
       <li><kbd>Shift</kbd>run</li>
       <li><kbd>Space</kbd>jump</li>
       <li><kbd>Mouse</kbd>look</li>
-      <li><kbd>Click</kbd>swing net</li>
+      <li><kbd>Click</kbd>swing net / throw</li>
+      <li><kbd>E</kbd>pick up rock</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
     </ul>
@@ -97,12 +110,15 @@
 <div id="pause" hidden><div>Paused. Click to keep exploring</div></div>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click swing net · Walk into a palm to climb · M music · Esc pause</div>
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click swing net / throw · F swing net · E pick up rock · Walk into a palm to climb · M music · Esc pause</div>
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div id="joy" hidden><i></i></div>
 <button id="jumpBtn" hidden>Jump</button>
 <button id="netBtn" hidden>Net</button>
+<button id="grabBtn" hidden>Grab</button>
+<div class="hud" id="prompt" hidden></div>
+<div class="hud" id="catches" hidden><i></i>Bobos <b>0</b></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -802,6 +818,30 @@ function sfxGrab() {
   o.frequency.setValueAtTime(260, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.08);
   o.connect(g); g.connect(sfxBus); env(g, t, 0.12, 0.004, 0.1); o.start(t); o.stop(t + 0.15);
 }
+function tone(t, f0, f1, dur, vol, type = 'sine') {
+  const o = actx.createOscillator(), g = actx.createGain(); o.type = type;
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  o.connect(g); g.connect(sfxBus); env(g, t, vol, 0.006, dur); o.start(t); o.stop(t + dur + 0.05);
+}
+const sfx = {
+  alert() { if (!actx) return; const t = actx.currentTime; tone(t, 620, 700, 0.08, 0.12, 'triangle'); tone(t + 0.09, 940, 1250, 0.14, 0.12, 'triangle'); },
+  burrow() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 900, 0.3, 0.4, sfxBus, 0.6); tone(t, 700, 160, 0.35, 0.08, 'sine'); },
+  emerge() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 700, 0.2, 0.2, sfxBus); tone(t + 0.05, 300, 900, 0.12, 0.1, 'sine'); },
+  boing() { if (!actx) return; const t = actx.currentTime; const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(520, t + 0.12); o.frequency.exponentialRampToValueAtTime(260, t + 0.32);
+    const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 22; lg.gain.value = 40; lfo.connect(lg); lg.connect(o.frequency);
+    o.connect(g); g.connect(sfxBus); env(g, t, 0.28, 0.005, 0.38); o.start(t); lfo.start(t); o.stop(t + 0.45); lfo.stop(t + 0.45); },
+  stun() { if (!actx) return; const t = actx.currentTime; [0, 0.11, 0.22].forEach((d, i) => tone(t + 0.12 + d, 1800 - i * 150, 2300 - i * 150, 0.07, 0.05, 'sine')); },
+  thud() { if (!actx) return; const t = actx.currentTime; tone(t, 220, 90, 0.1, 0.22, 'triangle'); noiseHit(t, 'bandpass', 1400, 0.12, 0.06, sfxBus, 1); },
+  squeak() { if (!actx) return; const t = actx.currentTime; tone(t, 900 + Math.random() * 300, 1400 + Math.random() * 300, 0.09, 0.035, 'sine'); },
+  pickup() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'bandpass', 1800, 0.12, 0.06, sfxBus, 1.2); tone(t, 400, 600, 0.06, 0.05, 'triangle'); },
+  throw() { if (!actx) return; const t = actx.currentTime, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    s.buffer = noiseBuf; f.type = 'bandpass'; f.Q.value = 1.6; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(3000, t + 0.12);
+    s.connect(f); f.connect(g); g.connect(sfxBus); env(g, t, 0.2, 0.02, 0.15); s.start(t, Math.random()); s.stop(t + 0.22); },
+  rockLand(inWater) { if (!actx) return; const t = actx.currentTime; if (inWater) noiseHit(t, 'lowpass', 1500, 0.25, 0.25, sfxBus, 0.5); else noiseHit(t, 'lowpass', 700, 0.18, 0.08, sfxBus); },
+  caught() { if (!actx) return; const t = actx.currentTime; [72, 76, 79, 84, 88].forEach((m, i) => { tone(t + i * 0.08, mtof(m), mtof(m) * 1.002, 0.35, 0.09, 'triangle'); tone(t + i * 0.08, mtof(m + 12), mtof(m + 12), 0.2, 0.03, 'sine'); }); },
+  wriggle() { if (!actx) return; const t = actx.currentTime; tone(t, 500, 1100, 0.1, 0.07, 'square'); tone(t + 0.1, 1100, 400, 0.14, 0.05, 'square'); }
+};
 function sfxClimbStep() { if (!actx) return; noiseHit(actx.currentTime, 'bandpass', 1500 + Math.random() * 700, 0.1, 0.07, sfxBus, 1.8); }
 function sfxSplash() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 1800, 0.35, 0.45, sfxBus, 0.4); noiseHit(t + 0.05, 'bandpass', 3000, 0.1, 0.25, sfxBus, 1); }
 
@@ -843,7 +883,8 @@ function pollPad() {
   const tap = i => now[i] && !pad.prev[i];
   if (playing && !paused) {
     if (tap(0)) jumpQueued = true;                    // A / Cross
-    if (tap(7) || tap(5) || tap(2)) swingQueued = true; // RT / RB / X / Square
+    if (tap(7) || tap(5) || tap(2)) swingQueued = true; // RT / RB / X / Square: throw if holding a rock, else swing
+    if (tap(1)) pickQueued = true;                     // B / Circle: pick up rock
     if (tap(3)) toggleMusic();                        // Y / Triangle
   } else if (!playing && (tap(0) || tap(9))) startGame();
   pad.prev = now;
@@ -939,7 +980,7 @@ function updatePlayer(dt) {
       const cb = Math.sin(player.climb.phase * 2) * 0.03;
       camera.position.set(player.x, player.y + 1.65 + cb, player.z);
       camera.fov = lerp(camera.fov, 72, Math.min(1, dt * 5)); camera.updateProjectionMatrix();
-      swingQueued = false;
+      swingQueued = pickQueued = netOnly = false; targetRock = null; updatePrompt();
       return;
     }
   }
@@ -975,12 +1016,21 @@ function updatePlayer(dt) {
     if (il > 0.1) blockedMessage(nx, nz);
   }
 
-  if (swingQueued) { swingQueued = false; if (swing.t < 0) startSwing(); }
+  targetRock = findTargetRock();
+  if (pickQueued) { pickQueued = false; pickUpRock(); }
+  if (swingQueued) {
+    swingQueued = false;
+    if (heldRock && !netOnly) { if (throwAnim < 0) throwRock(); }
+    else if (swing.t < 0) startSwing();
+  }
+  netOnly = false;
+  updatePrompt();
 
   if (jumpQueued && player.grounded) { player.vy = 7.6 * (1 - 0.3 * wet); player.grounded = false; sfxJump(); if (depth > 0.1) splash(player.x, player.z, 10, 0.7); }
   jumpQueued = false;
   player.vy -= 22 * dt;
   player.y += player.vy * dt;
+  boboPlayerContact();
   const g = heightAt(player.x, player.z), depthNow = Math.max(0, wy - g);
   if (player.y <= g) {
     if (!player.grounded && player.vy < -5) { sfxLand(depthNow > 0.1); if (depthNow > 0.1) { splash(player.x, player.z, 26, 1.1); spawnRipple(player.x, player.z, 1.6); } }
@@ -1041,7 +1091,7 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  document.getElementById('hint').textContent = 'Drag to look · Click or F swing net · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
+  document.getElementById('hint').textContent = 'Drag to look · Click swing net / throw · F swing net · E pick up rock · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
@@ -1065,7 +1115,7 @@ musicBtn.addEventListener('click', e => { e.stopPropagation(); toggleMusic(); ca
 
 // touch controls
 if (isTouch) {
-  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li><li><kbd>Net</kbd>swing</li><li><kbd>Walk into a palm</kbd>climb</li>';
+  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li><li><kbd>Net</kbd>swing / throw</li><li><kbd>Grab</kbd>pick up rock</li><li><kbd>Walk into a palm</kbd>climb</li>';
 }
 const joyEl = document.getElementById('joy'), knob = joyEl.querySelector('i'), jumpBtn = document.getElementById('jumpBtn');
 jumpBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); jumpQueued = true; }, { passive: false });
@@ -1095,7 +1145,8 @@ function startGame() {
   initAudio();
   if (actx && actx.state === 'suspended') actx.resume();
   document.getElementById('title').hidden = true;
-  musicBtn.hidden = false;
+  musicBtn.hidden = false; document.getElementById('catches').hidden = false;
+  setTimeout(() => toast(isTouch ? 'A Bobo! Stun it from above or with a rock, then net it.' : 'Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
   if (isTouch) { joyEl.hidden = false; jumpBtn.hidden = false; document.getElementById('netBtn').hidden = false; }
   else { document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer(); }
   player.pitch = -0.05;
@@ -1103,6 +1154,332 @@ function startGame() {
   canvas.focus();
 }
 document.getElementById('playBtn').addEventListener('click', startGame);
+
+/* =========================================================
+   Scrumblies: the Bobo (a shy little dumpling)
+   ========================================================= */
+function spriteTex(draw, size = 128) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c); return t;
+}
+const exclaimTex = spriteTex((g, s) => {
+  g.fillStyle = '#fff3a8'; g.strokeStyle = '#e2487f'; g.lineWidth = 8;
+  g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 8, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = '#2c2552'; g.font = `700 ${s * 0.68}px Fredoka, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', s / 2, s / 2 + 4);
+});
+const starTex = spriteTex((g, s) => {
+  g.fillStyle = '#ffd23f'; g.strokeStyle = '#e59a2f'; g.lineWidth = 5; g.beginPath();
+  for (let i = 0; i < 10; i++) { const r = i % 2 ? s * 0.2 : s * 0.45, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(s / 2 + Math.cos(a) * r, s / 2 + Math.sin(a) * r); }
+  g.closePath(); g.fill(); g.stroke();
+});
+
+const BOBO_R = 0.4, BOBO_H = 0.62;
+const boboGeo = (() => {
+  const g = new THREE.SphereGeometry(BOBO_R, 32, 20), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const ang = Math.atan2(z, x), up = clamp((y + 0.1) / 0.5, 0, 1);
+    const pleat = 1 + 0.035 * Math.cos(ang * 11) * up;          // soft pleats towards the top
+    const belly = 1 + 0.12 * (1 - up) * smooth(-0.4, 0, y);      // plump bottom
+    x *= pleat * belly; z *= pleat * belly;
+    y = y < -0.22 ? -0.22 - (y + 0.22) * 0.12 : y;                // flat base
+    p.setXYZ(i, x, y * 0.95, z);
+  }
+  g.translate(0, 0.23, 0); g.computeVertexNormals();
+  return g;
+})();
+const boboMat = new THREE.MeshLambertMaterial({ color: 0xfffbf4, emissive: 0x4a3c30 });
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0x8a3d1c });
+const cheekMat = new THREE.MeshBasicMaterial({ color: 0xf47c8c });
+function makeBoboMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const shell = new THREE.Mesh(boboGeo, boboMat); shell.castShadow = true; body.add(shell);
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10), boboMat); knot.position.y = 0.62; knot.scale.y = 0.75; body.add(knot);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, b = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), boboMat); b.position.set(Math.cos(a) * 0.09, 0.58, Math.sin(a) * 0.09); body.add(b); }
+  const eyes = [];
+  [-1, 1].forEach(s => {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 10), eyeMat); e.scale.set(0.85, 1, 0.35); e.position.set(s * 0.15, 0.32, 0.39); body.add(e); eyes.push(e);
+    const c = new THREE.Mesh(new THREE.CircleGeometry(0.035, 14), cheekMat); c.position.set(s * 0.25, 0.25, 0.375); c.rotation.y = s * 0.55; body.add(c);
+  });
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.011, 6, 16, Math.PI), eyeMat); mouth.position.set(0, 0.27, 0.405); mouth.rotation.z = Math.PI; body.add(mouth);
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.position.y = 1.15; ex.scale.setScalar(0.5); ex.visible = false; ex.renderOrder = 5; root.add(ex);
+  const stars = [];
+  for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.17); st.visible = false; root.add(st); stars.push(st); }
+  scene.add(root);
+  return { root, body, eyes, mouth, ex, stars };
+}
+
+const ALERT_R = 9, REAPPEAR_R = 17, STUN_T = 5, BOBO_COUNT = 5;
+const bobos = [];
+let caughtCount = 0;
+const beachPalms = palms.filter(p => inland(p.x, p.z) < INLAND_LIMIT - 4);
+function boboSpotOK(x, z) {
+  if (heightAt(x, z) < 0.25 || inland(x, z) > INLAND_LIMIT - 5) return false;
+  for (const p of beachPalms) if (Math.abs(p.x - x) < 1.4 && Math.abs(p.z - z) < 1.4 && Math.hypot(p.x - x, p.z - z) < 1.1) return false;
+  return true;
+}
+// a home spot a few metres from a beach palm (so there's always a tree to climb nearby)
+function pickHome(awayFrom, minDist) {
+  for (let i = 0; i < 200; i++) {
+    const p = beachPalms[Math.floor(Math.random() * beachPalms.length)], a = Math.random() * 6.28, r = 2.5 + Math.random() * 3.5;
+    const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
+    if (!boboSpotOK(x, z)) continue;
+    if (awayFrom && Math.hypot(x - awayFrom.x, z - awayFrom.z) < minDist) continue;
+    if (i < 150 && bobos.some(o => Math.hypot(o.hx - x, o.hz - z) < 22)) continue; // spread them out
+    return { x, z };
+  }
+  return { x: spawnX, z: spawnZ };
+}
+function setBoboAt(b, x, z) { b.x = x; b.z = z; b.y = heightAt(x, z); b.tx = x; b.tz = z; }
+function newBobo(home) {
+  const b = Object.assign(makeBoboMesh(), { state: 'idle', t: 0, hx: home.x, hz: home.z, x: 0, y: 0, z: 0, tx: 0, tz: 0, wait: 1, hop: 0, face: Math.random() * 6.28, sink: 0, squeakT: 2 + Math.random() * 4, stunPhase: 0 });
+  setBoboAt(b, home.x, home.z);
+  bobos.push(b);
+  return b;
+}
+function setState(b, s) { b.state = s; b.t = 0; }
+{
+  // first one in sight of the start: near the closest palm a little way ahead
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  const ahead = beachPalms.map(p => ({ p, d: Math.hypot(p.x - (spawnX + fx * 22), p.z - (spawnZ + fz * 22)) })).sort((a, b) => a.d - b.d);
+  let first = null;
+  for (const { p } of ahead.slice(0, 6)) {
+    for (let k = 0; k < 12 && !first; k++) { const a = k / 12 * 6.28, x = p.x + Math.cos(a) * 3.5, z = p.z + Math.sin(a) * 3.5; if (boboSpotOK(x, z) && Math.hypot(x - spawnX, z - spawnZ) > 14) first = { x, z }; }
+    if (first) break;
+  }
+  newBobo(first || pickHome({ x: spawnX, z: spawnZ }, 16));
+  for (let i = 1; i < BOBO_COUNT; i++) newBobo(pickHome({ x: spawnX, z: spawnZ }, 25));
+}
+
+const canStun = b => b.state === 'idle' || b.state === 'alert' || b.state === 'emerge' || b.state === 'stunned' || (b.state === 'burrow' && b.t < 0.25);
+function stunBobo(b) {
+  if (!canStun(b)) return false;
+  if (b.state !== 'stunned') sfx.stun();
+  setState(b, 'stunned'); b.sink = 0; b.ex.visible = false;
+  if (!b.stunHint) { b.stunHint = true; toast(isTouch ? 'It\'s dizzy! Get close and tap Net!' : 'It\'s dizzy! Get close and swing your net!'); }
+  return true;
+}
+function boboNoticesPlayer(b) {
+  if (player.climb) return false;                       // she's up a tree: out of sight
+  if (player.y - b.y > 2.2) return false;               // leaping from above
+  return Math.hypot(player.x - b.x, player.z - b.z) < ALERT_R;
+}
+function startBurrow(b) { setState(b, 'burrow'); b.ex.visible = false; sandPuff(b.x, b.z, 30); sfx.burrow(); }
+function tryNetCatch() {
+  let got = false;
+  for (const b of bobos) {
+    if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried') continue;
+    const dx = b.x - player.x, dzz = b.z - player.z, along = dx * fwd.x + dzz * fwd.z, lat = Math.abs(dx * fwd.z - dzz * fwd.x);
+    if (along < -0.4 || along > 3.0 || lat > 1.15 || Math.abs(b.y - player.y) > 1.6) continue;
+    if (b.state === 'stunned') { setState(b, 'caught'); caughtCount++; updateCatchHud(); sfx.caught(); toast(caughtCount === 1 ? 'You caught a Bobo! Squishy!' : `Another Bobo! That's ${caughtCount}.`); got = true; }
+    else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first.'); startBurrow(b); }
+  }
+  return got;
+}
+const catchEl = document.getElementById('catches');
+function updateCatchHud() { catchEl.querySelector('b').textContent = caughtCount; catchEl.classList.remove('pop'); void catchEl.offsetWidth; catchEl.classList.add('pop'); }
+
+const _cv = new THREE.Vector3();
+function updateBobos(dt) {
+  for (const b of bobos) {
+    b.t += dt;
+    const dxp = player.x - b.x, dzp = player.z - b.z, dist = Math.hypot(dxp, dzp);
+    let hopY = 0, sx = 1, sy = 1, wob = 0;
+    switch (b.state) {
+      case 'idle': {
+        const mx = b.tx - b.x, mz = b.tz - b.z, md = Math.hypot(mx, mz);
+        if (md > 0.15) {
+          const sp = 1.3 * dt;
+          b.x += mx / md * Math.min(sp, md); b.z += mz / md * Math.min(sp, md); b.y = heightAt(b.x, b.z);
+          b.face += angDiff(b.face, Math.atan2(mx, mz)) * Math.min(1, dt * 6);
+          b.hop += dt * 8.5; const k = Math.abs(Math.sin(b.hop));
+          hopY = k * 0.2; sy = 0.9 + k * 0.18; sx = 1.06 - k * 0.08;
+        } else {
+          b.hop = 0; sy = 1 + Math.sin(time * 2.6 + b.hx) * 0.03; sx = 1 - (sy - 1) * 0.5;
+          b.wait -= dt;
+          if (b.wait <= 0) {
+            for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = Math.random() * 6, x = b.hx + Math.cos(a) * r, z = b.hz + Math.sin(a) * r; if (boboSpotOK(x, z)) { b.tx = x; b.tz = z; break; } }
+            b.wait = 1 + Math.random() * 3;
+          }
+        }
+        b.squeakT -= dt; if (b.squeakT <= 0) { b.squeakT = 3 + Math.random() * 5; if (dist < 22) sfx.squeak(); }
+        if (boboNoticesPlayer(b)) { setState(b, 'alert'); b.ex.visible = true; sfx.alert(); }
+        break;
+      }
+      case 'alert': {
+        b.face += angDiff(b.face, Math.atan2(dxp, dzp)) * Math.min(1, dt * 12);
+        const k = Math.min(1, b.t / 0.12); hopY = Math.sin(k * Math.PI) * 0.25; sy = 1 + Math.sin(k * Math.PI) * 0.15;
+        b.ex.scale.setScalar(0.5 * (b.t < 0.15 ? 0.5 + b.t / 0.15 * 0.7 : 1.2 - Math.min(0.2, (b.t - 0.15) * 1.5)));
+        if (b.t > 0.6) startBurrow(b);
+        break;
+      }
+      case 'burrow': {
+        b.sink = Math.min(1, b.t / 0.45); wob = Math.sin(b.t * 60) * 0.06;
+        if (b.t > 0.5) { setState(b, 'buried'); b.root.visible = false; }
+        break;
+      }
+      case 'buried': {
+        if (b.t > 2.5 && dist > REAPPEAR_R) {
+          // pop up near where it dove (it doesn't go far)
+          for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = Math.random() * 3, x = b.x + Math.cos(a) * r, z = b.z + Math.sin(a) * r; if (boboSpotOK(x, z)) { setBoboAt(b, x, z); break; } }
+          setState(b, 'emerge'); b.root.visible = true; sandPuff(b.x, b.z, 22); if (dist < 40) sfx.emerge();
+        }
+        break;
+      }
+      case 'emerge': {
+        b.sink = 1 - Math.min(1, b.t / 0.35); if (b.t > 0.35) { b.sink = 0; setState(b, 'idle'); b.wait = 0.8; }
+        sy = 1 + Math.sin(Math.min(1, b.t / 0.35) * Math.PI) * 0.2;
+        break;
+      }
+      case 'stunned': {
+        b.stunPhase += dt * 5;
+        wob = Math.sin(b.t * 7) * 0.12 * (1 - b.t / STUN_T * 0.5);
+        sy = 1 - Math.abs(Math.sin(b.t * 3.5)) * 0.08;
+        if (b.t > STUN_T) { setState(b, 'idle'); b.wait = 0.5; }
+        break;
+      }
+      case 'caught': {
+        // whisked into the net
+        const k = Math.min(1, b.t / 0.45);
+        camera.getWorldDirection(_cv);
+        const tx = camera.position.x + _cv.x * 1.2, ty = camera.position.y - 0.6, tz = camera.position.z + _cv.z * 1.2;
+        b.x = lerp(b.x, tx, k * 0.35); b.z = lerp(b.z, tz, k * 0.35); b.y = lerp(b.y, ty, k * 0.35);
+        sx = sy = 1 - k * 0.85;
+        if (k >= 1) { setState(b, 'gone'); b.root.visible = false; b.respawn = 20 + Math.random() * 25; }
+        break;
+      }
+      case 'gone': {
+        if (b.t > b.respawn) {
+          const h = pickHome(player, 28); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z);
+          setState(b, 'emerge'); b.root.visible = true; sandPuff(b.x, b.z, 22);
+        }
+        break;
+      }
+    }
+    if (!b.root.visible) continue;
+    const stunned = b.state === 'stunned';
+    b.stars.forEach((st, i) => {
+      st.visible = stunned;
+      if (stunned) { const a = b.stunPhase + i * 2.09; st.position.set(Math.cos(a) * 0.32, 0.86 + Math.sin(a * 2) * 0.04, Math.sin(a) * 0.32); }
+    });
+    b.eyes.forEach(e => { e.scale.y = stunned ? 0.25 : (b.state === 'alert' ? 1.35 : 1); });
+    b.mouth.scale.set(stunned ? 0.6 : 1, stunned ? -1 : 1, 1);
+    if (b.state !== 'alert') b.ex.visible = false;
+    b.root.position.set(b.x, b.y + hopY - b.sink * (BOBO_H + 0.1), b.z);
+    b.root.rotation.set(0, b.face, 0);
+    b.body.scale.set(sx, sy, sx);
+    b.body.rotation.z = wob;
+  }
+}
+// player bouncing on a Bobo's head / bumping into its side
+function boboPlayerContact() {
+  for (const b of bobos) {
+    if (!b.root.visible || b.sink > 0.3 || b.state === 'caught' || b.state === 'gone') continue;
+    const dx = player.x - b.x, dzz = player.z - b.z, d = Math.hypot(dx, dzz), top = b.y + BOBO_H;
+    if (player.vy < -1 && d < 0.75 && player.y < top + 0.15 && player.y > top - 0.45) {
+      player.y = top; player.vy = 8.5; player.grounded = false;
+      sfx.boing(); sandPuff(b.x, b.z, 10);
+      b.body.scale.set(1.3, 0.55, 1.3);
+      stunBobo(b);
+      continue;
+    }
+    if (d < BOBO_R + PLAYER_R && player.y < top - 0.2) {
+      const k = (BOBO_R + PLAYER_R) / Math.max(d, 1e-3);
+      player.x = b.x + dx * k; player.z = b.z + dzz * k;
+    }
+  }
+}
+
+/* ---------- throwable rocks ---------- */
+const rocks = [];
+const rockGeo = (() => { const g = new THREE.DodecahedronGeometry(0.15, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 0.72); g.computeVertexNormals(); return g; })();
+const ROCK_COLORS = [0x9d8f9a, 0xb4a2a9, 0x8c8496, 0xa99487];
+function addRock(x, z) {
+  const mesh = new THREE.Mesh(rockGeo, new THREE.MeshLambertMaterial({ color: ROCK_COLORS[rocks.length % ROCK_COLORS.length] }));
+  mesh.castShadow = true; mesh.rotation.set(Math.random() * 3, Math.random() * 6, 0);
+  scene.add(mesh);
+  const r = { mesh, x, z, y: heightAt(x, z) + 0.08, vx: 0, vy: 0, vz: 0, state: 'ground', bounces: 0 };
+  mesh.position.set(r.x, r.y, r.z);
+  rocks.push(r);
+}
+{
+  // a handful near every Bobo home, plus some loose ones
+  for (const b of bobos) for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, rd = 3 + Math.random() * 7, x = b.hx + Math.cos(a) * rd, z = b.hz + Math.sin(a) * rd; if (boboSpotOK(x, z)) addRock(x, z); }
+  for (let i = 0; i < 4; i++) { const a = spawnTheta + 0.02 + i * 0.012, [x, z] = polar(a, 22 + i * 2.5); if (boboSpotOK(x, z)) addRock(x, z); }
+  for (let i = 0; i < 26; i++) { const [x, z] = polar(Math.random() * 6.28, 8 + Math.random() * 52); if (boboSpotOK(x, z)) addRock(x, z); }
+}
+let heldRock = null, targetRock = null, throwAnim = -1, pickQueued = false;
+const _dir = new THREE.Vector3(), _to = new THREE.Vector3();
+function findTargetRock() {
+  if (heldRock || player.climb) return null;
+  camera.getWorldDirection(_dir);
+  let best = null, bestScore = Infinity;
+  for (const r of rocks) {
+    if (r.state !== 'ground') continue;
+    const hd = Math.hypot(r.x - player.x, r.z - player.z);
+    if (hd > 2.6) continue;
+    _to.set(r.x - camera.position.x, r.y - camera.position.y, r.z - camera.position.z).normalize();
+    const ang = Math.acos(clamp(_to.dot(_dir), -1, 1));
+    if (ang > 0.55 && !(hd < 1.3 && ang < 1.1)) continue;
+    const score = ang + hd * 0.15;
+    if (score < bestScore) { bestScore = score; best = r; }
+  }
+  return best;
+}
+function pickUpRock() {
+  if (!targetRock) return;
+  heldRock = targetRock; heldRock.state = 'held'; heldRock.mesh.visible = false; targetRock = null;
+  sfx.pickup();
+  if (!pickHintShown) { pickHintShown = true; toast(isTouch ? 'Tap Throw to toss it at a Bobo' : 'Click to throw it · F still swings the net'); }
+}
+let pickHintShown = false;
+function throwRock() {
+  if (!heldRock || player.climb) return;
+  const r = heldRock; heldRock = null;
+  camera.getWorldDirection(_dir);
+  _to.set(0.25, -0.25, -0.5).applyQuaternion(camera.quaternion);
+  r.x = camera.position.x + _to.x; r.y = camera.position.y + _to.y; r.z = camera.position.z + _to.z;
+  r.vx = _dir.x * 17 + player.vx * 0.5; r.vy = _dir.y * 17 + 3; r.vz = _dir.z * 17 + player.vz * 0.5;
+  r.state = 'flying'; r.bounces = 0; r.mesh.visible = true; r.wet = false;
+  throwAnim = 0; sfx.throw();
+}
+function updateRocks(dt) {
+  for (const r of rocks) {
+    if (r.state !== 'flying') { r.mesh.material.emissive.setHex(r === targetRock ? 0x664455 : 0x000000); continue; }
+    r.vy -= 18 * dt; r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt;
+    r.mesh.rotation.x += dt * 9; r.mesh.rotation.z += dt * 6;
+    // hit a Bobo?
+    for (const b of bobos) {
+      if (!b.root.visible || b.sink > 0.6 || r.bounces > 1) continue;
+      const cy = b.y + 0.3 - b.sink * BOBO_H;
+      if (Math.hypot(r.x - b.x, r.y - cy, r.z - b.z) < BOBO_R + 0.25 && canStun(b)) {
+        stunBobo(b); sfx.thud(); b.body.scale.set(1.25, 0.7, 1.25);
+        const nx = r.x - b.x, nz = r.z - b.z, nl = Math.hypot(nx, nz) || 1;
+        r.vx = nx / nl * 2.5; r.vz = nz / nl * 2.5; r.vy = 3.5; r.bounces = 2;
+      }
+    }
+    // trunks block rocks too
+    for (const p of beachPalms) {
+      if (Math.abs(p.x - r.x) > 5 || Math.abs(p.z - r.z) > 5 || r.y > p.y + p.H) continue;
+      trunkAt(p, r.y, tk);
+      const dx = r.x - tk.x, dzz = r.z - tk.z, d = Math.hypot(dx, dzz);
+      if (d < tk.r + 0.12) { const nx = dx / (d || 1), nz = dzz / (d || 1), vn = r.vx * nx + r.vz * nz; if (vn < 0) { r.vx -= 1.6 * vn * nx; r.vz -= 1.6 * vn * nz; r.vx *= 0.5; r.vz *= 0.5; sfx.thud(); } r.x = tk.x + nx * (tk.r + 0.12); r.z = tk.z + nz * (tk.r + 0.12); }
+    }
+    const g = heightAt(r.x, r.z), wy = water.position.y;
+    if (!r.wet && r.y < wy && g < wy) { r.wet = true; splash(r.x, r.z, 10, 0.6); spawnRipple(r.x, r.z, 0.8); sfx.rockLand(true); r.vx *= 0.3; r.vz *= 0.3; r.vy *= 0.3; }
+    if (r.y <= g + 0.07) {
+      r.y = g + 0.07;
+      if (r.bounces < 2 && Math.abs(r.vy) > 3 && !r.wet) { r.vy = -r.vy * 0.3; r.vx *= 0.45; r.vz *= 0.45; r.bounces++; sandPuff(r.x, r.z, 5); sfx.rockLand(false); }
+      else {
+        r.state = 'ground'; r.vx = r.vy = r.vz = 0;
+        // out of reach (deep water / closed jungle): a fresh rock turns up somewhere on the beach
+        if (!walkable(r.x, r.z)) { for (let i = 0; i < 20; i++) { const [x, z] = polar(Math.random() * 6.28, 10 + Math.random() * 45); if (boboSpotOK(x, z)) { r.x = x; r.z = z; r.y = heightAt(x, z) + 0.07; break; } } }
+      }
+    }
+    r.mesh.position.set(r.x, r.y, r.z);
+  }
+}
 
 /* =========================================================
    First-person viewmodel: the big net + hands
@@ -1171,7 +1548,10 @@ function placeArm(h, shoulder) {
   h.arm.quaternion.setFromUnitVectors(_up, _b.normalize());
   h.arm.scale.set(1, len, 1);
 }
-const SHOULDER_R = new THREE.Vector3(0.36, -0.62, 0.15);
+const SHOULDER_R = new THREE.Vector3(0.36, -0.62, 0.15), SHOULDER_L = new THREE.Vector3(-0.38, -0.66, 0.12);
+const heldRockMesh = new THREE.Mesh(rockGeo, new THREE.MeshLambertMaterial({ color: 0xa99487 }));
+heldRockMesh.scale.setScalar(0.55); heldRockMesh.visible = false; viewScene.add(heldRockMesh);
+let holdBlend = 0;
 const CLIMB_SHOULDER_R = new THREE.Vector3(0.34, -0.7, 0.05), CLIMB_SHOULDER_L = new THREE.Vector3(-0.34, -0.7, 0.05);
 
 // net poses: [x, y, z, pitch, roll, yaw]
@@ -1192,6 +1572,20 @@ function netSlam() {
   if (inWater) { splash(x, z, 22, 0.9); spawnRipple(x, z, 1.4); } else sandPuff(x, z, 34);
   sfxThump(inWater);
   shake = 0.09;
+  tryNetCatch();
+}
+let netOnly = false;
+const promptEl = document.getElementById('prompt'), grabBtn = document.getElementById('grabBtn');
+let promptText = '';
+function updatePrompt() {
+  let t = '';
+  if (targetRock) t = isTouch ? '' : '<kbd>E</kbd>pick up rock';
+  else if (heldRock && !player.climb) t = isTouch ? '' : '<kbd>Click</kbd>throw rock';
+  if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
+  if (isTouch) {
+    grabBtn.hidden = !targetRock;
+    netBtn.textContent = heldRock ? 'Throw' : 'Net';
+  }
 }
 let shake = 0;
 
@@ -1225,9 +1619,23 @@ function updateViewmodel(dt) {
     handR.g.rotateY(-0.3);
     placeArm(handR, SHOULDER_R);
     handR.g.visible = handR.arm.visible = net.visible;
-    handL.g.visible = handL.arm.visible = false;
+    // left hand: holding a rock, or following through after a throw
+    const showL = !!heldRock || throwAnim >= 0;
+    heldRockMesh.visible = !!heldRock;
+    if (showL) {
+      let k = 0, fwdK = 0;
+      if (throwAnim >= 0) { throwAnim += dt / 0.4; const t = Math.min(1, throwAnim); fwdK = Math.sin(t * Math.PI); k = t; if (throwAnim >= 1) throwAnim = -1; }
+      const drop = (heldRock && throwAnim < 0 ? (1 - holdBlend) * 0.5 : 0) + cbk * 1.2 + (throwAnim >= 0 ? Math.max(0, k - 0.5) * 0.9 : 0);
+      handL.g.position.set(-0.27 + fwdK * 0.12 + bx, -0.27 + fwdK * 0.1 + by - drop, -0.6 - fwdK * 0.25);
+      handL.g.rotation.set(-0.35 - fwdK * 0.6, 0.35, 0.25);
+      placeArm(handL, SHOULDER_L);
+      handL.g.visible = handL.arm.visible = true;
+      heldRockMesh.position.set(0, 0.075, -0.06).applyQuaternion(handL.g.quaternion).add(handL.g.position);
+    } else handL.g.visible = handL.arm.visible = false;
+    holdBlend = heldRock ? Math.min(1, holdBlend + dt * 5) : 0;
   } else {
-    // climbing: hands reach up the trunk one after another
+    // climbing: hands reach up the trunk one after another (any held rock is pocketed)
+    throwAnim = -1; heldRockMesh.visible = false;
     const ph = player.climb ? player.climb.phase : 0, lift = (1 - cbk) * 0.9;
     [[handL, -1, 0], [handR, 1, Math.PI]].forEach(([h, s, off]) => {
       const c = Math.sin(ph + off);
@@ -1250,9 +1658,14 @@ canvas.addEventListener('mousedown', e => {
 canvas.addEventListener('mouseup', e => {
   if (dragLook && playing && e.button === 0 && Math.hypot(e.clientX - downX, e.clientY - downY) < 6) swingQueued = true;
 });
-window.addEventListener('keydown', e => { if (playing && !paused && (e.code === 'KeyF' || e.code === 'KeyE') && !e.repeat) swingQueued = true; });
+window.addEventListener('keydown', e => {
+  if (!playing || paused || e.repeat) return;
+  if (e.code === 'KeyF') { swingQueued = true; netOnly = true; }
+  if (e.code === 'KeyE') pickQueued = true;
+});
 const netBtn = document.getElementById('netBtn');
 netBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); swingQueued = true; }, { passive: false });
+grabBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); pickQueued = true; }, { passive: false });
 
 /* =========================================================
    Main loop
@@ -1271,6 +1684,8 @@ function tick(dt) {
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (shake > 0) { shake = Math.max(0, shake - dt * 0.5); camera.position.y -= shake * Math.sin(time * 60) * 0.3; camera.rotation.x -= shake * 0.25; }
   if (playing) updateViewmodel(dt);
+  updateBobos(dt);
+  updateRocks(dt);
 
   water.position.y = Math.sin(time * 0.5) * 0.05;
   waterUniforms.uTime.value = time;
@@ -1316,6 +1731,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+  held: () => heldRock, target: () => targetRock, caught: () => caughtCount, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
