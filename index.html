@@ -1564,7 +1564,14 @@ const NAME_POOL = [
   'Arthur', 'Dutch', 'John', 'Sadie', 'Charles', 'Hosea', 'Lenny', 'Javier', 'Micah', 'Bill', 'Abigail', 'Uncle', 'Pearson', 'Kieran',
   'Tilly', 'Karen', 'Mary-Beth', 'Strauss', 'Swanson', 'Trelawny', 'Boadicea', 'Cain', 'Mango', 'Tahiti', 'I Have a Plan', 'Cowpoke',
   // Professor Layton
-  'Hershel', 'Luke', 'Flora', 'Emmy', 'Chelmey', 'Barton', 'Don Paolo', 'Descole', 'Clive', 'Puzzle', 'Top Hat', 'Laytonian', 'Granny Riddleton'
+  'Hershel', 'Luke', 'Flora', 'Emmy', 'Chelmey', 'Barton', 'Don Paolo', 'Descole', 'Clive', 'Puzzle', 'Top Hat', 'Laytonian', 'Granny Riddleton',
+  // gothic literature
+  'Dracula', 'Count', 'Mina', 'Lucy', 'Van Helsing', 'Renfield', 'Harker', 'Carmilla', 'Laura', 'Ruthven',            // Dracula, Carmilla, The Vampyre
+  'Frankenstein', 'Victor', 'Elizabeth', 'The Creature', 'Igor',                                                     // Frankenstein (and its films)
+  'Heathcliff', 'Cathy', 'Earnshaw', 'Wuthering', 'Rochester', 'Bertha', 'Thornfield', 'Jane Eyre',                 // the Brontës
+  'Rebecca', 'Manderley', 'Mrs Danvers', 'Manfred', 'Otranto', 'Udolpho', 'Montoni', 'Ambrosio', 'Matilda', 'Melmoth', 'Vathek',
+  'Lenore', 'Annabel Lee', 'Usher', 'Ligeia', 'Berenice', 'Morella', 'Nevermore', 'The Raven', 'Amontillado', 'Fortunato', 'Prospero',   // Poe
+  'Dorian', 'Basil', 'Jekyll', 'Hyde', 'Utterson', 'Northanger', 'Tilney', 'Quint', 'Miss Jessel', 'Miles', 'Hill House', 'Merricat', 'Lady Audley', 'Varney'
 ];
 function pickName() {
   const used = new Set(party.concat(typeof boxSlots === 'undefined' ? [] : boxSlots.filter(Boolean)).map(p => p.name));
