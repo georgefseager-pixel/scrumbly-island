@@ -285,6 +285,18 @@
   .slot.locked svg, .slot.locked .name { visibility: hidden; }
   .slot.locked { background: rgba(255,250,246,.28); box-shadow: inset 0 0 0 2px rgba(255,250,246,.4); }
   #bond .pic.prof { background: #fff3a8; }
+  /* health, bites and knockouts */
+  #health { left: calc(14px + env(safe-area-inset-left, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 4px; background: rgba(255,250,246,.85); padding: 6px 9px; border-radius: 14px; box-shadow: 0 3px 0 rgba(44,37,82,.2); }
+  #health i { width: 24px; height: 22px; display: block; background: rgba(44,37,82,.18); clip-path: path('M12 21 C4 15 0 11 0 6.5 C0 2.5 3 0 6.3 0 C8.8 0 10.8 1.4 12 3.4 C13.2 1.4 15.2 0 17.7 0 C21 0 24 2.5 24 6.5 C24 11 20 15 12 21 Z'); }
+  #health i.full { background: #ff4f86; }
+  #hurt { position: fixed; inset: 0; z-index: 19; pointer-events: none; background: radial-gradient(ellipse at center, rgba(255,40,80,0) 40%, rgba(255,40,80,.65)); opacity: 0; }
+  #hurt.on { animation: hurt .8s ease-out; }
+   hurt { 0% { opacity: 1; } 100% { opacity: 0; } }
+  #ko { position: fixed; inset: 0; z-index: 27; display: grid; place-items: center; background: #fff7fb; opacity: 0; transition: opacity .7s; pointer-events: none; }
+  #ko.on { opacity: 1; }
+  #ko div { display: grid; text-align: center; gap: 6px; }
+  #ko b { font-family: var(--display); font-size: 3rem; color: var(--pink-deep); }
+  #ko span { font-weight: 800; color: rgba(44,37,82,.6); }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
@@ -379,6 +391,9 @@
   </div>
   <div id="itemGet" hidden></div>
 </div>
+<div class="hud" id="health" hidden></div>
+<div id="hurt"></div>
+<div id="ko" hidden><div><b>Ouch!</b><span>Everything goes a bit fuzzy...</span></div></div>
 <div id="hotbar" hidden></div>
 <div id="party" hidden></div>
 
@@ -1439,7 +1454,7 @@ function startGame() {
   initAudio();
   if (actx && actx.state === 'suspended') actx.resume();
   document.getElementById('title').hidden = true;
-  musicBtn.hidden = false; partyEl.hidden = false; hotbarEl.hidden = false;
+  musicBtn.hidden = false; partyEl.hidden = false; hotbarEl.hidden = false; healthEl.hidden = false;
   setTimeout(() => document.getElementById('hint').classList.add('fade'), 20000);
   if (tut.stage === 'done') setTimeout(() => toast('Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
   document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer();
@@ -1600,6 +1615,7 @@ function tryNetCatch() {
   }
   if (typeof netSpeshuls === 'function' && netSpeshuls()) got = true;
   if (netTrapped()) got = true;
+  if (netDucksharks()) got = true;
   return got;
 }
 
@@ -2135,7 +2151,7 @@ function makeSpeshulMesh() {
   scene.add(root);
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
-function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : makeBoboMesh(); }
+function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -2517,6 +2533,227 @@ function rockHitsPengin(r) {
   return null;
 }
 
+/* =========================================================
+   Scrumblies: the Duckshark (a shark that thinks it's a duck)
+   Floats and dabbles out in the water. Wade in near one and it
+   charges and bites. Stun it with a rock, then net it.
+   ========================================================= */
+function makeDucksharkMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const grey = new THREE.MeshLambertMaterial({ color: 0x8c9198, emissive: 0x1c1e22 }), white = new THREE.MeshLambertMaterial({ color: 0xf6f6f2, emissive: 0x3a3a38 });
+  const orange = new THREE.MeshLambertMaterial({ color: 0xff7a1a, emissive: 0x4a1a00 }), tooth = new THREE.MeshLambertMaterial({ color: 0xfff4c8, emissive: 0x3a3424 }), black = new THREE.MeshBasicMaterial({ color: 0x111114 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  const fin = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.quadraticCurveTo(-w * 0.1, h * 0.6, w * 0.25, h); s.quadraticCurveTo(w * 0.15, h * 0.45, w / 2, 0); s.closePath(); return new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 }); };
+  // plump rubber-duck body: grey back, white breast
+  add(new THREE.SphereGeometry(0.42, 24, 18), grey, 0, 0.06, -0.05, 0.92, 0.62, 1.22);
+  add(new THREE.SphereGeometry(0.34, 20, 14), white, 0, 0.1, 0.24, 0.86, 0.78, 0.82);
+  // dorsal fin, and the tail fin cocked up like a duck's tail
+  const dorsal = add(fin(0.34, 0.3), grey, 0, 0.27, -0.1); dorsal.rotation.y = Math.PI / 2; dorsal.position.x = -0.035;
+  const tail = new THREE.Group(); tail.position.set(0, 0.12, -0.5); body.add(tail);
+  const t1 = add(fin(0.22, 0.42), grey, -0.035, 0, 0, 1, 1, 1, tail); t1.rotation.set(0.5, Math.PI / 2, 0);
+  const t2 = add(fin(0.16, 0.24), grey, -0.035, 0, 0, 1, 1, 1, tail); t2.rotation.set(2.4, Math.PI / 2, 0);
+  // pectoral fins sticking out at the sides
+  [-1, 1].forEach(s => { const f = add(fin(0.22, 0.34), grey, s * 0.36, 0.0, 0.12); f.rotation.set(Math.PI / 2, 0, -s * 2.2); });
+  // neck curving up to a hammerhead with a duck-bill mouth full of teeth
+  const neck = new THREE.Group(); neck.position.set(0, 0.25, 0.3); body.add(neck);
+  add(new THREE.SphereGeometry(0.16, 16, 12), grey, 0, 0.16, 0.04, 1, 1.6, 1, neck);
+  add(new THREE.SphereGeometry(0.13, 14, 10), white, 0, 0.12, 0.1, 0.95, 1.45, 0.75, neck);
+  const head = new THREE.Group(); head.position.set(0, 0.42, 0.1); neck.add(head);
+  add(new THREE.SphereGeometry(0.18, 22, 14), grey, 0, 0.06, 0, 2.3, 0.55, 1.05, head);
+  add(new THREE.SphereGeometry(0.17, 20, 12), white, 0, 0.02, 0.03, 2.1, 0.32, 0.95, head);
+  const eyes = [-1, 1].map(s => { add(new THREE.SphereGeometry(0.06, 12, 10), grey, s * 0.4, 0.06, 0.02, 1, 1, 1, head); return add(new THREE.SphereGeometry(0.042, 12, 10), black, s * 0.43, 0.07, 0.05, 1, 1, 1, head); });
+  const upper = add(new THREE.SphereGeometry(0.1, 16, 10), orange, 0, -0.03, 0.12, 1.7, 0.5, 1.1, head);
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.06, 0.05); head.add(jaw);
+  add(new THREE.SphereGeometry(0.1, 16, 10), orange, 0, -0.04, 0.08, 1.6, 0.55, 1.05, jaw);
+  const coneG = new THREE.ConeGeometry(0.018, 0.045, 6);
+  for (let i = 0; i < 7; i++) { const a = -1.0 + i * 0.333; add(coneG, tooth, Math.sin(a) * 0.15, -0.06, 0.12 + Math.cos(a) * 0.1, 1, 1, 1, head).rotation.x = Math.PI; }
+  for (let i = 0; i < 6; i++) { const a = -0.9 + i * 0.36; add(coneG, tooth, Math.sin(a) * 0.14, -0.005, 0.08 + Math.cos(a) * 0.095, 1, 1, 1, jaw); }
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.position.y = 1.35; ex.scale.setScalar(0.5); ex.visible = false; ex.renderOrder = 5; root.add(ex);
+  const stars = [];
+  for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.17); st.visible = false; root.add(st); stars.push(st); }
+  scene.add(root);
+  return { root, body, neck, head, jaw, tail, eyes, ex, stars };
+}
+
+const DUCKSHARK_COUNT = 4, SHARK_SEE = 13, SHARK_MIN_DEPTH = 0.14;
+const ducksharks = [];
+function newDuckshark(x, z) {
+  const d = Object.assign(makeDucksharkMesh(), { x, z, face: Math.random() * 6.28, state: 'float', t: 0, tx: x, tz: z, wait: 1, quackT: 3 + Math.random() * 5, dabble: 0, jawOpen: 0, stunPhase: 0, lunge: 0 });
+  applySize(d, rollSize());
+  ducksharks.push(d);
+  return d;
+}
+{
+  // out in the water around the island: none too close to where you start
+  for (let i = 0; i < DUCKSHARK_COUNT; i++) {
+    const th = spawnTheta + (i ? 0.7 : 0.45) + i * (Math.PI * 2 / DUCKSHARK_COUNT) + (Math.random() - 0.5) * 0.4, c = shoreSpot(th);
+    const s = waterSpot(c.x, c.z, 0, 10, 0.7, 2.2, { x: spawnX, z: spawnZ }, 30) || c;
+    newDuckshark(s.x, s.z);
+  }
+}
+const sharkSfx = {
+  quack(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 380, 230, 0.13, 0.08 * v, 'sawtooth'); tone(t + 0.16, 360, 210, 0.15, 0.07 * v, 'sawtooth'); noiseHit(t, 'bandpass', 900, 0.05 * v, 0.2, sfxBus, 3); },
+  growl(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 150, 90, 0.45, 0.13 * v, 'sawtooth'); noiseHit(t, 'lowpass', 500, 0.12 * v, 0.4, sfxBus, 1); },
+  chomp() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'highpass', 2500, 0.35, 0.08, sfxBus, 1); tone(t, 220, 80, 0.12, 0.25, 'square'); tone(t + 0.07, 180, 70, 0.1, 0.2, 'square'); }
+};
+let sharkHints = { seen: false, charged: false };
+const playerInWater = () => !player.climb && depthAt(player.x, player.z) > 0.12 && player.y < water.position.y + 0.3;
+function sharkStunnable(d) { return d.root.visible && ['float', 'charge', 'bite', 'retreat', 'sulk', 'stunned'].includes(d.state); }
+const sharkHitBy = (d, x, y, z) => Math.hypot(x - d.x, z - d.z) < 0.55 * d.s + 0.2 && y > water.position.y - 0.25 && y < water.position.y + 1.0 * d.s + 0.15;
+function stunShark(d) {
+  if (!sharkStunnable(d)) return false;
+  if (d.state !== 'stunned') sfx.stun();
+  d.state = 'stunned'; d.t = 0; d.ex.visible = false; d.lunge = 0;
+  if (!d.stunHint) { d.stunHint = true; toast('Bonk! The Duckshark is seeing stars. Wade in and net it, quick!'); }
+  return true;
+}
+function rockHitsShark(r) {
+  for (const d of ducksharks) if (sharkHitBy(d, r.x, r.y, r.z) && stunShark(d)) return d;
+  return null;
+}
+function netDucksharks() {
+  let got = false;
+  for (const d of ducksharks) {
+    if (!d.root.visible || d.state !== 'stunned' || !inNetZone(d.x, player.y, d.z)) continue;
+    if (catchScrumbly('duckshark', d.size)) { d.state = 'caught'; d.t = 0; got = true; }
+  }
+  return got;
+}
+function updateDucksharks(dt) {
+  for (const d of ducksharks) {
+    d.t += dt;
+    const dxp = player.x - d.x, dzp = player.z - d.z, dist = Math.hypot(dxp, dzp);
+    const wading = playerInWater() && !knocked && playing;
+    let speed = 0, dabbleWant = 0, jawWant = 0, bob = Math.sin(time * 2 + d.tx) * 0.035;
+    switch (d.state) {
+      case 'float': {
+        // paddling about like any respectable duck
+        const mx = d.tx - d.x, mz = d.tz - d.z, md = Math.hypot(mx, mz);
+        if (md > 0.3) { speed = 0.9; d.face += angDiff(d.face, Math.atan2(mx, mz)) * Math.min(1, dt * 2); }
+        else { d.wait -= dt; if (d.wait <= 0) { d.wait = 2 + Math.random() * 4; const s = waterSpot(d.x, d.z, 2, 8, 0.6, 2.4); if (s) { d.tx = s.x; d.tz = s.z; } if (Math.random() < 0.35) d.dabble = 1.8; } }
+        if (d.dabble > 0) { d.dabble -= dt; dabbleWant = 1; speed = 0; }
+        d.quackT -= dt; if (d.quackT <= 0) { d.quackT = 4 + Math.random() * 6; sharkSfx.quack(clamp(1 - dist / 40, 0, 1)); jawWant = 0.5; }
+        if (!sharkHints.seen && dist < 25 && playing) { sharkHints.seen = true; toast('Is that a duck? It has an awful lot of teeth for a duck...'); }
+        if (wading && dist < SHARK_SEE * d.s ** 0.3) { d.state = 'charge'; d.t = 0; d.ex.visible = true; sharkSfx.growl(1); if (!sharkHints.charged) { sharkHints.charged = true; toast('The Duckshark is coming for you! Get out of the water!'); } }
+        break;
+      }
+      case 'charge': {
+        if (d.t > 0.6) d.ex.visible = false;
+        d.face += angDiff(d.face, Math.atan2(dxp, dzp)) * Math.min(1, dt * 6);
+        speed = 4.6; jawWant = 0.35 + Math.abs(Math.sin(time * 9)) * 0.3;
+        if (!wading) { d.state = 'sulk'; d.t = 0; }
+        else if (dist < 1.25 * d.s + 0.4) { d.state = 'bite'; d.t = 0; }
+        else if (dist > SHARK_SEE + 8) { d.state = 'float'; d.t = 0; }
+        break;
+      }
+      case 'bite': {
+        // jaws wide... SNAP
+        d.face += angDiff(d.face, Math.atan2(dxp, dzp)) * Math.min(1, dt * 10);
+        jawWant = d.t < 0.3 ? 1 : 0; d.lunge = d.t < 0.3 ? d.t / 0.3 : Math.max(0, 1 - (d.t - 0.3) * 3);
+        if (d.t >= 0.3 && !d.bit) { d.bit = true; sharkSfx.chomp(); if (dist < 1.9 * d.s + 0.5 && wading) hurtPlayer(1); }
+        if (d.t > 0.8) { d.bit = false; d.state = 'retreat'; d.t = 0; }
+        break;
+      }
+      case 'retreat': {
+        d.face += angDiff(d.face, Math.atan2(-dxp, -dzp)) * Math.min(1, dt * 4); speed = 2;
+        if (d.t > 1.6) { d.state = wading ? 'charge' : 'float'; d.t = 0; }
+        break;
+      }
+      case 'sulk': {
+        // you got out: glare from the water's edge, then go back to being a duck
+        d.face += angDiff(d.face, Math.atan2(dxp, dzp)) * Math.min(1, dt * 4); jawWant = 0.2;
+        if (wading && dist < SHARK_SEE) { d.state = 'charge'; d.t = 0; sharkSfx.growl(0.8); }
+        else if (d.t > 3.5) { d.state = 'float'; d.t = 0; d.tx = d.x; d.tz = d.z; }
+        break;
+      }
+      case 'stunned': {
+        d.stunPhase += dt * 5; dabbleWant = -0.35; bob += Math.sin(d.t * 6) * 0.03;
+        d.face += dt * 0.6;
+        if (d.t > 5.5) { d.state = wading && dist < SHARK_SEE ? 'charge' : 'float'; d.t = 0; d.tx = d.x; d.tz = d.z; }
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, d.t / 0.45); camera.getWorldDirection(_cv);
+        d.x = lerp(d.x, camera.position.x + _cv.x * 1.2, k * 0.35); d.z = lerp(d.z, camera.position.z + _cv.z * 1.2, k * 0.35);
+        d.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { d.state = 'gone'; d.t = 0; d.root.visible = false; d.respawn = 25 + Math.random() * 20; }
+        break;
+      }
+      case 'gone': {
+        if (d.t > d.respawn) {
+          const c = shoreSpot(Math.random() * 6.28), s = waterSpot(c.x, c.z, 0, 10, 0.7, 2.2, player, 30);
+          if (s) { d.x = d.tx = s.x; d.z = d.tz = s.z; applySize(d, rollSize()); d.body.scale.setScalar(1); d.state = 'float'; d.t = 0; d.root.visible = true; splash(d.x, d.z, 12, 0.8); }
+          else d.t = d.respawn - 3;
+        }
+        break;
+      }
+    }
+    if (speed > 0) {
+      const nx = d.x + Math.sin(d.face) * speed * dt, nz = d.z + Math.cos(d.face) * speed * dt;
+      if (depthAt(nx, nz) > SHARK_MIN_DEPTH) { d.x = nx; d.z = nz; } else if (d.state === 'float') { d.tx = d.x; d.tz = d.z; }
+      if (Math.random() < dt * (speed > 3 ? 8 : 1.5)) splash(d.x - Math.sin(d.face) * 0.5 * d.s, d.z - Math.cos(d.face) * 0.5 * d.s, speed > 3 ? 3 : 1, 0.4);
+    }
+    if (!d.root.visible) continue;
+    // the lunge pushes it forward and up for the bite
+    const lx = Math.sin(d.face) * d.lunge * 0.5, lz = Math.cos(d.face) * d.lunge * 0.5;
+    d.root.position.set(d.x + lx, water.position.y - 0.05 * d.s + bob + d.lunge * 0.15, d.z + lz);
+    d.root.rotation.set(0, d.face, 0);
+    d.dabbleAmt = lerp(d.dabbleAmt || 0, dabbleWant, Math.min(1, dt * 4));
+    d.body.rotation.x = d.dabbleAmt * 1.1 - d.lunge * 0.25;                 // dabbling: head down, tail up
+    d.body.rotation.z = d.state === 'stunned' ? Math.sin(d.t * 3) * 0.35 + 0.5 : Math.sin(time * 1.6 + d.tz) * 0.05;
+    d.jawOpen = lerp(d.jawOpen, jawWant, Math.min(1, dt * 14));
+    d.jaw.rotation.x = d.jawOpen * 0.7;
+    d.head.rotation.x = -d.jawOpen * 0.2;
+    d.tail.rotation.y = Math.sin(time * (speed > 3 ? 14 : 3) + d.tx) * (speed > 0 ? 0.35 : 0.12);
+    const st = d.state === 'stunned';
+    d.stars.forEach((s, i) => { s.visible = st; if (st) { const a = d.stunPhase + i * 2.09; s.position.set(Math.cos(a) * 0.35, 1.05 + Math.sin(a * 2) * 0.04, 0.3 + Math.sin(a) * 0.35); } });
+  }
+}
+
+/* ---------- your health, getting bitten, and waking up at the ranch ---------- */
+const MAX_HEALTH = 1;
+let health = MAX_HEALTH, knocked = false;
+const healthEl = document.getElementById('health'), hurtEl = document.getElementById('hurt'), koEl = document.getElementById('ko');
+function renderHealth() { healthEl.innerHTML = Array.from({ length: MAX_HEALTH }, (_, i) => `<i class="${i < health ? 'full' : ''}"></i>`).join(''); }
+renderHealth();
+function hurtPlayer(n) {
+  if (knocked) return;
+  health = Math.max(0, health - n); renderHealth();
+  hurtEl.classList.remove('on'); void hurtEl.offsetWidth; hurtEl.classList.add('on');
+  shake = 0.25;
+  if (health <= 0) knockOut(); else toast('CHOMP! That hurt!');
+}
+const KO_LINES = [
+  ['Goodness gracious! Something with a great many teeth dropped you on my doorstep. I\'ve patched you up with a plaster and a biscuit. Do be careful, dear!'],
+  ['There, there. A dab of seaweed salve and you\'re right as rain.', 'Do try not to wade towards anything that\'s grinning at you.'],
+  ['Oh, you poor thing! Was it one of those Ducksharks? They\'re dreadfully territorial about their bit of sea.', 'Stay on dry land and bonk them from a distance, that\'s my advice.'],
+  ['Back in one piece! Well... mostly. I\'ve put a frog-shaped plaster on it.', 'Doctor\'s orders: no more paddling with the toothy ones today.'],
+  ['Ribbit-oh-dear! You gave me quite the fright. Sit a moment, have a cup of kelp tea, and then off you go again. Carefully!'],
+  ['I found you snoozing on the sand with a very surprised look on your face.', 'Let me guess: something quacked, and then something bit?'],
+  ['All patched up! I used my very best bandages, the ones with little hearts on. Please don\'t make me use them again too soon, dear.'],
+  ['You know, in all my years on this island I\'ve learned one thing about Ducksharks:', 'They are NOT ducks. Do keep that in mind next time.'],
+  ['Ah, you\'re awake! Your partner looked ever so worried. I told them you\'re made of sterner stuff.', 'Now, deep breaths. And maybe stay out of the deep end for a bit.']
+];
+function knockOut() {
+  knocked = true; scan = null; swing.t = -1;
+  for (const k in keys) keys[k] = false;
+  if (player.climb) player.climb = null;
+  koEl.hidden = false; koEl.classList.remove('on'); void koEl.offsetWidth; koEl.classList.add('on');
+  setTimeout(() => {
+    // wake up in front of the Professor, healed
+    const p = prof.root.position, [x, z] = ranchWorld(PROF.u, PROF.v + 2.8);
+    player.x = x; player.z = z; player.y = heightAt(x, z); player.vx = player.vz = player.vy = 0; player.grounded = true;
+    player.yaw = Math.atan2(x - p.x, z - p.z); player.pitch = 0.05;
+    health = MAX_HEALTH; renderHealth();
+    if (partner) { partner.x = x + 1.2; partner.z = z + 0.6; }
+    for (const d of ducksharks) if (['charge', 'bite', 'retreat', 'sulk'].includes(d.state)) { d.state = 'float'; d.t = 0; d.tx = d.x; d.tz = d.z; }
+    koEl.classList.remove('on'); setTimeout(() => { koEl.hidden = true; }, 900);
+    knocked = false;
+    const lines = KO_LINES[Math.floor(Math.random() * KO_LINES.length)];
+    setTimeout(() => openDialog(lines.map(text => ({ text }))), 500);
+  }, 1500);
+}
+
 /* ---------- throwable rocks ---------- */
 const rocks = [];
 const rockGeo = (() => { const g = new THREE.DodecahedronGeometry(0.15, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 0.72); g.computeVertexNormals(); return g; })();
@@ -2654,6 +2891,7 @@ function updateAim() {
       const base = water.position.y + m.rise - 0.15;
       if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 * m.s && sim.y > base && sim.y < base + 1.05 * m.s) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
     }
+    for (const d of ducksharks) if (sharkStunnable(d) && d.state !== 'stunned' && sharkHitBy(d, sim.x, sim.y, sim.z)) { hit = d; land = { x: d.x, y: water.position.y, z: d.z }; }
     for (const q of pengins) if (penginHittable(q) && penginHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const m of speshuls) {
       if (!m.root.visible || m.state === 'caught' || m.state === 'gone' || m.state === 'fall' || m.state === 'dazed') continue;
@@ -2698,6 +2936,7 @@ function updateRocks(dt) {
       const m = rockHitsMerm(r);
       if (m) { sfx.thud(); const nx = r.x - m.x, nz = r.z - m.z, nl = Math.hypot(nx, nz) || 1; r.vx = nx / nl * 2; r.vz = nz / nl * 2; r.vy = 3; r.bounces = 2; }
     }
+    if (r.bounces <= 1 && rockHitsShark(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsPengin(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     // knock a Speshul out of its tree?
     if (r.bounces <= 1 && rockHitsSpeshul(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
@@ -2930,6 +3169,12 @@ SPECIES.pengin = {
   fact: 'A Pengin\'s favourite thing in the whole world is a small, dark, cosy gap. They can fold themselves into spaces you\'d swear were far too small, and they always know exactly where the nearest one is.',
   hint: 'Terribly shy: the moment it spots you, it waddles flat out to its nearest rock nook and hides inside. Set a cage trap right in front of a nook\'s doorway, then step out where it can see you and let it run straight in.'
 };
+SPECIES.duckshark = {
+  name: 'Duckshark', num: 5, where: 'Pinksand Shore · out in the deeper shallows',
+  icon: '<svg viewBox="0 0 48 48"><path d="M10 34 C8 26 14 21 24 21 C34 21 40 26 38 34 C37 41 31 44 24 44 C17 44 11 41 10 34Z" fill="#8c9198"/><path d="M17 31 C17 25 31 25 31 31 C31 40 27 43 24 43 C21 43 17 40 17 31Z" fill="#f6f6f2"/><path d="M3 14 C6 9 15 9 24 10 C33 9 42 9 45 14 C46 17 41 17 39 15 C34 13 29 14 24 14 C19 14 14 13 9 15 C7 17 2 17 3 14Z" fill="#8c9198"/><path d="M8 15 C14 13.5 34 13.5 40 15 C34 16.5 14 16.5 8 15Z" fill="#f6f6f2"/><circle cx="5.5" cy="13.5" r="2" fill="#111114"/><circle cx="42.5" cy="13.5" r="2" fill="#111114"/><path d="M17 17 C17 26 31 26 31 17 Z" fill="#ff7a1a"/><path d="M19 17.3l1.2 2.4 1.2-2.4 1.3 2.4 1.3-2.4 1.3 2.4 1.3-2.4 1.2 2.4 1.2-2.4" fill="#fff4c8"/><path d="M20 24l1.2-2.2 1.3 2.2 1.5-2.2 1.5 2.2 1.3-2.2 1.2 2.2" fill="#fff4c8"/></svg>',
+  fact: 'A Duckshark is utterly, unshakeably convinced that it is a duck. It paddles, it dabbles, it quacks (sort of). For your own safety, please do not tell it otherwise.',
+  hint: 'Floats about out in the deeper shallows and charges at anyone who wades into its water, so stay on dry land! Stun it with a rock from the shore, then wade in and net it while it\'s seeing stars, before it comes round.'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -2997,6 +3242,7 @@ function scrumblyCandidates() {
   for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
   for (const m of speshuls) if (m.root.visible && m.state !== 'caught') out.push({ o: m, id: 'speshul', y: 0.4 * m.s });
   for (const q of pengins) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'pengin', y: 0.3 * q.s });
+  for (const d of ducksharks) if (d.root.visible && d.state !== 'caught') out.push({ o: d, id: 'duckshark', y: 0.5 * d.s });
   return out;
 }
 function findScanTarget(slack = 1) {
@@ -3378,7 +3624,7 @@ function refreshResidents() {
   residents.forEach(r => { scene.remove(r.c.root); });
   const pool = boxSlots.filter(Boolean).slice().sort(() => Math.random() - 0.5).slice(0, RESIDENTS_MAX);
   residents = pool.map(p => {
-    const water = p.species === 'mermiggly';
+    const water = p.species === 'mermiggly' || p.species === 'duckshark';
     const c = makeSpeciesMesh(p.species);
     applySize(c, p.size);
     const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = (water ? 1.5 : 1.15);
@@ -3414,7 +3660,7 @@ function updateResidents(dt) {
     r.c.root.rotation.y = RANCH_YAW + r.face;
     r.c.body.scale.set(sx, sy, sx);
     r.tag.visible = dPlayer < 7;
-    if (r.water) { r.c.tail1.rotation.x = Math.sin(time * 3 + r.u) * 0.12; r.c.tail2.rotation.x = Math.sin(time * 3 + r.u - 0.9) * 0.18; r.c.arms[1].rotation.z = close ? 2.5 + Math.sin(time * 9) * 0.45 : 0.55; }
+    if (r.p.species === 'mermiggly') { r.c.tail1.rotation.x = Math.sin(time * 3 + r.u) * 0.12; r.c.tail2.rotation.x = Math.sin(time * 3 + r.u - 0.9) * 0.18; r.c.arms[1].rotation.z = close ? 2.5 + Math.sin(time * 9) * 0.45 : 0.55; }
   }
 }
 
@@ -3659,6 +3905,7 @@ const BOND_SPECIES_LINES = {
   mermiggly: ['{name} waved at you. Then waved again, just in case.', '{name} blew you a little bubble.', '{name} did a happy ribbit.']
   ,speshul: ['{name} is utterly convinced it’s the most special monkey alive. It might be right.', '{name} is eyeing up that palm tree. It’ll stay with you, though.', '{name} did a little cartwheel to impress you.', '{name} is wondering whether you’d like to see Crete one day.', '{name} chattered something that definitely meant "you’re great".']
   ,pengin: ['{name} found a cosy little gap to sit in. It’s very proud of it.', '{name} peeked out from behind you and decided you’re safe.', '{name} is a tiny bit less shy today.', '{name} waddled right up close. That’s a big deal for a Pengin.']
+  ,duckshark: ['{name} quacked at you. You’re fairly sure it was a quack.', '{name} is trying very hard not to bite anything today.', '{name} paddled a little circle of joy.', '{name} is guarding you very fiercely. From a seagull.', '{name} did a dabble. It’s very proud of it.']
 };
 let bondTimer = 70 + Math.random() * 50, bondBag = [];
 const bondEl = document.getElementById('bond');
@@ -3845,6 +4092,7 @@ function applySnapshot(s) {
   (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
+  health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
   const fresh = typeof s.tutorial === 'string';
   tut.stage = fresh ? s.tutorial : 'done';
@@ -4226,7 +4474,7 @@ function frame() {
 function tick(dt) {
   time += dt;
   pollPad();
-  if (playing && !paused && !menuOpen()) updatePlayer(dt);
+  if (playing && !paused && !menuOpen() && !knocked) updatePlayer(dt);
   else if (!playing) { player.yaw += dt * 0.04; camera.position.set(player.x, player.y + 1.65, player.z); }
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (shake > 0) { shake = Math.max(0, shake - dt * 0.5); camera.position.y -= shake * Math.sin(time * 60) * 0.3; camera.rotation.x -= shake * 0.25; }
@@ -4235,6 +4483,7 @@ function tick(dt) {
   updateMermigglies(dt);
   updateSpeshuls(dt);
   updatePengins(dt);
+  updateDucksharks(dt);
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -4289,6 +4538,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, ducksharks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
