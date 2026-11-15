@@ -323,7 +323,7 @@
   /* ===== TV-friendly layout: everything scales with --ui and keeps clear of the screen edges (--sx / --sy).
      The UI is enlarged with CSS zoom, which also scales viewport units, so edge offsets are divided by --ui. ===== */
   :root { --ui: 1.5; --sx: 5vw; --sy: 5vh; --ex: calc(var(--sx) / var(--ui)); --ey: calc(var(--sy) / var(--ui)); }
-  #area, #toast, #hint, .chip, #prompt, #hotbar, #party, #objective, #health, #bond, #dexCard, #titleGreet, #dialog, .title-card, .menu, .dex-shell, .box-shell, #crosshair { zoom: var(--ui); }
+  #area, #toast, #hint, .chip, #prompt, #hotbar, #party, #objective, #health, #gold, #bond, #dexCard, #titleGreet, #dialog, .title-card, .menu, .dex-shell, .box-shell, #crosshair { zoom: var(--ui); }
   #title { padding: var(--sy) var(--sx); }
   .title-card { margin: 0; }
   #area { top: var(--ey); }
@@ -343,6 +343,45 @@
   .menu.wide { width: min(560px, calc((100vw - 2 * var(--sx)) / var(--ui))); max-height: calc((100vh - 2 * var(--sy)) / var(--ui)); }
   .dex-shell, .box-shell { width: min(980px, calc((100vw - 2 * var(--sx)) / var(--ui))); height: min(590px, calc((100vh - 2 * var(--sy)) / var(--ui) - 24px)); }
   #pause, #saves, #panel, #dex, #box { padding: var(--sy) var(--sx); }
+  /* ---------- Scrimple Scrumple: gold, his shop and his notice board ---------- */
+  #gold { left: calc(var(--ex) + 56px); bottom: var(--ey); display: flex; align-items: center; gap: 6px; background: rgba(255,250,246,.85); padding: 5px 11px; border-radius: 14px; box-shadow: 0 3px 0 rgba(44,37,82,.2); font-family: var(--display); font-weight: 700; color: #8a5a10; font-size: 1.05rem; }
+  .coin { display: inline-block; width: 1em; height: 1em; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6b8, #ffc83a 50%, #d98b0b); box-shadow: inset 0 0 0 .1em #b8730a; vertical-align: -.15em; flex: none; }
+  #scrimMenu { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(44,37,82,.45); padding: var(--sy) var(--sx); }
+  .scrim-shell { background: #b58be6; box-shadow: inset 0 -8px 0 #7a4cc0, inset 0 4px 0 #d6bdf5, 0 18px 40px rgba(44,37,82,.4); }
+  .scrim-shell .speech b, #dialog.scrim .dbody b { color: #7a4cc0; }
+  .scrim-pic, #dialog.scrim .prof-pic { background: #ffd9a8; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #7a4cc0; }
+  #dialog.scrim .dlg-card { border-color: #b58be6; box-shadow: 0 5px 0 #7a4cc0, 0 14px 30px rgba(44,37,82,.3); }
+  .gold-chip { display: flex; align-items: center; gap: 6px; background: var(--cream); border-radius: 14px; padding: 6px 12px; font-family: var(--display); font-weight: 700; color: #8a5a10; font-size: 1.15rem; box-shadow: 0 3px 0 #7a4cc0; align-self: flex-start; }
+  #scrimClose { border: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--cream); color: #7a4cc0; font-size: 1rem; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 #7a4cc0; align-self: flex-start; }
+  .scrim-body { background: #f6ecd8; border-radius: 16px; padding: 10px; min-height: 0; display: grid; grid-template-rows: auto 1fr auto; box-shadow: inset 0 0 0 4px #c99566; overflow: hidden; }
+  .scrim-body h3 { margin: 0 0 6px; font-family: var(--display); font-size: 1.1rem; color: #7a4a24; }
+  .scrim-body h3 span { font-size: .85rem; color: rgba(122,74,36,.7); }
+  .scrim-grid { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 86px; gap: 8px; overflow-y: auto; align-content: start; padding: 12px 4px 4px; min-height: 0; }
+  .scrim-grid .bcell { height: 86px; min-height: 0; padding: 4px 4px 22px; }
+  .scrim-grid .bcell .ic { width: 64%; height: 100%; }
+  .scrim-grid .bcell .nm { display: none; }
+  .bcell .price { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 3px; font-size: .8rem; font-weight: 700; color: #8a5a10; white-space: nowrap; }
+  .bcell .price.no { color: rgba(44,37,82,.5); font-size: .68rem; }
+  .bcell .tag.ptag { background: var(--lagoon); }
+  .bcell.armed { background: #ffe9a8; box-shadow: 0 0 0 3px #e59a2f, 0 4px 0 #b8730a; transform: translateY(-3px); }
+  .bcell.picked { background: #e3d2fb; box-shadow: 0 0 0 3px #9b6bd6; }
+  .bcell.picked::after { content: '✓'; position: absolute; top: 2px; right: 7px; font-weight: 800; color: #7a4cc0; }
+  .scrim-go { margin-top: 10px; border: 0; border-radius: 14px; padding: 10px 20px; font-family: var(--display); font-size: 1.1rem; font-weight: 700; background: #9b6bd6; color: #fff; box-shadow: 0 4px 0 #6b3fa6; cursor: pointer; justify-self: center; display: flex; gap: 6px; align-items: center; }
+  .scrim-go.off { background: #c9b8de; box-shadow: 0 4px 0 #a593bd; }
+  .scrim-go.cur { outline: 3px solid var(--pink); outline-offset: 2px; }
+  .board-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: center; padding: 22px 18px; background: #c68c55; border-radius: 12px; box-shadow: inset 0 0 0 6px #8a5a33; min-height: 0; overflow-y: auto; }
+  .req { position: relative; border: 0; cursor: pointer; background: #fff8e6; border-radius: 6px; padding: 24px 12px 12px; font-family: var(--body); color: var(--ink); display: grid; gap: 6px; justify-items: center; text-align: center; box-shadow: 0 4px 0 rgba(0,0,0,.18); transform: rotate(var(--tilt, 0deg)); }
+  .req::before { content: ''; position: absolute; top: 7px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #e8384f; box-shadow: 0 2px 0 #8a1020; }
+  .req h4 { margin: 0; font-family: var(--display); font-size: .74rem; letter-spacing: .08em; color: #7a4cc0; }
+  .req .ric { width: 64px; height: 64px; display: block; } .req .ric svg { width: 100%; height: 100%; }
+  .req .what { font-family: var(--display); font-weight: 700; font-size: 1.05rem; }
+  .req .plea { font-size: .78rem; font-style: italic; color: rgba(44,37,82,.75); line-height: 1.3; }
+  .req .reward { display: flex; gap: 5px; align-items: center; font-family: var(--display); font-weight: 700; color: #8a5a10; }
+  .req .have { font-size: .78rem; font-weight: 700; color: rgba(44,37,82,.55); } .req .have.ok { color: #3f8a2a; }
+  .req.shiny { box-shadow: 0 0 0 3px #ff6fa5, 0 4px 0 rgba(0,0,0,.18); background: linear-gradient(160deg, #fff8e6, #ffe6f2); }
+  .req.cur { outline: 4px solid var(--pink); outline-offset: 3px; }
+  .board-empty { grid-column: 1 / -1; text-align: center; color: #fff; font-weight: 700; }
+  .box-foot .coin { margin: 0 2px; }
 </style>
 
 <canvas id="game" tabindex="0"></canvas>
@@ -445,6 +484,19 @@
   <div id="itemGet" hidden></div>
 </div>
 <div class="hud" id="health" hidden></div>
+<div class="hud" id="gold" hidden></div>
+<div id="scrimMenu" hidden>
+  <div class="box-shell scrim-shell" role="dialog" aria-label="Scrimple Scrumple">
+    <div class="box-top">
+      <span class="prof-pic scrim-pic"></span>
+      <div class="speech"><b>Scrimple Scrumple</b><span id="scrimSpeech"></span></div>
+      <span class="gold-chip" id="scrimGold"></span>
+      <button id="scrimClose" aria-label="Close">✕</button>
+    </div>
+    <div class="scrim-body" id="scrimBody"></div>
+    <div class="box-foot" id="scrimFoot"></div>
+  </div>
+</div>
 <div id="hurt"></div>
 <div id="ko" hidden><div><b>Ouch!</b><span>Everything goes a bit fuzzy...</span></div></div>
 <div id="hotbar" hidden></div>
@@ -1289,6 +1341,10 @@ function pollPad() {
     if (tap(1) || tap(9)) closeBox();
     if (tap(0)) boxActivate();
     if (tap(12)) boxMove(0, -1); if (tap(13)) boxMove(0, 1); if (tap(14)) boxMove(-1, 0); if (tap(15)) boxMove(1, 0);
+  } else if (playing && scrimOpen) {                 // Scrimple's shop and notice board
+    if (tap(1) || tap(9)) scrimBack();
+    if (tap(0)) scrimActivate();
+    if (tap(12)) scrimMove(0, -1); if (tap(13)) scrimMove(0, 1); if (tap(14)) scrimMove(-1, 0); if (tap(15)) scrimMove(1, 0);
   } else if (playing && dexOpen) {                    // browsing the Scrumblydex list
     if (tap(1) || tap(3) || tap(9)) closeDex();
     if (tap(12)) dexMove(0, -1); if (tap(13)) dexMove(0, 1); if (tap(14)) dexMove(-1, 0); if (tap(15)) dexMove(1, 0);
@@ -1412,6 +1468,7 @@ function updatePlayer(dt) {
   const hit = collideTrunks(nx, nz, player.y);
   nx = hit.px; nz = hit.pz;
   { const rp = collideRanch(nx, nz); nx = rp[0]; nz = rp[1]; }
+  { const sp = collideScrim(nx, nz); nx = sp[0]; nz = sp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
     // cancel velocity into the trunk
@@ -1434,10 +1491,11 @@ function updatePlayer(dt) {
   }
 
   nearProf = profInReach();
-  nearPartner = !nearProf && partnerInReach();
-  nearTrap = nearProf || nearPartner ? null : findNearTrap();
-  targetRock = nearProf || nearPartner || nearTrap ? null : findTargetRock();
-  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
+  nearScrim = !nearProf && scrimInReach(); nearBoard = !nearProf && !nearScrim && boardInReach();
+  nearPartner = !nearProf && !nearScrim && !nearBoard && partnerInReach();
+  nearTrap = nearProf || nearPartner || nearScrim || nearBoard ? null : findNearTrap();
+  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard ? null : findTargetRock();
+  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1493,10 +1551,11 @@ window.addEventListener('keydown', e => {
   if (!panelEl.hidden && e.code === 'Escape') { closePanel(); return; }
   if (paused) { if (e.code === 'Escape' && savesEl.hidden && performance.now() - pausedAt > 400) resumeGame(); return; }
   if (e.code === 'Escape' && dragLook && !menuOpen()) { openPause(); return; }
-  if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (!e.repeat) dexToggleQueued = true; return; }
+  if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (scrimOpen) closeScrim(); else if (!e.repeat) dexToggleQueued = true; return; }
   if (dialogOpen) { if (!e.repeat && ['KeyE', 'Space', 'Enter', 'KeyF'].includes(e.code)) { e.preventDefault(); dialogAdvance(); } e.stopImmediatePropagation(); return; }
   if (dexOpen) { dexKey(e); e.stopImmediatePropagation(); return; }
   if (boxOpen) { boxKey(e); e.stopImmediatePropagation(); return; }
+  if (scrimOpen) { scrimKey(e); e.stopImmediatePropagation(); return; }
   if (GAME_KEYS.includes(e.code)) e.preventDefault();
   keys[e.code] = true;
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
@@ -3769,7 +3828,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
+  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -4305,7 +4364,7 @@ const prof = (() => {
   }, 512);
   prof.tag.material.needsUpdate = true;
 });
-let nearProf = false;
+let nearProf = false, nearScrim = false, nearBoard = false;
 function profDistance() { return Math.hypot(player.x - prof.root.position.x, player.z - prof.root.position.z); }
 function profInReach() {
   if (player.climb || profDistance() > 3.4) return false;
@@ -4427,9 +4486,10 @@ function updateResidents(dt) {
 }
 
 /* ---------- the Box screen ---------- */
+let scrimOpen = false;
 let boxOpen = false, boxCur = { area: 'party', i: 0 }, boxHeld = null, boxDirty = false;
 let metProf = false;
-function menuOpen() { return dexOpen || boxOpen || dialogOpen; }
+function menuOpen() { return dexOpen || boxOpen || dialogOpen || scrimOpen; }
 const boxEl = document.getElementById('box'), boxPartyEl = document.getElementById('boxParty'), boxGridEl = document.getElementById('boxGrid');
 const boxSpeech = document.getElementById('boxSpeech'), boxFoot = document.getElementById('boxFoot');
 const PROF_LINES = [
@@ -4805,7 +4865,7 @@ function netTrapped() {
 }
 function updateTraps(dt) {
   // placement preview
-  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner;
+  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard;
   if (!holding) trapSpot = null;
   trapGhost.visible = holding;
   if (holding) { trapSpot = trapPlacement(); trapGhost.position.set(trapSpot.x, trapSpot.y, trapSpot.z); trapGhost.rotation.y = trapSpot.yaw; ghostMat.color.setHex(trapSpot.ok ? 0x7ee08a : 0xff6f7f); ghostMat.opacity = 0.35 + Math.sin(time * 5) * 0.1; }
@@ -4838,6 +4898,7 @@ function snapshot() {
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
+    gold, scrim: scrimSave(),
     music: musicOn
   };
 }
@@ -4883,6 +4944,7 @@ function applySnapshot(s) {
   setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
+  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold();
   refreshResidents(); bondBag = [];
 }
 // a short description of a save, for the slot list
@@ -5152,10 +5214,10 @@ const totalCaught = () => party.length + boxSlots.filter(Boolean).length;
 /* ---------- dialogue box ---------- */
 const dlgEl = document.getElementById('dialog'), dlgText = dlgEl.querySelector('.dtext'), dlgItem = document.getElementById('itemGet');
 let dialogOpen = false, dlgLines = [], dlgIdx = 0, dlgShown = 0, dlgDone = null, dlgTyping = false;
-function openDialog(lines, onDone) {
-  dlgLines = lines; dlgIdx = 0; dlgDone = onDone || null; dialogOpen = true;
+function openDialog(lines, onDone, who = 'prof') {
+  dlgLines = lines; dlgIdx = 0; dlgDone = onDone || null; dialogOpen = true; setDialogSpeaker(who);
   for (const k in keys) keys[k] = false; swingQueued = pickQueued = false;
-  dlgEl.hidden = false; showLine(); prof.wave = 1.2;
+  dlgEl.hidden = false; showLine(); if (who === 'prof') prof.wave = 1.2;
 }
 function showLine() {
   const L = dlgLines[dlgIdx];
@@ -5163,7 +5225,7 @@ function showLine() {
   dlgItem.hidden = true;
   if (L.give) giveItem(L.give);
   if (L.act) L.act();
-  if (dlgIdx === 0 || Math.random() < 0.5) sfx.profTalk();
+  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else sfx.profTalk(); }
 }
 function dialogAdvance() {
   if (!dialogOpen) return;
@@ -5282,7 +5344,7 @@ function talkToProf() {
       ], () => { setStage('boxOpen'); openBox(); });
       break;
     case 'boxOpen': openBox(); break;
-    default: openBox();
+    default: if (scrimState.met && !scrimState.profComplained) profComplain(); else openBox();
   }
 }
 function tutAfterBox() {
@@ -5342,6 +5404,506 @@ function updateTutorial(dt) {
   if (!playing) return;
   updateObjective();
   if (profMarker.visible) profMarker.position.y = 3.6 + Math.abs(Math.sin(time * 3)) * 0.25;
+}
+
+/* =========================================================
+   Islanders: Scrimple Scrumple, scrumbly liberator
+   A lanky purple frog-man camped by his orange tent. He can't bear scrumblies
+   being caught, so he buys them from you and sets them free. Sell him one and
+   his notice board opens: requests for endangered scrumblies, for extra gold.
+   Nobody else is about until the tutorial is done.
+   ========================================================= */
+let gold = 0;
+const scrimState = { met: false, sold: 0, boardOn: false, profComplained: false, requests: [], pendingUnlock: false };
+const scrimHere = () => tut.stage === 'done';
+// his camp: along the beach from the start, out of the way of the ranch, palms, nooks and Weevil tracks
+const SCRIM = (() => {
+  let best = null;
+  for (let i = 0; i < 800 && !best; i++) {
+    const th = spawnTheta + 0.75 + (Math.random() - 0.5) * Math.min(1.6, 0.3 + i / 300), d = 22 + Math.random() * 14;
+    const [x, z] = polar(th, d);
+    if (!boboSpotOK(x, z) || inRanchZone(x, z, 20) || beachPalms.some(p => Math.hypot(p.x - x, p.z - z) < 6.5) || nooks.some(n => Math.hypot(n.x - x, n.z - z) < 9) || weevilTracks.some(t => Math.hypot(t.cx - x, t.cz - z) < 20)) continue;
+    best = { th, x, z };
+  }
+  if (!best) { const th = spawnTheta + 0.75, [x, z] = polar(th, 26); best = { th, x, z }; }
+  return { ...best, out: [Math.cos(best.th), Math.sin(best.th)], side: [Math.sin(best.th), -Math.cos(best.th)], yaw: Math.PI / 2 - best.th };
+})();
+// local camp coordinates: u along the beach, v out towards the sea (the tent opens seawards)
+const scrimWorld = (u, v) => [SCRIM.x + SCRIM.side[0] * u + SCRIM.out[0] * v, SCRIM.z + SCRIM.side[1] * u + SCRIM.out[1] * v];
+const scrimLocal = (x, z) => { const dx = x - SCRIM.x, dz = z - SCRIM.z; return [dx * SCRIM.side[0] + dz * SCRIM.side[1], dx * SCRIM.out[0] + dz * SCRIM.out[1]]; };
+const SCRIM_SPOT = { guy: [1.9, 0.5], board: [-2.7, 0.3], fire: [0.2, 2.5], tent: [0, -2.6] };
+const camp = new THREE.Group();
+const campY = heightAt(SCRIM.x, SCRIM.z);
+camp.position.set(SCRIM.x, campY, SCRIM.z); camp.rotation.y = SCRIM.yaw; scene.add(camp);
+const campGround = (u, v) => heightAt(...scrimWorld(u, v)) - campY;
+function campAdd(geo, mat, x, y, z, parent, sx = 1, sy = 1, sz = 1) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m); return m; }
+function campRod(a, b, r, mat, parent) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
+  const m = campAdd(new THREE.CylinderGeometry(r, r, d.length(), 6), mat, 0, 0, 0, parent);
+  m.position.copy(A).add(B).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  return m;
+}
+// the bright orange tent
+{
+  const tent = new THREE.Group(), [tu, tv] = SCRIM_SPOT.tent; tent.position.set(tu, campGround(tu, tv), tv); camp.add(tent);
+  const orange = new THREE.MeshLambertMaterial({ color: 0xff8a2b, emissive: 0x3a1600 }), dark = lam(0x5a2410), wood = lam(0x8a5a33), rope = lam(0xe8dcc0);
+  const W = 1.35, H = 1.9, L = 2.7;
+  const sh = new THREE.Shape(); sh.moveTo(-W, 0); sh.lineTo(W, 0); sh.lineTo(0, H); sh.lineTo(-W, 0);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false }); g.translate(0, 0, -L / 2);
+  campAdd(g, orange, 0, 0, 0, tent);
+  const door = new THREE.Shape(); door.moveTo(-0.55, 0); door.lineTo(0.55, 0); door.lineTo(0, 1.25); door.lineTo(-0.55, 0);
+  campAdd(new THREE.ShapeGeometry(door), dark, 0, 0.01, L / 2 + 0.012, tent);
+  // a yellow stripe along the bottom of each side
+  [-1, 1].forEach(s => { const st = campAdd(new THREE.BoxGeometry(0.03, 0.16, L + 0.02), lam(0xffd23f), s * (W - 0.2), 0.3, 0, tent); st.rotation.z = s * Math.atan2(H, W); });
+  // poles, guy ropes and a little rainbow pennant
+  [-1, 1].forEach(s => {
+    campRod([0, H - 0.05, s * (L / 2 + 0.02)], [0, H + 0.35, s * (L / 2 + 0.02)], 0.025, wood, tent);
+    campRod([0, H - 0.02, s * L / 2], [0, 0.02, s * (L / 2 + 1.3)], 0.008, rope, tent);
+    campAdd(new THREE.CylinderGeometry(0.03, 0.01, 0.25, 6), wood, 0, 0.08, s * (L / 2 + 1.3), tent);
+  });
+  ['#ff5fa2', '#ffd23f', '#3fc1c9'].forEach((c, i) => {
+    const f = new THREE.Shape(); f.moveTo(0, 0); f.lineTo(0.42, -0.05); f.lineTo(0, -0.1); f.lineTo(0, 0);
+    campAdd(new THREE.ShapeGeometry(f), new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide }), 0.02, H + 0.33 - i * 0.1, L / 2 + 0.02, tent).rotation.y = -0.4;
+  });
+}
+// a little campfire in a ring of stones
+const campFlames = [];
+{
+  const fire = new THREE.Group(), [fu, fv] = SCRIM_SPOT.fire; fire.position.set(fu, campGround(fu, fv), fv); camp.add(fire);
+  const stone = lam(0x9a93a6), log = lam(0x6b4226);
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; campAdd(new THREE.DodecahedronGeometry(0.13, 0), stone, Math.cos(a) * 0.45, 0.06, Math.sin(a) * 0.45, fire, 1, 0.7, 1); }
+  for (let i = 0; i < 3; i++) { const lg = campAdd(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 7), log, 0, 0.1, 0, fire); lg.rotation.set(Math.PI / 2 - 0.25, i * 2.1, 0); }
+  campFlames.push(campAdd(new THREE.ConeGeometry(0.2, 0.55, 8), new THREE.MeshBasicMaterial({ color: 0xff7a1a }), 0, 0.38, 0, fire));
+  campFlames.push(campAdd(new THREE.ConeGeometry(0.11, 0.34, 7), new THREE.MeshBasicMaterial({ color: 0xffd23f }), 0, 0.3, 0.02, fire));
+  campFlames.forEach(f => { f.castShadow = false; });
+}
+// the notice board (only put up once you've sold him your first scrumbly)
+const scrimBoard = new THREE.Group();
+{
+  const [bu, bv] = SCRIM_SPOT.board; scrimBoard.position.set(bu, campGround(bu, bv), bv); camp.add(scrimBoard);
+  const wood = lam(0x8a5a33), cork = lam(0xc68c55), paper = lam(0xfff6e0), pin = new THREE.MeshLambertMaterial({ color: 0xe8384f, emissive: 0x3a0610 });
+  [-1, 1].forEach(s => campAdd(new THREE.BoxGeometry(0.1, 2.0, 0.1), wood, s * 0.75, 1.0, 0, scrimBoard));
+  campAdd(new THREE.BoxGeometry(1.6, 1.0, 0.07), cork, 0, 1.35, 0.04, scrimBoard);
+  [[0, 1.87, 1.72, 0.07], [0, 0.83, 1.72, 0.07]].forEach(([x, y, w, h]) => campAdd(new THREE.BoxGeometry(w, h, 0.1), wood, x, y, 0.04, scrimBoard));
+  campAdd(new THREE.BoxGeometry(1.9, 0.06, 0.4), lam(0xff8a2b), 0, 2.02, 0.08, scrimBoard).rotation.x = 0.25;
+  [-0.5, 0, 0.5].forEach((x, i) => {
+    const p = campAdd(new THREE.BoxGeometry(0.36, 0.46, 0.01), paper, x, 1.33 + (i === 1 ? 0.04 : -0.02), 0.085, scrimBoard); p.rotation.z = [0.06, -0.03, -0.07][i];
+    campAdd(new THREE.SphereGeometry(0.025, 8, 6), pin, x, 1.52 + (i === 1 ? 0.04 : -0.02), 0.1, scrimBoard);
+  });
+  const sign = spriteTex(g => {
+    g.canvas.width = 512; g.canvas.height = 96;
+    g.fillStyle = '#7a4cc0'; g.beginPath(); g.roundRect ? g.roundRect(4, 8, 504, 80, 24) : g.rect(4, 8, 504, 80); g.fill();
+    g.fillStyle = '#fff6e0'; g.textAlign = 'center'; g.font = '700 52px Fredoka, sans-serif'; g.fillText('SET THEM FREE!', 256, 66);
+  }, 512);
+  const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.24), new THREE.MeshBasicMaterial({ map: sign, transparent: true })); sp.position.set(0, 2.26, 0.1); scrimBoard.add(sp);
+  scrimBoard.visible = false;
+}
+// Scrimple Scrumple himself: tall, purple, tie-dye poncho, orange shades and a daisy in his headband
+const guy = (() => {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const [gu, gv] = SCRIM_SPOT.guy; root.position.set(gu, campGround(gu, gv), gv); camp.add(root);
+  const purple = new THREE.MeshLambertMaterial({ color: 0x9b6bd6, emissive: 0x24103a }), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 }), brown = lam(0x5a2a10);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.09, 0.11, 0.75, 10), purple, s * 0.2, 0.38, 0); add(new THREE.SphereGeometry(0.2, 12, 8), purple, s * 0.24, 0.05, 0.12, 1, 0.35, 1.5); });
+  add(new THREE.SphereGeometry(0.4, 20, 14), purple, 0, 1.1, 0, 1, 1.2, 0.85);
+  [[0x3fc1c9, 0.72, 0.62, 0.95], [0xff8a2b, 0.62, 0.52, 1.17], [0xffd23f, 0.52, 0.42, 1.37]].forEach(([c, rb, rt, y]) => add(new THREE.CylinderGeometry(rt, rb, 0.22, 24), lam(c), 0, y, 0, 1, 1, 0.82));
+  // a peace sign on a string
+  const silver = lam(0xd8dde6);
+  add(new THREE.TorusGeometry(0.085, 0.016, 6, 18), silver, 0, 1.25, 0.45);
+  add(new THREE.BoxGeometry(0.016, 0.17, 0.016), silver, 0, 1.25, 0.45);
+  [-1, 1].forEach(s => { add(new THREE.BoxGeometry(0.014, 0.085, 0.014), silver, s * 0.03, 1.22, 0.45).rotation.z = s * 0.8; });
+  const head = new THREE.Group(); head.position.y = 1.86; body.add(head);
+  add(new THREE.SphereGeometry(0.4, 22, 16), purple, 0, 0, 0, 1.3, 0.78, 1.05, head);
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.15, 14, 10), purple, s * 0.3, 0.3, 0.1, 1, 0.95, 0.95, head);
+    const lens = add(new THREE.CylinderGeometry(0.125, 0.125, 0.03, 18), new THREE.MeshLambertMaterial({ color: 0xffa64d, emissive: 0x5a2a00 }), s * 0.3, 0.3, 0.3, 1, 1, 1, head); lens.rotation.x = Math.PI / 2;
+    add(new THREE.TorusGeometry(0.125, 0.02, 6, 20), brown, s * 0.3, 0.3, 0.315, 1, 1, 1, head);
+  });
+  add(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 4), brown, 0, 0.32, 0.31, 1, 1, 1, head).rotation.z = Math.PI / 2;
+  const mg = new THREE.TorusGeometry(0.4, 0.03, 6, 28, Math.PI * 0.62); mg.rotateX(Math.PI / 2); mg.rotateY(Math.PI * 0.31 - Math.PI / 2);
+  add(mg, lam(0x24102e), 0, -0.04, 0, 1.31, 1, 1.06, head).rotation.x = 0.28;
+  // a little crown of daisies
+  [[0, 0.31, -0.04, -1.45, 0, 1], [0.24, 0.27, -0.22, -1.2, 0.6, 0.85], [-0.24, 0.27, -0.22, -1.2, -0.6, 0.85], [0.47, 0.12, 0.1, 0, 1.2, 0.9]].forEach(([x, y, z, rx, ry, k]) => {
+    const daisy = new THREE.Group(); daisy.position.set(x, y, z); daisy.rotation.set(rx, ry, 0); daisy.scale.setScalar(k); head.add(daisy);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(new THREE.SphereGeometry(0.045, 8, 6), lam(0xffffff), Math.cos(a) * 0.065, Math.sin(a) * 0.065, 0, 1, 1, 0.5, daisy); }
+    add(new THREE.SphereGeometry(0.04, 8, 6), lam(0xffd23f), 0, 0, 0.015, 1, 1, 0.6, daisy);
+  });
+  // long arms; the right hand can throw up a peace sign
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.42, 1.5, 0); body.add(piv);
+    add(new THREE.CylinderGeometry(0.065, 0.075, 0.6, 10), purple, 0, -0.3, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.1, 12, 10), purple, 0, -0.63, 0.02, 1, 1, 1, piv);
+    if (s > 0) [-1, 1].forEach(f => { add(new THREE.CylinderGeometry(0.022, 0.022, 0.16, 6), purple, f * 0.035, -0.76, 0.02, 1, 1, 1, piv).rotation.z = f * 0.3; });
+    piv.rotation.z = s * 0.25; return piv;
+  });
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.7); mark.renderOrder = 7; mark.position.y = 3.15; root.add(mark);
+  return { root, body, head, arms, mark, tag: null, face: 0, wave: 0, greeted: false, talk: 0 };
+})();
+const boardMark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); boardMark.scale.setScalar(0.6); boardMark.renderOrder = 7; boardMark.position.y = 2.75; scrimBoard.add(boardMark);
+compactCreature({ root: camp, flames: campFlames });
+const setScrimTag = () => { if (guy.tag) guy.root.remove(guy.tag); guy.tag = nameTag('Scrimple Scrumple'); guy.tag.position.y = 2.7; guy.root.add(guy.tag); };
+setScrimTag();
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(setScrimTag);
+const [GUY_X, GUY_Z] = scrimWorld(...SCRIM_SPOT.guy), [BOARD_X, BOARD_Z] = scrimWorld(SCRIM_SPOT.board[0], SCRIM_SPOT.board[1] + 0.2);
+camp.visible = false;
+
+// bumping into the tent, the board, the fire and Scrimple
+const SCRIM_BOXES = [[-1.45, 1.45, -4.0, -1.2], [-3.5, -1.9, 0.15, 0.5]];
+const SCRIM_CIRCLES = [[...SCRIM_SPOT.guy, 0.45], [...SCRIM_SPOT.fire, 0.6]];
+function collideScrim(x, z) {
+  if (!scrimHere() || Math.abs(x - SCRIM.x) > 9 || Math.abs(z - SCRIM.z) > 9) return [x, z];
+  let [u, v] = scrimLocal(x, z); const R = PLAYER_R + 0.05;
+  SCRIM_BOXES.forEach(([u0, u1, v0, v1], i) => {
+    if (i === 1 && !scrimState.boardOn) return;
+    if (u > u0 - R && u < u1 + R && v > v0 - R && v < v1 + R) {
+      const pushes = [[u0 - R - u, 0], [u1 + R - u, 0], [0, v0 - R - v], [0, v1 + R - v]];
+      pushes.sort((a, b) => Math.abs(a[0] + a[1]) - Math.abs(b[0] + b[1])); u += pushes[0][0]; v += pushes[0][1];
+    }
+  });
+  for (const [cu, cv, r] of SCRIM_CIRCLES) { const d = Math.hypot(u - cu, v - cv), rr = r + PLAYER_R; if (d < rr) { const k = (rr - d) / Math.max(d, 1e-3); u += (u - cu) * k; v += (v - cv) * k; } }
+  return scrimWorld(u, v);
+}
+function facingPoint(x, z, reach) {
+  if (player.climb) return false;
+  const dx = x - player.x, dz = z - player.z, l = Math.hypot(dx, dz);
+  return l < reach && (dx * fwd.x + dz * fwd.z) / (l || 1) > 0.35;
+}
+function scrimInReach() { return scrimHere() && camp.visible && facingPoint(GUY_X, GUY_Z, 3.4); }
+function boardInReach() { return scrimHere() && scrimState.boardOn && facingPoint(BOARD_X, BOARD_Z, 3.2); }
+
+const scrimSfx = {
+  talk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 3; i++) { const f = 240 + Math.random() * 120; tone(t + i * 0.1, f, f * 1.25, 0.09, 0.07, 'triangle'); } },
+  hello() { if (!actx) return; const t = actx.currentTime; [55, 59, 62, 67, 71].forEach((m, i) => tone(t + i * 0.06, mtof(m), mtof(m), 0.6, 0.05, 'triangle')); },
+  coin() { if (!actx) return; const t = actx.currentTime; tone(t, 1976, 1976, 0.08, 0.05, 'square'); tone(t + 0.08, 2637, 2637, 0.3, 0.05, 'square'); }
+};
+const goldEl = document.getElementById('gold');
+function renderGold() { goldEl.innerHTML = `<i class="coin"></i><b>${gold}</b>`; const g = document.getElementById('scrimGold'); if (g) g.innerHTML = `<i class="coin"></i>${gold}`; }
+renderGold();
+
+/* ---------- what scrumblies are worth to him ---------- */
+const SCRIM_PRICE = { bobo: 8, speshul: 14, beeappy: 15, pengin: 16, duckshark: 18, weevil: 20, mermiggly: 20, beeangy: 26 };
+const priceOf = p => SPECIES[p.species].unique ? 0 : Math.round((SCRIM_PRICE[p.species] || 10) * (p.size ? 1.5 : 1) * (p.shiny ? 6 : 1));
+const round5 = n => Math.max(5, Math.round(n / 5) * 5);
+
+/* ---------- requests on the notice board ---------- */
+const SCRIM_PLEAS = {
+  bobo: 'The Bobo burrows are looking awfully empty this season.',
+  speshul: 'The palm tops are way too quiet. The Speshuls need their troop back!',
+  pengin: 'Half the rock nooks are standing empty. Poor shy little things.',
+  duckshark: 'The shallows need their Ducksharks. Who else is gonna quack at the waves?',
+  weevil: 'Those little racetracks in the sand are going unrun. Tragic, man.',
+  beeappy: 'The sky’s lost its hum. Bring back the Beeappies!',
+  beeangy: 'Grumpy or not, every Beeangy deserves the open sky.'
+};
+const REQ_KINDS = ['count', 'big', 'small', 'shiny'];
+let reqSeq = 1;
+function reqMatches(r, p) {
+  if (p.species !== r.species) return false;
+  return r.kind === 'count' ? true : r.kind === 'shiny' ? !!p.shiny : p.size === r.kind;
+}
+const sellableEntry = e => !(e.area === 'party' && e.i === 0) && !SPECIES[e.p.species].unique;
+function ownedEntries() { const out = []; party.forEach((p, i) => out.push({ p, area: 'party', i })); boxSlots.forEach((p, i) => { if (p) out.push({ p, area: 'box', i }); }); return out; }
+const eligibleFor = r => ownedEntries().filter(e => sellableEntry(e) && reqMatches(r, e.p));
+function reqLabel(r) {
+  const nm = SPECIES[r.species].name;
+  return r.kind === 'count' ? `${r.n} × ${nm}` : r.kind === 'shiny' ? `1 × Shiny ${nm}` : `1 × ${SIZES[r.kind].label} ${nm}`;
+}
+function reqPlea(r) {
+  const nm = SPECIES[r.species].name;
+  if (r.kind === 'shiny') return `A Shiny ${nm}! The rarest of the rare deserve freedom most of all.`;
+  if (r.kind === 'big') return `The ${nm}s are missing their gentle giant. Somebody bring one home!`;
+  if (r.kind === 'small') return `The littlest ${nm}s have all but vanished. Every tiny one counts, man.`;
+  return SCRIM_PLEAS[r.species] || 'This one’s getting rare out there. Help a scrumbly out!';
+}
+function fillRequests() {
+  const pool = [...dexState.scanned].filter(id => SCRIM_PLEAS[id]);
+  if (!pool.length) return;
+  for (let tries = 0; tries < 60 && scrimState.requests.length < 3; tries++) {
+    const species = pool[Math.floor(Math.random() * pool.length)], roll = Math.random();
+    const hasShiny = scrimState.requests.some(r => r.kind === 'shiny');
+    const kind = !hasShiny && roll < 0.08 ? 'shiny' : roll < 0.3 ? (Math.random() < 0.5 ? 'big' : 'small') : 'count';
+    if (scrimState.requests.some(r => r.species === species && (r.kind === kind || (kind !== 'shiny' && r.kind !== 'shiny')))) continue;
+    const base = SCRIM_PRICE[species], n = kind === 'count' ? 3 + Math.floor(Math.random() * 3) : 1;
+    const reward = round5(kind === 'count' ? n * base * 1.8 : kind === 'shiny' ? base * 6 * 1.6 : base * 1.5 * 2.2);
+    scrimState.requests.push({ id: reqSeq++, species, kind, n, reward });
+  }
+}
+const anyRequestReady = () => scrimState.requests.some(r => eligibleFor(r).length >= r.n);
+
+/* ---------- the shop / notice board screen ---------- */
+const SCRIM_PIC = '<svg viewBox="0 0 64 64"><circle cx="16" cy="19" r="9" fill="#9b6bd6"/><circle cx="48" cy="19" r="9" fill="#9b6bd6"/><ellipse cx="32" cy="35" rx="27" ry="20" fill="#9b6bd6"/><g transform="translate(32 13)"><circle cx="0" cy="-3.6" r="2.8" fill="#fff"/><circle cx="3.6" cy="0" r="2.8" fill="#fff"/><circle cx="0" cy="3.6" r="2.8" fill="#fff"/><circle cx="-3.6" cy="0" r="2.8" fill="#fff"/><circle r="2.3" fill="#ffd23f"/></g><g transform="translate(55 28)"><circle cx="0" cy="-3.6" r="2.8" fill="#fff"/><circle cx="3.6" cy="0" r="2.8" fill="#fff"/><circle cx="0" cy="3.6" r="2.8" fill="#fff"/><circle cx="-3.6" cy="0" r="2.8" fill="#fff"/><circle r="2.3" fill="#ffd23f"/></g><circle cx="17" cy="20" r="6.8" fill="#ffa64d" stroke="#5a2a10" stroke-width="2"/><circle cx="47" cy="20" r="6.8" fill="#ffa64d" stroke="#5a2a10" stroke-width="2"/><path d="M23.8 20h16.4" stroke="#5a2a10" stroke-width="1.8"/><circle cx="15" cy="18" r="1.8" fill="#fff" opacity=".7"/><circle cx="45" cy="18" r="1.8" fill="#fff" opacity=".7"/><path d="M17 41 Q32 52 47 41" stroke="#3a1e5c" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M8 58 Q32 50 56 58 L56 64 L8 64 Z" fill="#ff8a2b"/><path d="M14 60 Q32 54 50 60" stroke="#ffd23f" stroke-width="3" fill="none"/></svg>';
+document.querySelectorAll('.scrim-pic').forEach(el => { el.innerHTML = SCRIM_PIC; });
+const scrimEl = document.getElementById('scrimMenu'), scrimBody = document.getElementById('scrimBody'), scrimFoot = document.getElementById('scrimFoot'), scrimSpeech = document.getElementById('scrimSpeech');
+document.getElementById('scrimClose').addEventListener('click', () => closeScrim());
+const scrimMenu = { mode: 'shop', cur: 0, items: [], els: [], armed: -1, req: null, picked: new Set(), changed: false, cols: 6 };
+const SHOP_HELLO = [
+  'Peace, friend. Got any scrumblies yearning for the breeze?',
+  'Every scrumbly you bring me is one more back where it belongs.',
+  'Old Loveopolis sings to them. I sing WITH them. Big difference, man.',
+  'I’ve never caught a single scrumbly in my whole life. Never wanted to. Respect.',
+  'Smell that sea air? That’s what freedom smells like. And a bit like seaweed.',
+  'Who’s ready to go home to the wild today?'
+];
+const RELEASE_LINES = [
+  'Fly free, {name}! ...Or hop. Or wiggle. Whatever feels right, man.',
+  'Go on, {name}. The whole beach is yours now.',
+  'Look at {name} go! Isn’t that beautiful? I’m not crying. It’s the sea spray.',
+  'Be free, {name}! Send me a postcard!',
+  '{name} is free! Far out.',
+  'Off you go, {name}. Don’t let anyone put you in a box ever again.'
+];
+const BOARD_HELLO = [
+  'My list of endangered scrumblies. Bring me any of these and I’ll pay way over the odds.',
+  'These little dudes are getting rare out there. Help me get them home?',
+  'I always keep three requests going. The wild needs all the help it can get.'
+];
+function scrimSay(t) { scrimSpeech.textContent = t; scrimSpeech.classList.remove('say'); void scrimSpeech.offsetWidth; scrimSpeech.classList.add('say'); guy.talk = 1.2; }
+function entryCell(e, extra = '') {
+  const partner = e.area === 'party' && e.i === 0, b = document.createElement('button');
+  b.className = 'bcell has';
+  const priceTag = !sellableEntry(e) ? `<span class="price no">${partner ? 'Partner' : 'Priceless'}</span>` : `<span class="price"><i class="coin"></i>${priceOf(e.p)}</span>`;
+  b.innerHTML = cellHtml(e.p, partner) + (e.area === 'party' && !partner ? '<span class="tag ptag">PARTY</span>' : '') + priceTag + extra;
+  b.querySelector('.nm b').textContent = e.p.name;
+  return b;
+}
+function hookItem(el, idx) {
+  el.addEventListener('mouseenter', () => { if (scrimMenu.cur !== idx) { scrimMenu.cur = idx; scrimMenu.armed = -1; refreshScrim(); } });
+  el.addEventListener('click', () => { scrimMenu.cur = idx; scrimActivate(); });
+}
+function buildScrim() {
+  const m = scrimMenu; m.els = [];
+  scrimEl.classList.toggle('board', m.mode !== 'shop');
+  if (m.mode === 'shop') {
+    m.items = ownedEntries(); m.cols = 6;
+    scrimBody.innerHTML = `<h3>Your scrumblies <span>${m.items.length}</span></h3><div class="scrim-grid"></div>`;
+    const grid = scrimBody.querySelector('.scrim-grid');
+    m.items.forEach((e, i) => { const el = entryCell(e); hookItem(el, i); grid.appendChild(el); m.els.push(el); });
+  } else if (m.mode === 'board') {
+    fillRequests();
+    m.items = scrimState.requests.slice(); m.cols = 3;
+    scrimBody.innerHTML = `<h3>Scrimple’s notice board <span>endangered scrumblies</span></h3><div class="board-cards"></div>`;
+    const wrap = scrimBody.querySelector('.board-cards');
+    if (!m.items.length) wrap.innerHTML = '<p class="board-empty">Nothing pinned up right now. Scan some more scrumblies and check back!</p>';
+    m.items.forEach((r, i) => {
+      const have = eligibleFor(r).length, ok = have >= r.n, S = SPECIES[r.species], el = document.createElement('button');
+      el.className = 'req' + (r.kind === 'shiny' ? ' shiny' : '');
+      el.style.setProperty('--tilt', `${[-1.5, 1, -0.5][i % 3]}deg`);
+      const style = r.kind === 'shiny' && SHINY[r.species] ? `filter:${SHINY[r.species].css}` : r.kind === 'big' ? 'transform:scale(1.15)' : r.kind === 'small' ? 'transform:scale(.65)' : '';
+      el.innerHTML = `<h4>WANTED: FREEDOM FOR</h4><span class="ric" style="${style}">${S.icon}</span><span class="what">${reqLabel(r)}</span><span class="plea">${reqPlea(r)}</span><span class="reward">Reward <i class="coin"></i>${r.reward}</span><span class="have ${ok ? 'ok' : ''}">${ok ? '✓ ' : ''}You have ${Math.min(have, 99)}/${r.n}</span>`;
+      hookItem(el, i); wrap.appendChild(el); m.els.push(el);
+    });
+  } else {
+    const r = m.req, elig = eligibleFor(r);
+    m.items = elig.concat([{ confirm: true }]); m.cols = 6;
+    scrimBody.innerHTML = `<h3>Choose who to set free: ${reqLabel(r)} <span class="pickcount"></span></h3><div class="scrim-grid"></div><button class="scrim-go"></button>`;
+    const grid = scrimBody.querySelector('.scrim-grid');
+    elig.forEach((e, i) => { const el = entryCell(e); hookItem(el, i); grid.appendChild(el); m.els.push(el); });
+    const go = scrimBody.querySelector('.scrim-go'); hookItem(go, elig.length); m.els.push(go);
+  }
+  m.cur = clamp(m.cur, 0, Math.max(0, m.items.length - 1));
+  renderGold(); refreshScrim();
+}
+function refreshScrim() {
+  const m = scrimMenu, it = m.items[m.cur];
+  m.els.forEach((el, i) => {
+    el.classList.toggle('cur', i === m.cur); el.classList.toggle('armed', i === m.armed);
+    if (m.mode === 'pick' && m.items[i] && m.items[i].p) el.classList.toggle('picked', m.picked.has(m.items[i].p));
+  });
+  const ctl = ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> ';
+  let html = '';
+  if (m.mode === 'shop') {
+    if (!it) html = 'You haven’t got any scrumblies to set free.';
+    else if (m.armed === m.cur) html = `Set <b></b> free for <i class="coin"></i>${priceOf(it.p)}? Press again to confirm`;
+    else html = `<b></b>${sellableEntry(it) ? ` · <i class="coin"></i>${priceOf(it.p)}. Pick them to set them free` : it.area === 'party' && it.i === 0 ? ' · your partner stays with you' : ' · one of a kind: not for sale'}`;
+    html += ctl + (m.armed >= 0 ? 'cancel' : 'close');
+  } else if (m.mode === 'board') {
+    html = it ? `${reqLabel(it)} for <i class="coin"></i>${it.reward}. Pick a request you can fill` : 'Come back once you’ve scanned more scrumblies';
+    html += ctl + 'close';
+  } else {
+    const r = m.req, go = scrimBody.querySelector('.scrim-go'), ready = m.picked.size === r.n;
+    scrimBody.querySelector('.pickcount').textContent = `${m.picked.size}/${r.n} picked`;
+    go.innerHTML = `Set them free · <i class="coin"></i>${r.reward}`; go.classList.toggle('off', !ready);
+    html = it && it.p ? `<b></b> · normally <i class="coin"></i>${priceOf(it.p)}` : (ready ? 'All set! Release them for the reward' : `Pick ${r.n - m.picked.size} more`);
+    html += ctl + 'back';
+  }
+  scrimFoot.innerHTML = html;
+  const b = scrimFoot.querySelector('b'); if (b && it && it.p) b.textContent = fullName(it.p);
+  const el = m.els[m.cur]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+}
+function removeEntries(list) {
+  const ps = new Set(list.filter(e => e.area === 'party').map(e => e.p));
+  list.forEach(e => { if (e.area === 'box' && boxSlots[e.i] === e.p) boxSlots[e.i] = null; });
+  const keep = party.filter(p => !ps.has(p)); party.length = 0; party.push(...keep);
+  renderPartyHud(); scrimMenu.changed = true;
+}
+function scrimNope(msg) { sfx.dexNope(); if (msg) scrimSay(msg); }
+function scrimActivate() {
+  const m = scrimMenu, it = m.items[m.cur];
+  if (!scrimOpen || !it) return;
+  if (m.mode === 'shop') {
+    if (it.area === 'party' && it.i === 0) return scrimNope('Whoa, not your partner, friend. That bond’s sacred. I may be a hippy, but I’m not a monster.');
+    if (SPECIES[it.p.species].unique) return scrimNope(`${it.p.name}?! No way, man. There’s only one in the whole world. I couldn’t put a price on that. Keep them close.`);
+    if (m.armed !== m.cur) { m.armed = m.cur; sfx.pickup(); refreshScrim(); return; }
+    const price = priceOf(it.p);
+    gold += price; scrimState.sold++; removeEntries([it]);
+    if (!scrimState.boardOn) scrimState.pendingUnlock = true;
+    scrimSfx.coin(); scrimSay(pick1(RELEASE_LINES).replace('{name}', it.p.name));
+    m.armed = -1; saveGame(); buildScrim();
+  } else if (m.mode === 'board') {
+    const have = eligibleFor(it).length;
+    if (have < it.n) return scrimNope(it.kind === 'count' ? `You’ll need ${it.n - have} more ${SPECIES[it.species].name}${it.n - have === 1 ? '' : 's'} for that one, friend. Not counting your partner!` : `You haven’t got a ${it.kind === 'shiny' ? 'Shiny' : SIZES[it.kind].label} ${SPECIES[it.species].name} to spare yet, friend.`);
+    // start with the cheapest ones picked, so nobody special goes by accident
+    m.req = it; m.picked = new Set(eligibleFor(it).sort((a, b) => priceOf(a.p) - priceOf(b.p)).slice(0, it.n).map(e => e.p));
+    m.mode = 'pick'; m.cur = 0; sfx.pickup(); scrimSay('Right on. Who’s going home?'); buildScrim();
+  } else {
+    const r = m.req;
+    if (it.confirm) {
+      if (m.picked.size !== r.n) return scrimNope(`Pick ${r.n} for this one, friend.`);
+      const chosen = eligibleFor(r).filter(e => m.picked.has(e.p));
+      if (chosen.length !== r.n) return scrimNope();
+      removeEntries(chosen); gold += r.reward; scrimState.sold += r.n;
+      scrimState.requests = scrimState.requests.filter(q => q !== r); fillRequests();
+      scrimSfx.coin(); setTimeout(() => sfx.caught(), 150);
+      scrimSay(`Far out! That’s ${r.n === 1 ? 'one' : r.n} more ${SPECIES[r.species].name}${r.n === 1 ? '' : 's'} back in the wild. Here’s your reward, friend.`);
+      m.mode = 'board'; m.req = null; m.picked = new Set(); m.cur = 0; saveGame(); buildScrim();
+      return;
+    }
+    if (m.picked.has(it.p)) m.picked.delete(it.p);
+    else if (m.picked.size >= r.n) return scrimNope(`Only ${r.n} for this one. Unpick someone first.`);
+    else m.picked.add(it.p);
+    sfx.dexTick(); refreshScrim();
+  }
+}
+function scrimMove(dx, dy) {
+  const m = scrimMenu; if (!m.items.length) return;
+  m.cur = clamp(m.cur + dx + dy * m.cols, 0, m.items.length - 1); m.armed = -1; sfx.dexTick(); refreshScrim();
+}
+function scrimBack() {
+  const m = scrimMenu;
+  if (m.mode === 'shop' && m.armed >= 0) { m.armed = -1; refreshScrim(); return; }
+  if (m.mode === 'pick') { m.mode = 'board'; m.req = null; m.cur = 0; buildScrim(); sfx.dexClose(); return; }
+  closeScrim();
+}
+function scrimKey(e) {
+  const k = e.code;
+  if (k === 'Escape' || k === 'KeyE') { e.preventDefault(); scrimBack(); return; }
+  if (k === 'Enter' || k === 'Space') { e.preventDefault(); scrimActivate(); return; }
+  if (k === 'ArrowLeft' || k === 'KeyA') { e.preventDefault(); scrimMove(-1, 0); }
+  if (k === 'ArrowRight' || k === 'KeyD') { e.preventDefault(); scrimMove(1, 0); }
+  if (k === 'ArrowUp' || k === 'KeyW') { e.preventDefault(); scrimMove(0, -1); }
+  if (k === 'ArrowDown' || k === 'KeyS') { e.preventDefault(); scrimMove(0, 1); }
+}
+function openScrim(mode, line) {
+  if (scrimOpen) return;
+  scrimOpen = true; for (const k in keys) keys[k] = false;
+  Object.assign(scrimMenu, { mode, cur: 0, armed: -1, req: null, picked: new Set(), changed: false });
+  scrimSay(line || ''); scrimSfx.hello();
+  buildScrim(); scrimEl.hidden = false;
+  document.getElementById('crosshair').hidden = true;
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
+}
+function closeScrim() {
+  if (!scrimOpen) return;
+  scrimOpen = false; scrimEl.hidden = true; sfx.dexClose();
+  if (scrimMenu.changed) refreshResidents();
+  if (scrimState.pendingUnlock && !scrimState.boardOn) setTimeout(unlockBoard, 300);
+  if (dragLook) return;
+  document.getElementById('crosshair').hidden = false;
+  try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { paused = true; pauseEl.hidden = false; }); } catch (e) { paused = true; pauseEl.hidden = false; }
+}
+
+/* ---------- talking to him ---------- */
+function talkToScrim() {
+  guy.wave = 1.6; scrimSfx.hello();
+  if (!scrimState.met) {
+    const P = party[0];
+    openDialog([
+      { text: `Whoa, whoa, WHOA. Hold up, friend. Is that${P ? ' ' + fullName(P) : ' a scrumbly'}... following you around? In a little party?` },
+      { text: 'And that net. You’ve been... CATCHING them?! Oh, man. Oh, man oh man oh man. This is a total bummer.' },
+      { text: 'Name’s Scrimple Scrumple. Scrumbly liberator, beach philosopher and part-time tent enthusiast.' },
+      { text: 'Wait. Where’d you get a net like that? ...That’s one of LOVEOPOLIS’S, isn’t it? You’re in league with Professor Loveopolis?!' },
+      { text: 'That beardy old toad and I go WAY back. He thinks scrumblies want to live in a pen, eating snacks and listening to sea shanties. Sea shanties, man!' },
+      { text: 'Scrumblies are born free, and free they shall be! The breeze, the sand, the big open sky. No scrumbly ever truly liked being kept. Not one. I refuse to believe it.' },
+      { text: '...Okay. Okay. Deep breaths, Scrimple. In through the nose. Out through the gills.' },
+      { text: 'Here’s the deal, friend. I can’t stop you catching them. But I CAN set them free. Bring your scrumblies to me and I’ll buy them off you, fair and square, in gold.' },
+      { text: 'Then I’ll let every last one of them go, back to the wild where they belong. Let’s see who you’ve got in there...' }
+    ], () => { scrimState.met = true; saveGame(); openScrim('shop', 'Anyone you’d like to set free? Not your partner, mind. That bond’s sacred.'); }, 'scrim');
+    return;
+  }
+  if (scrimState.pendingUnlock || (scrimState.sold > 0 && !scrimState.boardOn)) { unlockBoard(); return; }
+  openScrim('shop', pick1(SHOP_HELLO));
+}
+function unlockBoard() {
+  if (scrimState.boardOn || dialogOpen) return;
+  openDialog([
+    { text: 'Whoa... you actually did it, friend. You let one go. Can you feel that? That’s the breeze of freedom, man.' },
+    { text: 'Okay. You’ve earned this. See that board by my tent? That’s my list of endangered scrumblies.' },
+    { text: 'Whenever I hear a kind is getting thin on the ground, I pin it up there. Bring me the ones on the list and I’ll pay you extra. WAY extra.' },
+    { text: 'I only list scrumblies you’ve already scanned, so you know who you’re looking for. Go on, have a read!', act: () => { scrimState.boardOn = true; scrimBoard.visible = true; fillRequests(); saveGame(); } }
+  ], () => { scrimState.pendingUnlock = false; scrimState.boardOn = true; scrimBoard.visible = true; saveGame(); toast('Scrimple’s notice board is up! Read it for requests worth extra gold.'); }, 'scrim');
+}
+function openBoard() { openScrim('board', pick1(BOARD_HELLO)); }
+// the Professor has opinions about all this
+function profComplain() {
+  openDialog([
+    { text: 'Ribbit... You’ve met Scrimple Scrumple, haven’t you? I can smell the patchouli from here.' },
+    { text: 'That head-in-the-clouds hippy! Thinks every scrumbly secretly longs to sleep under the stars. Have you SEEN how they snuggle up in their little beds here?' },
+    { text: '“Free the scrumblies!” Hmph. Free to do what? Get sand in their dumplings? Be pecked by seagulls?' },
+    { text: 'We were students together, you know. He was always like this. Barefoot. In the LIBRARY.' },
+    { text: '...Well. Sell him whoever you like, dear, it’s your choice. Just don’t let him tell you they’re unhappy here. They’re not! Look at them!' }
+  ], () => { scrimState.profComplained = true; saveGame(); openBox(); });
+}
+
+/* ---------- the speaker in the dialogue box ---------- */
+let dlgWho = 'prof', profDlgPic = null;
+function setDialogSpeaker(who) {
+  dlgWho = who;
+  const pic = dlgEl.querySelector('.prof-pic'), name = dlgEl.querySelector('.dbody b');
+  if (profDlgPic === null) profDlgPic = pic.innerHTML;
+  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : profDlgPic;
+  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : 'Professor Loveopolis';
+  dlgEl.classList.toggle('scrim', who === 'scrim');
+}
+
+/* ---------- saving ---------- */
+function scrimSave() { return { met: scrimState.met, sold: scrimState.sold, boardOn: scrimState.boardOn, profComplained: scrimState.profComplained, requests: scrimState.requests.map(r => ({ species: r.species, kind: r.kind, n: r.n, reward: r.reward })) }; }
+function scrimLoad(o) {
+  o = o && typeof o === 'object' ? o : {};
+  scrimState.met = !!o.met; scrimState.sold = Math.max(0, Math.floor(+o.sold || 0)); scrimState.boardOn = !!o.boardOn; scrimState.profComplained = !!o.profComplained; scrimState.pendingUnlock = false;
+  scrimState.requests = (Array.isArray(o.requests) ? o.requests : []).filter(r => r && SCRIM_PLEAS[r.species] && REQ_KINDS.includes(r.kind) && r.n >= 1 && r.n <= 5 && isFinite(r.reward)).slice(0, 3)
+    .map(r => ({ id: reqSeq++, species: r.species, kind: r.kind, n: Math.floor(r.n), reward: Math.max(5, Math.floor(r.reward)) }));
+  scrimBoard.visible = scrimState.boardOn; guy.greeted = false;
+}
+
+/* ---------- every frame ---------- */
+function updateScrim(dt) {
+  goldEl.hidden = !playing || (!scrimState.met && gold === 0);
+  camp.visible = scrimHere();
+  if (!camp.visible) return;
+  const d = Math.hypot(player.x - GUY_X, player.z - GUY_Z);
+  const [pu, pv] = scrimLocal(player.x, player.z), [gu, gv] = SCRIM_SPOT.guy;
+  const want = d < 14 ? Math.atan2(pu - gu, pv - gv) : 0.5;
+  guy.face += angDiff(guy.face, want) * Math.min(1, dt * 3);
+  guy.root.rotation.y = guy.face;
+  guy.body.rotation.z = Math.sin(time * 1.3) * 0.05;                               // grooving gently to music only he can hear
+  guy.head.rotation.z = Math.sin(time * 1.3 + 0.6) * 0.08;
+  guy.head.position.y = 1.86 + Math.abs(Math.sin(time * 2.6)) * 0.03;
+  if (!guy.greeted && d < 16 && playing) {
+    guy.greeted = true; guy.wave = 2.2; scrimSfx.hello();
+    toast(scrimState.met ? 'Scrimple Scrumple: "Peace, friend! Come on over!"' : 'A tall purple frog-man by an orange tent is giving you a very suspicious look...');
+  }
+  if (guy.wave > 0) guy.wave -= dt;
+  if (guy.talk > 0) guy.talk -= dt;
+  const talking = (dialogOpen && dlgWho === 'scrim') || guy.talk > 0;
+  const [aL, aR] = guy.arms;
+  aR.rotation.z = guy.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.35 : talking ? 2.75 : 0.25 + Math.sin(time * 1.3) * 0.05;
+  aL.rotation.z = talking ? -0.6 - Math.sin(time * 5) * 0.25 : -0.25 - Math.sin(time * 1.3) * 0.05;
+  campFlames.forEach((f, i) => { f.scale.set(1 + Math.sin(time * 11 + i) * 0.08, 1 + Math.sin(time * 13 + i * 2) * 0.15 + Math.sin(time * 7.3) * 0.08, 1); });
+  guy.mark.visible = !scrimState.met;
+  if (guy.mark.visible) guy.mark.position.y = 3.15 + Math.abs(Math.sin(time * 3)) * 0.25;
+  boardMark.visible = scrimState.boardOn && anyRequestReady();
+  if (boardMark.visible) boardMark.position.y = 2.75 + Math.abs(Math.sin(time * 3)) * 0.2;
+  if (guy.tag) guy.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
 }
 
 /* ---------- swing input ---------- */
@@ -5427,6 +5989,7 @@ function tick(dt) {
   updateBeeappies(dt);
   updateBink(dt);
   updateRanch(dt);
+  updateScrim(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
   cullDecor();
@@ -5485,7 +6048,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
