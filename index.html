@@ -145,6 +145,9 @@
   .pslot .pname em { font-style: normal; font-weight: 700; color: var(--cream); padding: 0 5px; border-radius: 6px; }
   .pslot .pname em.big { background: #e59a2f; }
   .pslot .pname em.small { background: var(--lagoon); }
+  .pslot .pname em.shiny, .bcell .nm em.shiny { background: linear-gradient(90deg, #ffb703, #ff6fa5, #9b6bff); color: #fff; }
+  .pslot.shiny::after { content: '✦'; position: absolute; right: -4px; top: -6px; color: #ffb703; font-size: 1rem; text-shadow: 0 1px 0 #fff; }
+  #dexCard .rare.shiny { background: linear-gradient(90deg, #ffb703, #ff6fa5, #9b6bff); }
   .pslot.big .pic { width: 96%; height: 96%; }
   .pslot.small .pic { width: 54%; height: 54%; }
   #dexCard .rare { text-align: center; margin: 0 0 6px; font-family: var(--display); font-weight: 600; color: var(--cream); border-radius: 8px; padding: 2px 8px; }
@@ -1664,13 +1667,63 @@ function pickHome(awayFrom, minDist) {
 function setBoboAt(b, x, z) { b.x = x; b.z = z; b.y = heightAt(x, z); b.tx = x; b.tz = z; }
 /* ---------- rare sizes: about 1 in 20 is big, 1 in 20 is small ---------- */
 const SIZES = { big: { label: 'Big', scale: 1.65 }, small: { label: 'Small', scale: 0.55 } };
-function rollSize() { const r = Math.random(); return r < 0.05 ? 'big' : r < 0.10 ? 'small' : null; }
+function rollSize() { const r = Math.random(); return r < 0.08 ? 'big' : r < 0.16 ? 'small' : null; }   // 8% big, 8% small
+/* ---------- Shiny variants: about 1 in 40 scrumblies has its own special colours ---------- */
+const SHINY_RATE = 1 / 40;
+const rollShiny = () => Math.random() < SHINY_RATE;
+// per species: rotate the hue of coloured parts, and tint the white/grey parts
+const SHINY = {
+  bobo: { shift: 0, tint: 0.12, sat: 0.8, css: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.05)' },
+  mermiggly: { shift: 0.45, tint: 0.85, sat: 0.4, css: 'hue-rotate(160deg) saturate(1.2)' },
+  speshul: { shift: 0.5, tint: 0.62, sat: 0.35, css: 'hue-rotate(180deg) saturate(1.3)' },
+  pengin: { shift: 0.62, tint: 0.95, sat: 0.35, css: 'hue-rotate(225deg) saturate(1.4)' },
+  duckshark: { shift: 0, tint: 0.83, sat: 0.4, css: 'sepia(.5) hue-rotate(250deg) saturate(2.2)' },
+  weevil: { shift: 0.04, tint: 0.1, sat: 0.3, light: 1.6, css: 'brightness(1.5) saturate(1.3) hue-rotate(10deg)' },
+  beeappy: { shift: 0.52, tint: 0.62, sat: 0.35, css: 'hue-rotate(185deg) saturate(1.3)' }
+};
+const _hsl = {};
+function shinyColor(col, d) {
+  col.getHSL(_hsl);
+  if (_hsl.l < 0.09) return;                                    // leave black eyes and stripes alone
+  if (_hsl.s < 0.12) col.setHSL(d.tint, d.sat, Math.min(_hsl.l, 0.8));     // pure white would stay white, so pull it down a touch
+  else col.setHSL((_hsl.h + d.shift + 1) % 1, Math.min(1, _hsl.s * 1.1), Math.min(0.95, _hsl.l * (d.light || 1)));
+}
+// recolour a creature; remembers the originals so a respawned non-shiny can be put back
+function applyShiny(c, on, species) {
+  species = species || c.species;
+  on = !!on && !!SHINY[species];
+  if (!!c.shiny === on) return;
+  if (on) {
+    const d = SHINY[species], clones = new Map();
+    c.shinyBackup = [];
+    c.root.traverse(o => {
+      if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+      const ca = o.geometry.attributes.color;
+      if (o.material.vertexColors && ca) { c.shinyBackup.push({ attr: ca, arr: ca.array.slice() }); const t = new THREE.Color(); for (let i = 0; i < ca.count; i++) { t.setRGB(ca.getX(i), ca.getY(i), ca.getZ(i)); shinyColor(t, d); ca.setXYZ(i, t.r, t.g, t.b); } ca.needsUpdate = true; }
+      else if (o.material.color) {
+        let m2 = clones.get(o.material);
+        if (!m2) { m2 = o.material.clone(); shinyColor(m2.color, d); if (m2.emissive) shinyColor(m2.emissive, d); clones.set(o.material, m2); }
+        c.shinyBackup.push({ mesh: o, mat: o.material }); o.material = m2;
+      }
+    });
+    for (const [k, v] of Object.entries(c)) if (v && v.isMaterial && clones.has(v)) { c.shinyBackup.push({ key: k, mat: v }); c[k] = clones.get(v); }
+    if (c.furBase) { c.furBaseOrig = c.furBase.clone(); shinyColor(c.furBase, d); }
+    if (c.beeBase) { c.beeBaseOrig = c.beeBase.clone(); shinyColor(c.beeBase, d); }
+  } else {
+    for (const b of c.shinyBackup || []) { if (b.attr) { b.attr.array.set(b.arr); b.attr.needsUpdate = true; } else if (b.mesh) b.mesh.material = b.mat; else if (b.key) c[b.key] = b.mat; }
+    c.shinyBackup = null;
+    if (c.furBaseOrig) c.furBase.copy(c.furBaseOrig);
+    if (c.beeBaseOrig) c.beeBase.copy(c.beeBaseOrig);
+  }
+  c.shiny = on;
+}
+const shinyWord = sh => sh ? 'Shiny ' : '';
 function applySize(c, size) { c.size = size; c.s = size ? SIZES[size].scale : 1; c.root.scale.setScalar(c.s); }
 const sizeWord = size => size ? SIZES[size].label + ' ' : '';
 
 function newBobo(home) {
-  const b = Object.assign(compactCreature(makeBoboMesh()), { state: 'idle', t: 0, hx: home.x, hz: home.z, x: 0, y: 0, z: 0, tx: 0, tz: 0, wait: 1, hop: 0, face: Math.random() * 6.28, sink: 0, squeakT: 2 + Math.random() * 4, stunPhase: 0 });
-  applySize(b, rollSize());
+  const b = Object.assign(compactCreature(makeBoboMesh()), { species: 'bobo', state: 'idle', t: 0, hx: home.x, hz: home.z, x: 0, y: 0, z: 0, tx: 0, tz: 0, wait: 1, hop: 0, face: Math.random() * 6.28, sink: 0, squeakT: 2 + Math.random() * 4, stunPhase: 0 });
+  applySize(b, rollSize()); applyShiny(b, rollShiny());
   setBoboAt(b, home.x, home.z);
   bobos.push(b);
   return b;
@@ -1709,12 +1762,12 @@ function boboNoticesPlayer(b) {
 }
 function startBurrow(b) { setState(b, 'burrow'); b.ex.visible = false; sandPuff(b.x, b.z, 30); sfx.burrow(); }
 // shared catch: respects the party limit, names it, records it in the dex
-function catchScrumbly(species, size, ambush) {
+function catchScrumbly(species, size, ambush, shiny) {
   if (party.length >= PARTY_MAX) { sfx.wriggle(); toast('Your party is full! Leave some with Professor Loveopolis at the ranch before catching more.'); return false; }
   caughtCount++; sfx.caught();
   catchBurst();
   dexMarkCaught(species);
-  const p = addToParty(species, null, false, size);
+  const p = addToParty(species, null, false, size, shiny);
   tutOnCatch(p);
   const lead = ambush ? 'Ambush! ' : '';
   toast(party.length === 1 ? `${lead}You caught ${fullName(p)}! It's your partner now.` : `${lead}You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
@@ -1731,7 +1784,7 @@ function tryNetCatch() {
     if (!inNetZone(b.x, b.y, b.z)) continue;
     const surprised = ambush && (b.state === 'idle' || b.state === 'alert' || b.state === 'emerge' || (b.state === 'burrow' && b.t < 0.3));
     if (b.state === 'stunned' || surprised) {
-      if (catchScrumbly('bobo', b.size, surprised && b.state !== 'stunned')) { setState(b, 'caught'); got = true; }
+      if (catchScrumbly('bobo', b.size, surprised && b.state !== 'stunned', b.shiny)) { setState(b, 'caught'); got = true; }
       else { setState(b, 'idle'); startBurrow(b); }
     }
     else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free!'); startBurrow(b); }
@@ -1818,25 +1871,26 @@ function pickName() {
   const free = NAME_POOL.filter(n => !used.has(n));
   return free[Math.floor(Math.random() * free.length)] || 'Mystery';
 }
-const fullName = p => `${p.name} the ${sizeWord(p.size)}${SPECIES[p.species].name}`;
+const fullName = p => `${p.name} the ${shinyWord(p.shiny)}${sizeWord(p.size)}${SPECIES[p.species].name}`;
 
 const BOX_SIZE = 48;
 const boxSlots = new Array(BOX_SIZE).fill(null);
-function makeScrumbly(species, name, size) { return { species, name: name || pickName(), size: SIZES[size] ? size : null }; }
+function makeScrumbly(species, name, size, shiny) { return { species, name: name || pickName(), size: SIZES[size] ? size : null, shiny: !!shiny }; }
 function addToBox(p) { const i = boxSlots.indexOf(null); if (i < 0) return false; boxSlots[i] = p; return true; }
 function renderPartyHud(popIndex) {
   [...partyEl.children].forEach((el, i) => {
     const p = party[i], pn = el.querySelector('.pname');
+    el.classList.toggle('shiny', !!p && !!p.shiny); el.querySelector('.pic').style.filter = p && p.shiny && SHINY[p.species] ? SHINY[p.species].css : '';
     el.classList.toggle('filled', !!p); el.classList.remove('pop');
     el.classList.toggle('big', !!p && p.size === 'big'); el.classList.toggle('small', !!p && p.size === 'small');
     el.querySelector('.pic').innerHTML = p ? SPECIES[p.species].icon : '';
-    if (p) { pn.innerHTML = `<b></b> <span>the ${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em> ` : ''}${SPECIES[p.species].name}</span>`; pn.querySelector('b').textContent = p.name; }
+    if (p) { pn.innerHTML = `<b></b> <span>the ${p.shiny ? '<em class="shiny">Shiny</em> ' : ''}${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em> ` : ''}${SPECIES[p.species].name}</span>`; pn.querySelector('b').textContent = p.name; }
     else pn.innerHTML = '';
   });
   if (popIndex != null && partyEl.children[popIndex]) { const el = partyEl.children[popIndex]; void el.offsetWidth; el.classList.add('pop'); }
 }
-function addToParty(species, name, quiet, size) {
-  const p = makeScrumbly(species, name, size);
+function addToParty(species, name, quiet, size, shiny) {
+  const p = makeScrumbly(species, name, size, shiny);
   party.push(p);
   renderPartyHud(quiet ? null : party.length - 1);
   if (!quiet) saveGame();
@@ -1917,7 +1971,7 @@ function updateBobos(dt) {
       }
       case 'gone': {
         if (b.t > b.respawn) {
-          const h = pickHome(player, 22); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z); applySize(b, rollSize());
+          const h = pickHome(player, 22); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z); applySize(b, rollSize()); applyShiny(b, rollShiny());
           setState(b, 'emerge'); b.root.visible = true; sandPuff(b.x, b.z, 22);
         }
         break;
@@ -2052,8 +2106,8 @@ function waterSpot(cx, cz, rMin, rMax, dMin, dMax, awayFrom, awayDist) {
 }
 function shoreSpot(theta) { const [x, z] = polar(theta, -6 - Math.random() * 10); return { x, z }; }
 function newMerm(x, z) {
-  const m = Object.assign(compactCreature(makeMermMesh()), { x, z, face: Math.random() * 6.28, state: 'swim', t: 0, tx: x, tz: z, under: 0, lean: 0, rise: 0, splashT: 1, waveCD: 4 + Math.random() * 6, leap: -1, spin: 0, playT: 0, ribbitT: 3 + Math.random() * 5, red: 0 });
-  applySize(m, rollSize());
+  const m = Object.assign(compactCreature(makeMermMesh()), { species: 'mermiggly', furBase: new THREE.Color(FROG_GREEN), x, z, face: Math.random() * 6.28, state: 'swim', t: 0, tx: x, tz: z, under: 0, lean: 0, rise: 0, splashT: 1, waveCD: 4 + Math.random() * 6, leap: -1, spin: 0, playT: 0, ribbitT: 3 + Math.random() * 5, red: 0 });
+  applySize(m, rollSize()); applyShiny(m, rollShiny());
   pickSwimTarget(m);
   mermigglies.push(m);
   return m;
@@ -2170,7 +2224,7 @@ function updateMermigglies(dt) {
       case 'gone': {
         if (m.t > m.respawn) {
           const c = shoreSpot(Math.random() * 6.28), s = waterSpot(c.x, c.z, 0, 8, 0.4, 1.8, player, 30);
-          if (s) { m.x = s.x; m.z = s.z; m.red = 0; applySize(m, rollSize()); m.state = 'surface'; m.t = 0; m.root.visible = true; mermSplash(m, 14, 0.9, true); }
+          if (s) { m.x = s.x; m.z = s.z; m.red = 0; applySize(m, rollSize()); applyShiny(m, rollShiny()); m.state = 'surface'; m.t = 0; m.root.visible = true; mermSplash(m, 14, 0.9, true); }
           else m.t = m.respawn - 2;
         }
         break;
@@ -2220,7 +2274,7 @@ function updateMermigglies(dt) {
     if (armMad) { aR.rotation.set(-0.3, 0, 2.6 + Math.sin(m.t * 22) * 0.25); aL.rotation.set(0, 0, -0.9); }
     else if (armWave) { aR.rotation.set(0, 0, 2.5 + Math.sin(m.t * 9) * 0.45); aL.rotation.set(0, 0, -0.45); }
     else { const p = Math.sin(time * (speed > 0 ? 6 : 2.2) + m.tz) * (speed > 0 ? 0.6 : 0.2); aL.rotation.set(p, 0, -0.55); aR.rotation.set(-p, 0, 0.55); }
-    m.fur.color.setHex(FROG_GREEN).lerp(MERM_CROSS, m.red * 0.75);
+    m.fur.color.copy(m.furBase).lerp(MERM_CROSS, m.red * 0.75);
   }
 }
 // rocks thrown at a Mermiggly just make it cross
@@ -2304,8 +2358,8 @@ function freeTree(near, rMin, rMax, awayFrom, except) {
   return best;
 }
 function newSpeshul(p) {
-  const m = Object.assign(compactCreature(makeSpeshulMesh()), { state: 'perch', t: 0, x: 0, y: 0, z: 0, face: 0, vy: 0, chatter: 2 + Math.random() * 5, look: 0, panicT: 0, tx: 0, tz: 0, retarget: 0, stunPhase: 0 });
-  applySize(m, rollSize());
+  const m = Object.assign(compactCreature(makeSpeshulMesh()), { species: 'speshul', state: 'perch', t: 0, x: 0, y: 0, z: 0, face: 0, vy: 0, chatter: 2 + Math.random() * 5, look: 0, panicT: 0, tx: 0, tz: 0, retarget: 0, stunPhase: 0 });
+  applySize(m, rollSize()); applyShiny(m, rollShiny());
   perchAt(m, p, Math.random() * Math.PI * 2);
   speshuls.push(m);
   return m;
@@ -2352,7 +2406,7 @@ function netSpeshuls() {
   for (const m of speshuls) {
     if (!m.root.visible || !(m.state === 'dazed' || m.state === 'panic')) continue;
     if (!inNetZone(m.x, m.y, m.z)) continue;
-    if (catchScrumbly('speshul', m.size)) { m.state = 'caught'; m.t = 0; got = true; }
+    if (catchScrumbly('speshul', m.size, false, m.shiny)) { m.state = 'caught'; m.t = 0; got = true; }
   }
   return got;
 }
@@ -2439,7 +2493,7 @@ function updateSpeshuls(dt) {
         break;
       }
       case 'gone': {
-        if (m.t > m.respawn) { const p = freeTree(null, 0, 0, player, m); if (p && Math.hypot(p.x - player.x, p.z - player.z) > 25) { applySize(m, rollSize()); perchAt(m, p, Math.random() * 6.28); m.state = 'perch'; m.t = 0; m.root.visible = true; m.body.scale.setScalar(1); } else m.t = m.respawn - 3; }
+        if (m.t > m.respawn) { const p = freeTree(null, 0, 0, player, m); if (p && Math.hypot(p.x - player.x, p.z - player.z) > 25) { applySize(m, rollSize()); applyShiny(m, rollShiny()); perchAt(m, p, Math.random() * 6.28); m.state = 'perch'; m.t = 0; m.root.visible = true; m.body.scale.setScalar(1); } else m.t = m.respawn - 3; }
         break;
       }
     }
@@ -2540,8 +2594,8 @@ const pengins = [];
 const nearestNook = (x, z) => nooks.reduce((a, n) => (!a || Math.hypot(n.x - x, n.z - z) < Math.hypot(a.x - x, a.z - z) ? n : a), null);
 function penginSpotOK(x, z) { return boboSpotOK(x, z) && nooks.every(n => Math.hypot(n.x - x, n.z - z) > 2.2); }
 function newPengin(n) {
-  const q = Object.assign(compactCreature(makePenginMesh()), { state: 'waddle', t: 0, home: n, x: n.ex, z: n.ez, y: 0, face: Math.random() * 6.28, tx: n.ex, tz: n.ez, wait: 1, phase: Math.random() * 6, peepT: 2 + Math.random() * 6, nook: null });
-  applySize(q, rollSize()); q.y = heightAt(q.x, q.z);
+  const q = Object.assign(compactCreature(makePenginMesh()), { species: 'pengin', state: 'waddle', t: 0, home: n, x: n.ex, z: n.ez, y: 0, face: Math.random() * 6.28, tx: n.ex, tz: n.ez, wait: 1, phase: Math.random() * 6, peepT: 2 + Math.random() * 6, nook: null });
+  applySize(q, rollSize()); applyShiny(q, rollShiny()); q.y = heightAt(q.x, q.z);
   pengins.push(q);
   return q;
 }
@@ -2623,7 +2677,7 @@ function updatePengins(dt) {
       case 'gone': {
         if (q.t > q.respawn) {
           const free = nooks.filter(n => Math.hypot(n.x - player.x, n.z - player.z) > 25 && !pengins.some(o => o !== q && o.home === n));
-          if (free.length) { const n = free[Math.floor(Math.random() * free.length)]; q.home = q.nook = n; applySize(q, rollSize()); q.state = 'emerge'; q.t = 0; q.root.visible = true; q.body.scale.setScalar(1); }
+          if (free.length) { const n = free[Math.floor(Math.random() * free.length)]; q.home = q.nook = n; applySize(q, rollSize()); applyShiny(q, rollShiny()); q.state = 'emerge'; q.t = 0; q.root.visible = true; q.body.scale.setScalar(1); }
           else q.t = q.respawn - 3;
         }
         break;
@@ -2705,8 +2759,8 @@ function makeDucksharkMesh() {
 const DUCKSHARK_COUNT = 4, SHARK_SEE = 13, SHARK_MIN_DEPTH = 0.14;
 const ducksharks = [];
 function newDuckshark(x, z) {
-  const d = Object.assign(compactCreature(makeDucksharkMesh()), { x, z, face: Math.random() * 6.28, state: 'float', t: 0, tx: x, tz: z, wait: 1, quackT: 3 + Math.random() * 5, dabble: 0, jawOpen: 0, stunPhase: 0, lunge: 0 });
-  applySize(d, rollSize());
+  const d = Object.assign(compactCreature(makeDucksharkMesh()), { species: 'duckshark', x, z, face: Math.random() * 6.28, state: 'float', t: 0, tx: x, tz: z, wait: 1, quackT: 3 + Math.random() * 5, dabble: 0, jawOpen: 0, stunPhase: 0, lunge: 0 });
+  applySize(d, rollSize()); applyShiny(d, rollShiny());
   ducksharks.push(d);
   return d;
 }
@@ -2742,7 +2796,7 @@ function netDucksharks() {
   let got = false;
   for (const d of ducksharks) {
     if (!d.root.visible || d.state !== 'stunned' || !inNetZone(d.x, player.y, d.z)) continue;
-    if (catchScrumbly('duckshark', d.size)) { d.state = 'caught'; d.t = 0; got = true; }
+    if (catchScrumbly('duckshark', d.size, false, d.shiny)) { d.state = 'caught'; d.t = 0; got = true; }
   }
   return got;
 }
@@ -2809,7 +2863,7 @@ function updateDucksharks(dt) {
       case 'gone': {
         if (d.t > d.respawn) {
           const c = shoreSpot(Math.random() * 6.28), s = waterSpot(c.x, c.z, 0, 10, 0.7, 2.2, player, 30);
-          if (s) { d.x = d.tx = s.x; d.z = d.tz = s.z; applySize(d, rollSize()); d.body.scale.setScalar(1); d.state = 'float'; d.t = 0; d.root.visible = true; splash(d.x, d.z, 12, 0.8); }
+          if (s) { d.x = d.tx = s.x; d.z = d.tz = s.z; applySize(d, rollSize()); applyShiny(d, rollShiny()); d.body.scale.setScalar(1); d.state = 'float'; d.t = 0; d.root.visible = true; splash(d.x, d.z, 12, 0.8); }
           else d.t = d.respawn - 3;
         }
         break;
@@ -2911,8 +2965,8 @@ for (let i = 0; i < WEEVIL_COUNT; i++) {
     m4.makeTranslation(x, heightAt(x, z) + 0.02, z); paws.setMatrixAt(k, m4);
   }
   paws.renderOrder = 1; scene.add(paws);
-  const w = Object.assign(compactCreature(makeWeevilMesh()), { track: tr, u: Math.random(), state: 'run', t: 0, x: 0, y: 0, z: 0, face: 0, cross: 0, yapT: 2 + Math.random() * 4, run: 0 });
-  applySize(w, rollSize());
+  const w = Object.assign(compactCreature(makeWeevilMesh()), { species: 'weevil', track: tr, u: Math.random(), state: 'run', t: 0, x: 0, y: 0, z: 0, face: 0, cross: 0, yapT: 2 + Math.random() * 4, run: 0 });
+  applySize(w, rollSize()); applyShiny(w, rollShiny());
   weevils.push(w);
 }
 const weevilSfx = {
@@ -2961,7 +3015,7 @@ function updateWeevils(dt) {
         break;
       }
       case 'gone': {
-        if (w.t > w.respawn && Math.hypot(player.x - w.track.cx, player.z - w.track.cz) > 22) { applySize(w, rollSize()); w.body.scale.setScalar(1); w.state = 'run'; w.t = 0; w.root.visible = true; }
+        if (w.t > w.respawn && Math.hypot(player.x - w.track.cx, player.z - w.track.cz) > 22) { applySize(w, rollSize()); applyShiny(w, rollShiny()); w.body.scale.setScalar(1); w.state = 'run'; w.t = 0; w.root.visible = true; }
         break;
       }
     }
@@ -3014,8 +3068,8 @@ const BEE_COUNT = 4, BEE_LOW = 1.0, BEE_HIGH = 6.0, BEE_PERIOD = 12;
 const beeappies = [];
 function beeGround(x, z) { return Math.max(heightAt(x, z), water.position.y); }
 function newBeeappy(x, z) {
-  const b = Object.assign(compactCreature(makeBeeappyMesh()), { x, z, hx: x, hz: z, y: 0, tx: x, tz: z, face: Math.random() * 6.28, state: 'drift', t: 0, phase: Math.random() * 6.28, buzzT: Math.random() * 2, red: 0, wait: 0 });
-  applySize(b, rollSize());
+  const b = Object.assign(compactCreature(makeBeeappyMesh()), { species: 'beeappy', beeBase: new THREE.Color(0xffd21f), x, z, hx: x, hz: z, y: 0, tx: x, tz: z, face: Math.random() * 6.28, state: 'drift', t: 0, phase: Math.random() * 6.28, buzzT: Math.random() * 2, red: 0, wait: 0 });
+  applySize(b, rollSize()); applyShiny(b, rollShiny());
   b.y = beeGround(x, z) + 3;
   beeappies.push(b);
   return b;
@@ -3057,7 +3111,7 @@ function netBeeappies() {
   let got = false;
   for (const b of beeappies) {
     if (!b.root.visible || !['drift', 'angry', 'calm'].includes(b.state) || !beeInNet(b)) continue;
-    if (catchScrumbly('beeappy', b.size)) { b.state = 'caught'; b.t = 0; got = true; }
+    if (catchScrumbly('beeappy', b.size, false, b.shiny)) { b.state = 'caught'; b.t = 0; got = true; }
   }
   return got;
 }
@@ -3100,7 +3154,7 @@ function updateBeeappies(dt) {
         break;
       }
       case 'gone': {
-        if (b.t > b.respawn && Math.hypot(player.x - b.hx, player.z - b.hz) > 25) { applySize(b, rollSize()); b.body.scale.setScalar(1); b.red = 0; b.x = b.hx; b.z = b.hz; b.y = beeGround(b.x, b.z) + 5; b.state = 'drift'; b.t = 0; b.root.visible = true; }
+        if (b.t > b.respawn && Math.hypot(player.x - b.hx, player.z - b.hz) > 25) { applySize(b, rollSize()); applyShiny(b, rollShiny()); b.body.scale.setScalar(1); b.red = 0; b.x = b.hx; b.z = b.hz; b.y = beeGround(b.x, b.z) + 5; b.state = 'drift'; b.t = 0; b.root.visible = true; }
         break;
       }
     }
@@ -3109,7 +3163,7 @@ function updateBeeappies(dt) {
     if (!b.root.visible) continue;
     b.buzzT -= dt; if (b.buzzT <= 0 && b.state !== 'angry') { b.buzzT = 1.6 + Math.random(); beeSfx.buzz(clamp(1 - Math.hypot(near, b.y - player.y) / 18, 0, 1)); }
     b.red = clamp(b.red + (b.state === 'angry' ? dt * 3 : -dt * 0.6), 0, 1);
-    b.yellow.color.copy(BEE_YELLOW).lerp(BEE_RED, b.red * 0.85);
+    b.yellow.color.copy(b.beeBase).lerp(BEE_RED, b.red * 0.85);
     b.mad.visible = b.state === 'angry';
     b.root.position.set(b.x, b.y + Math.sin(time * 3 + b.hx) * 0.08, b.z);
     b.root.rotation.set(0, b.face, 0);
@@ -3690,19 +3744,19 @@ function startScan() {
   scan = { target: scanTarget, t: 0 }; sfx.dexScan();
 }
 function finishScan() {
-  const id = scan.target.id, isNew = !dexState.scanned.has(id), scan_size = scan.target.o.size;
+  const id = scan.target.id, isNew = !dexState.scanned.has(id), scan_size = scan.target.o.size, scan_shiny = scan.target.o.shiny;
   dexState.scanned.add(id); scan = null; saveGame();
   tutCheck();
-  sfx.dexDone(isNew); showDexCard(id, isNew, scan_size);
+  sfx.dexDone(isNew); showDexCard(id, isNew, scan_size, scan_shiny);
 }
 
 /* ---------- info card after a scan ---------- */
 const cardEl = document.getElementById('dexCard');
 let cardTimer = 0;
-function showDexCard(id, isNew, size) {
+function showDexCard(id, isNew, size, shiny) {
   const s = SPECIES[id];
   cardEl.innerHTML = `<header><span class="num">#${pad3(s.num)}</span><h3>${s.name}</h3>${isNew ? '<span class="new">NEW!</span>' : ''}${dexState.caught.has(id) ? '<span class="got">Caught</span>' : ''}</header>
-    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>${size ? `<p class="rare ${size}">${size === 'big' ? 'Whoa! This one is unusually BIG.' : 'Aww! This one is unusually small.'} Rare!</p>` : ''}
+    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>${shiny ? '<p class="rare shiny">A Shiny one! Incredibly rare!</p>' : ''}${size ? `<p class="rare ${size}">${size === 'big' ? 'Whoa! This one is unusually BIG.' : 'Aww! This one is unusually small.'} Rare!</p>` : ''}
     <h4>Did you know?</h4><p>${s.fact}</p><h4>Catching tip</h4><p>${s.hint}</p><footer><kbd>Tab</kbd>open Scrumblydex</footer>`;
   cardEl.hidden = false; cardEl.classList.remove('in'); void cardEl.offsetWidth; cardEl.classList.add('in');
   clearTimeout(cardTimer); cardTimer = setTimeout(() => cardEl.classList.remove('in'), 9000);
@@ -3789,7 +3843,7 @@ function updateDex(dt) {
     scanEl.hidden = false; scanEl.classList.toggle('scanning', !!scan);
     scanEl.style.width = scanEl.style.height = size + 'px';
     scanEl.style.transform = `translate(${(_sp.x * 0.5 + 0.5) * innerWidth}px, ${(-_sp.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -50%)`;
-    scanLabel.textContent = scan ? 'Scanning…' : (dexState.scanned.has(t.id) ? sizeWord(t.o.size) + SPECIES[t.id].name : '???');
+    scanLabel.textContent = scan ? 'Scanning…' : (dexState.scanned.has(t.id) ? shinyWord(t.o.shiny) + sizeWord(t.o.size) + SPECIES[t.id].name : '???');
     scanEl.style.setProperty('--p', scan ? Math.min(1, scan.t / SCAN_T) : 0);
   } else scanEl.hidden = true;
 }
@@ -4073,7 +4127,7 @@ function refreshResidents() {
   residents = pool.map(p => {
     const water = p.species === 'mermiggly' || p.species === 'duckshark';
     const c = makeSpeciesMesh(p.species);
-    applySize(c, p.size);
+    applySize(c, p.size); applyShiny(c, p.shiny, p.species);
     const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = (water ? 1.5 : 1.15);
     tag.scale.multiplyScalar(1 / c.s);
     const [u, v] = penSpot(water);
@@ -4136,7 +4190,7 @@ const cellGet = c => c.area === 'party' ? (party[c.i] || null) : boxSlots[c.i];
 const sameCell = (a, b) => a && b && a.area === b.area && a.i === b.i;
 function cellHtml(p, partner) {
   return (partner ? '<span class="tag">PARTNER</span>' : '') + (p
-    ? `<span class="ic ${p.size || ''}">${SPECIES[p.species].icon}</span><span class="nm"><b></b>${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em>` : ''}<i>${SPECIES[p.species].name}</i></span>`
+    ? `<span class="ic ${p.size || ''}" style="${p.shiny && SHINY[p.species] ? 'filter:' + SHINY[p.species].css : ''}">${SPECIES[p.species].icon}</span><span class="nm"><b></b>${p.shiny ? '<em class="shiny">Shiny</em>' : ''}${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em>` : ''}<i>${SPECIES[p.species].name}</i></span>`
     : '<span class="empty"></span>');
 }
 function renderBox() {
@@ -4258,7 +4312,7 @@ function syncPartner() {
   if (!p) return;
   const water = p.species === 'mermiggly';
   const c = makeSpeciesMesh(p.species);
-  applySize(c, p.size);
+  applySize(c, p.size); applyShiny(c, p.shiny, p.species);
   const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = water ? 1.5 : 1.15; tag.scale.multiplyScalar(1 / c.s);
   // appear just behind you with a little puff
   const x = old ? old.x : player.x - fwd.x * 2, z = old ? old.z : player.z - fwd.z * 2;
@@ -4462,7 +4516,7 @@ function releaseTrap(t, escaped, quiet) {
 }
 function collectTrapped(t) {
   const c = t.occupant;
-  if (!catchScrumbly(c.id, c.o.size)) return false;
+  if (!catchScrumbly(c.id, c.o.size, false, c.o.shiny)) return false;
   if (c.id === 'bobo') setState(c.o, 'caught'); else { c.o.state = 'caught'; c.o.t = 0; }
   t.occupant = null; t.state = 'open'; t.t = 0;
   return true;
@@ -4514,7 +4568,7 @@ function updateTraps(dt) {
    Save & load: autosave, three slots, save files, pause menu
    ========================================================= */
 const TRAP_TOTAL = 3;
-const packP = p => p && { species: p.species, name: p.name, size: p.size || null };
+const packP = p => p && { species: p.species, name: p.name, size: p.size || null, shiny: !!p.shiny };
 function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
@@ -4525,7 +4579,7 @@ function snapshot() {
     music: musicOn
   };
 }
-const unpackP = p => p && SPECIES[p.species] && p.name ? makeScrumbly(p.species, String(p.name).slice(0, 40), p.size) : null;
+const unpackP = p => p && SPECIES[p.species] && p.name ? makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny) : null;
 function setRockCount(n) {
   const held = rocks.filter(r => r.state === 'inv');
   while (held.length > n) {
@@ -4788,7 +4842,7 @@ const WELCOME_SPECIES = {
 function showTitlePartner() {
   const s = readSave(SAVE_KEY), p = s && Array.isArray(s.party) && unpackP(s.party[0]);
   if (!p) return;
-  const c = makeSpeciesMesh(p.species); applySize(c, p.size);
+  const c = makeSpeciesMesh(p.species); applySize(c, p.size); applyShiny(c, p.shiny, p.species);
   titleScene.add(c.root);                                   // move it out of the island into the title overlay
   const base = c.s > 1.2 ? 0.75 : c.s < 0.8 ? 1.25 : 1;
   titlePal = { c, p, base, hop: 0, next: 1.5 };
@@ -5058,6 +5112,19 @@ function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
 }
+// wild shinies glitter now and then, and the first time you get near one you hear about it
+let shinySeen = new WeakSet();
+function shinyAura(dt) {
+  if (!playing) return;
+  for (const list of CREATURE_LISTS) for (const c of list) {
+    if (!c.shiny || !c.root.visible || !c.body || !c.body.visible || c.state === 'caught') continue;
+    const d = Math.hypot(c.root.position.x - player.x, c.root.position.z - player.z);
+    if (d > 40) continue;
+    c.glint = (c.glint || 0) - dt;
+    if (c.glint <= 0) { c.glint = 0.35 + Math.random() * 0.4; const p = c.root.position; spawnSparkle(p.x + (Math.random() - 0.5) * 0.8 * c.s, p.y + (0.3 + Math.random() * 0.6) * c.s, p.z + (Math.random() - 0.5) * 0.8 * c.s); }
+    if (d < 22 && !shinySeen.has(c)) { shinySeen.add(c); toast(`Ooh! That name is sparkling... a Shiny one!`); sfx.dexDone(true); }
+  }
+}
 // adaptive resolution: drop the render scale a notch if frames run long, raise it again when there's headroom
 let perfAcc = 0, perfFrames = 0, perfCool = 3;
 function adaptResolution(rawDt) {
@@ -5097,6 +5164,7 @@ function tick(dt) {
   updateSparkles(dt);
   cullDecor();
   cullCreatures();
+  shinyAura(dt);
   updateTutorial(dt);
   updateTraps(dt);
   updateRocks(dt);
@@ -5151,6 +5219,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, renderer, scene, weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, renderer, scene, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
