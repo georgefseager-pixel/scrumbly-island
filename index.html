@@ -187,6 +187,49 @@
   .dex-foot { color: var(--cream); font-weight: 700; font-size: .8rem; text-align: center; }
   .dex-foot kbd { background: rgba(0,0,0,.25); }
   @media (max-width: 720px) { .dex-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } .dex-grid { grid-template-columns: repeat(4, 1fr); } .dex-detail { max-height: 40vh; } }
+  /* Professor Loveopolis's Box */
+  #box { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(44,37,82,.45); padding: 16px; }
+  .box-shell { width: min(940px, 100%); height: min(640px, calc(100vh - 32px)); display: grid; grid-template-rows: auto 1fr auto; gap: 12px;
+               background: #8fcf6f; border-radius: 28px; padding: 14px 16px 12px; box-shadow: inset 0 -8px 0 #5f9e45, inset 0 4px 0 #b6e69c, 0 18px 40px rgba(44,37,82,.4); }
+  .box-top { display: flex; align-items: center; gap: 12px; }
+  .prof-pic { flex: none; width: 74px; height: 74px; border-radius: 50%; background: #fff3a8; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #5f9e45; display: grid; place-items: center; }
+  .prof-pic svg { width: 88%; height: 88%; }
+  .speech { position: relative; flex: 1; background: var(--cream); border-radius: 18px; padding: 8px 14px; font-weight: 700; line-height: 1.35; min-height: 52px; box-shadow: 0 3px 0 rgba(44,37,82,.18); }
+  .speech::before { content: ''; position: absolute; left: -10px; top: 22px; border: 10px solid transparent; border-right-color: var(--cream); border-left: 0; }
+  .speech b { display: block; font-family: var(--display); font-weight: 600; color: #5f9e45; font-size: .82rem; }
+  .speech span.say { animation: pop .4s; display: inline-block; }
+  #boxClose { border: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--cream); color: #5f9e45; font-size: 1rem; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 #5f9e45; align-self: flex-start; }
+  .box-body { display: grid; grid-template-columns: minmax(200px, 250px) 1fr; gap: 14px; min-height: 0; }
+  .box-body section { background: #f6ecd8; border-radius: 16px; padding: 10px; min-height: 0; display: grid; grid-template-rows: auto 1fr; box-shadow: inset 0 0 0 4px #c99566; }
+  .box-body h3 { margin: 0 0 8px; font-family: var(--display); font-size: 1.1rem; color: #7a4a24; }
+  .box-body h3 span { font-size: .85rem; color: rgba(122,74,36,.7); }
+  #boxParty { display: grid; gap: 8px; align-content: start; }
+  .box-store .box-grid { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 70px; gap: 8px; overflow-y: auto; align-content: start; padding: 4px; min-height: 0; }
+  .bcell { position: relative; border: 0; border-radius: 12px; background: rgba(201,149,102,.25); cursor: pointer; padding: 4px; font-family: var(--display); color: var(--ink);
+           display: grid; place-items: center; min-height: 58px; transition: transform .1s; }
+  .box-grid .bcell { min-height: 0; height: 70px; }
+  #boxParty .bcell { grid-template-columns: 52px 1fr; justify-items: start; text-align: left; gap: 8px; padding: 6px 8px; height: 66px; }
+  #boxParty .bcell.partner { margin-top: 10px; box-shadow: inset 0 0 0 3px #ffd23f; }
+  .bcell.has { background: var(--cream); box-shadow: 0 3px 0 rgba(122,74,36,.25); }
+  #boxParty .bcell.partner.has { background: #fff3a8; box-shadow: inset 0 0 0 3px #ffd23f, 0 3px 0 #e59a2f; }
+  .bcell.cur { outline: 3px solid var(--pink); outline-offset: 1px; z-index: 1; }
+  .bcell.held { transform: translateY(-4px) rotate(-3deg); background: #ffd6e6; box-shadow: 0 0 0 3px var(--pink), 0 6px 0 var(--pink-deep); }
+  .bcell .tag { position: absolute; top: -9px; left: 10px; font-weight: 700; font-size: .6rem; letter-spacing: .08em; background: var(--pink); color: var(--cream); padding: 1px 7px; border-radius: 7px; }
+  .bcell .ic { width: 46px; height: 46px; display: grid; place-items: center; }
+  .box-grid .bcell .ic { width: 82%; height: 82%; }
+  .bcell .ic svg { width: 100%; height: 100%; }
+  .bcell .ic.big svg { transform: scale(1.12); } .bcell .ic.small svg { transform: scale(.62); }
+  .bcell .nm { display: grid; font-size: .8rem; line-height: 1.15; }
+  .bcell .nm b { font-weight: 700; }
+  .bcell .nm i { font-style: normal; color: rgba(44,37,82,.6); font-size: .74rem; }
+  .bcell .nm em { font-style: normal; font-size: .62rem; font-weight: 700; color: var(--cream); padding: 0 5px; border-radius: 5px; width: fit-content; }
+  .bcell .nm em.big { background: #e59a2f; } .bcell .nm em.small { background: var(--lagoon); }
+  .box-grid .bcell .nm { display: none; }
+  .box-grid .bcell.has:hover .nm, .box-grid .bcell.cur .nm { display: none; }
+  .bcell .empty { width: 40%; aspect-ratio: 1; border-radius: 50%; border: 2px dashed rgba(122,74,36,.25); }
+  .box-foot { color: #2f5a20; font-weight: 700; font-size: .85rem; text-align: center; min-height: 1.3em; }
+  .box-foot kbd { background: #3f6b30; }
+  @media (max-width: 720px) { .box-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } #boxParty { grid-template-columns: repeat(5, 1fr); } #boxParty .bcell { grid-template-columns: 1fr; height: auto; } #boxParty .bcell .nm { display: none; } }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
@@ -235,6 +278,20 @@
       <div class="dex-detail" id="dexDetail"></div>
     </div>
     <div class="dex-foot"><kbd>Arrows</kbd>browse · <kbd>Tab</kbd>/<kbd>Esc</kbd>close · Controller: d-pad browse, <kbd>B</kbd> close</div>
+  </div>
+</div>
+<div id="box" hidden>
+  <div class="box-shell" role="dialog" aria-label="Professor Loveopolis's Box">
+    <div class="box-top">
+      <span class="prof-pic"><svg viewBox="0 0 64 64"><circle cx="16" cy="18" r="9" fill="#8fcf6f"/><circle cx="48" cy="18" r="9" fill="#8fcf6f"/><ellipse cx="32" cy="32" rx="27" ry="19" fill="#8fcf6f"/><circle cx="17" cy="18" r="6.5" fill="none" stroke="#c9a227" stroke-width="2"/><circle cx="47" cy="18" r="6.5" fill="none" stroke="#c9a227" stroke-width="2"/><path d="M23.5 18h17" stroke="#c9a227" stroke-width="1.6"/><circle cx="17" cy="18" r="3" fill="#1d1b22"/><circle cx="47" cy="18" r="3" fill="#1d1b22"/><path d="M12 33 Q32 41 52 33" stroke="#3f6b30" stroke-width="2.4" fill="none" stroke-linecap="round"/><g fill="#f4f1ea" stroke="#ddd6cb" stroke-width="1"><circle cx="32" cy="45" r="9"/><circle cx="22" cy="43" r="7"/><circle cx="42" cy="43" r="7"/><circle cx="27" cy="52" r="7"/><circle cx="37" cy="52" r="7"/><circle cx="32" cy="58" r="5.5"/></g></svg></span>
+      <div class="speech"><b>Professor Loveopolis</b><span id="boxSpeech"></span></div>
+      <button id="boxClose" aria-label="Close">✕</button>
+    </div>
+    <div class="box-body">
+      <section class="box-party"><h3>Party</h3><div id="boxParty"></div></section>
+      <section class="box-store"><h3>The Box <span id="boxCount"></span></h3><div class="box-grid" id="boxGrid"></div></section>
+    </div>
+    <div class="box-foot" id="boxFoot"></div>
   </div>
 </div>
 <div id="hotbar" hidden></div>
@@ -509,6 +566,15 @@ const palmMat = vcLambert({ side: THREE.DoubleSide });
 const trunkMat = vcLambert();
 const palms = [];
 const spawnTheta = 0.4, [spawnX, spawnZ] = polar(spawnTheta, 26);
+/* Professor Loveopolis's ranch: a hut + fenced pen on the beach, near the start.
+   Local frame: u runs along the shore, v points out to sea. */
+const RANCH_TH = spawnTheta - 0.1, RANCH_D = 34;
+const [RANCH_X, RANCH_Z] = polar(RANCH_TH, RANCH_D);
+const RANCH_OUT = [Math.cos(RANCH_TH), Math.sin(RANCH_TH)], RANCH_SIDE = [Math.sin(RANCH_TH), -Math.cos(RANCH_TH)], RANCH_YAW = Math.PI / 2 - RANCH_TH;
+const RANCH_R = 14;
+const inRanchZone = (x, z, pad = 0) => Math.hypot(x - RANCH_X, z - RANCH_Z) < RANCH_R + pad;
+const ranchWorld = (u, v) => [RANCH_X + RANCH_SIDE[0] * u + RANCH_OUT[0] * v, RANCH_Z + RANCH_SIDE[1] * u + RANCH_OUT[1] * v];
+const ranchLocal = (x, z) => { const dx = x - RANCH_X, dz = z - RANCH_Z; return [dx * RANCH_SIDE[0] + dz * RANCH_SIDE[1], dx * RANCH_OUT[0] + dz * RANCH_OUT[1]]; };
 
 function makePalm(x, z, outward, scale = 1) {
   const H = rr(7, 11) * scale, lean = rr(1.5, 4.2) * scale, N = 11;
@@ -556,6 +622,7 @@ function trunkAt(p, wy, out) {
     if (d < 6 || d > 66) continue;
     const [x, z] = polar(theta, d);
     if (Math.hypot(x - spawnX, z - spawnZ) < 8) continue;
+    if (inRanchZone(x, z, 3)) continue;
     if (spots.some(s => Math.hypot(s[0] - x, s[1] - z) < 6.5)) continue;
     spots.push([x, z, theta]);
   }
@@ -615,6 +682,7 @@ function scatterOnBeach(count, dMin, dMax, bias = 1) {
   const out = [];
   for (let i = 0; i < count; i++) {
     const th = rr(0, Math.PI * 2), d = dMin + Math.pow(rand(), bias) * (dMax - dMin), [x, z] = polar(th, d);
+    if (inRanchZone(x, z, 1)) continue;
     out.push({ x, z, y: heightAt(x, z), d });
   }
   return out;
@@ -968,6 +1036,9 @@ const sfx = {
   dexTick() { if (!actx) return; tone(actx.currentTime, 1500, 1500, 0.025, 0.035, 'square'); },
   dexOpen() { if (!actx) return; const t = actx.currentTime; tone(t, 600, 1200, 0.1, 0.06, 'triangle'); tone(t + 0.08, 900, 1600, 0.1, 0.05, 'triangle'); },
   dexClose() { if (!actx) return; const t = actx.currentTime; tone(t, 1200, 600, 0.1, 0.05, 'triangle'); }
+  ,
+  love(v) { if (!actx) return; const t = actx.currentTime; tone(t, 620, 980, 0.13, 0.05 * v, 'sine'); tone(t + 0.15, 1000, 740, 0.22, 0.045 * v, 'sine'); tone(t + 0.15, 2000, 1480, 0.18, 0.012 * v, 'sine'); },
+  profHello() { if (!actx) return; const t = actx.currentTime; tone(t, 150, 120, 0.16, 0.12, 'square'); tone(t + 0.2, 180, 230, 0.22, 0.11, 'square'); tone(t + 0.2, 360, 460, 0.22, 0.03, 'sine'); }
 };
 function sfxClimbStep() { if (!actx) return; noiseHit(actx.currentTime, 'bandpass', 1500 + Math.random() * 700, 0.1, 0.07, sfxBus, 1.8); }
 function sfxSplash() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 1800, 0.35, 0.45, sfxBus, 0.4); noiseHit(t + 0.05, 'bandpass', 3000, 0.1, 0.25, sfxBus, 1); }
@@ -1006,7 +1077,11 @@ function pollPad() {
   pad.run = b(10) || b(6) || Math.hypot(pad.mx, pad.my) > 0.95; // L3 / LT / full tilt
   const now = gp.buttons.map(x => x.pressed);
   const tap = i => now[i] && !pad.prev[i];
-  if (playing && dexOpen) {                           // browsing the Scrumblydex list
+  if (playing && boxOpen) {                           // shuffling scrumblies in the Box
+    if (tap(1) || tap(9)) closeBox();
+    if (tap(0)) boxActivate();
+    if (tap(12)) boxMove(0, -1); if (tap(13)) boxMove(0, 1); if (tap(14)) boxMove(-1, 0); if (tap(15)) boxMove(1, 0);
+  } else if (playing && dexOpen) {                    // browsing the Scrumblydex list
     if (tap(1) || tap(3) || tap(9)) closeDex();
     if (tap(12)) dexMove(0, -1); if (tap(13)) dexMove(0, 1); if (tap(14)) dexMove(-1, 0); if (tap(15)) dexMove(1, 0);
     const sy = ax[1] || 0, sx = ax[0] || 0;
@@ -1128,6 +1203,7 @@ function updatePlayer(dt) {
   let nx = player.x + player.vx * dt, nz = player.z + player.vz * dt;
   const hit = collideTrunks(nx, nz, player.y);
   nx = hit.px; nz = hit.pz;
+  { const rp = collideRanch(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
     // cancel velocity into the trunk
     const vn = player.vx * hit.nx + player.vz * hit.nz;
@@ -1148,8 +1224,9 @@ function updatePlayer(dt) {
     if (il > 0.1) blockedMessage(nx, nz);
   }
 
-  targetRock = findTargetRock();
-  if (pickQueued) { pickQueued = false; pickUpRock(); }
+  nearProf = profInReach();
+  targetRock = nearProf ? null : findTargetRock();
+  if (pickQueued) { pickQueued = false; if (nearProf) openBox(); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1192,15 +1269,16 @@ function onLook(dx, dy, k) {
   player.pitch = clamp(player.pitch, -1.45, 1.45);
 }
 document.addEventListener('mousemove', e => {
-  if (!playing || paused || dexOpen) return;
+  if (!playing || paused || menuOpen()) return;
   if (document.pointerLockElement === canvas) onLook(e.movementX, e.movementY, 0.0022);
   else if (dragLook && (e.buttons & 1)) onLook(e.movementX, e.movementY, 0.004);
 });
 const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight'];
 window.addEventListener('keydown', e => {
   if (!playing) { if (e.code === 'Enter') startGame(); return; }
-  if (e.code === 'Tab') { e.preventDefault(); if (!e.repeat) dexToggleQueued = true; return; }
-  if (dexOpen) { dexKey(e); return; }
+  if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (!e.repeat) dexToggleQueued = true; return; }
+  if (dexOpen) { dexKey(e); e.stopImmediatePropagation(); return; }
+  if (boxOpen) { boxKey(e); e.stopImmediatePropagation(); return; }
   if (GAME_KEYS.includes(e.code)) e.preventDefault();
   keys[e.code] = true;
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
@@ -1227,7 +1305,7 @@ document.addEventListener('pointerlockerror', enableDragLook);
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (!playing || dragLook) return;
-  if (dexOpen && !locked) return;                     // released on purpose to browse the dex
+  if (menuOpen() && !locked) return;                   // released on purpose to browse the dex
   paused = !locked; pauseEl.hidden = locked;
   document.getElementById('crosshair').hidden = !locked;
   if (!locked) for (const k in keys) keys[k] = false;
@@ -1320,7 +1398,7 @@ const bobos = [];
 let caughtCount = 0;
 const beachPalms = palms.filter(p => inland(p.x, p.z) < INLAND_LIMIT - 4);
 function boboSpotOK(x, z) {
-  if (heightAt(x, z) < 0.25 || inland(x, z) > INLAND_LIMIT - 5) return false;
+  if (heightAt(x, z) < 0.25 || inland(x, z) > INLAND_LIMIT - 5 || inRanchZone(x, z, 3)) return false;
   for (const p of beachPalms) if (Math.abs(p.x - x) < 1.4 && Math.abs(p.z - z) < 1.4 && Math.hypot(p.x - x, p.z - z) < 1.1) return false;
   return true;
 }
@@ -1384,12 +1462,17 @@ function tryNetCatch() {
     if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried') continue;
     const dx = b.x - player.x, dzz = b.z - player.z, along = dx * fwd.x + dzz * fwd.z, lat = Math.abs(dx * fwd.z - dzz * fwd.x);
     if (along < -0.4 || along > 3.0 || lat > 1.15 || Math.abs(b.y - player.y) > 1.6) continue;
-    if (b.state === 'stunned' && party.length >= PARTY_MAX) { sfx.wriggle(); toast(`Your party is full! You can only carry ${PARTY_MAX} scrumblies.`); setState(b, 'idle'); startBurrow(b); }
+    if (b.state === 'stunned' && party.length >= PARTY_MAX && !boxSlots.includes(null)) { sfx.wriggle(); toast('Your party and the Box are both full! It wriggled free.'); setState(b, 'idle'); startBurrow(b); }
     else if (b.state === 'stunned') {
       setState(b, 'caught'); caughtCount++; sfx.caught();
       dexMarkCaught('bobo');
-      const p = addToParty('bobo', null, false, b.size);
-      toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
+      if (party.length < PARTY_MAX) {
+        const p = addToParty('bobo', null, false, b.size);
+        toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
+      } else {
+        const p = makeScrumbly('bobo', null, b.size); addToBox(p); saveGame(); refreshResidents();
+        toast(`You caught ${fullName(p)}! Your party's full, so it went to Professor Loveopolis's Box.`);
+      }
       got = true;
     }
     else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first.'); startBurrow(b); }
@@ -1460,21 +1543,31 @@ const NAME_POOL = [
   'Hershel', 'Luke', 'Flora', 'Emmy', 'Chelmey', 'Barton', 'Don Paolo', 'Descole', 'Clive', 'Puzzle', 'Top Hat', 'Laytonian', 'Granny Riddleton'
 ];
 function pickName() {
-  const used = new Set(party.map(p => p.name));
+  const used = new Set(party.concat(typeof boxSlots === 'undefined' ? [] : boxSlots.filter(Boolean)).map(p => p.name));
   const free = NAME_POOL.filter(n => !used.has(n));
   return free[Math.floor(Math.random() * free.length)] || 'Mystery';
 }
 const fullName = p => `${p.name} the ${sizeWord(p.size)}${SPECIES[p.species].name}`;
 
+const BOX_SIZE = 48;
+const boxSlots = new Array(BOX_SIZE).fill(null);
+function makeScrumbly(species, name, size) { return { species, name: name || pickName(), size: SIZES[size] ? size : null }; }
+function addToBox(p) { const i = boxSlots.indexOf(null); if (i < 0) return false; boxSlots[i] = p; return true; }
+function renderPartyHud(popIndex) {
+  [...partyEl.children].forEach((el, i) => {
+    const p = party[i], pn = el.querySelector('.pname');
+    el.classList.toggle('filled', !!p); el.classList.remove('pop');
+    el.classList.toggle('big', !!p && p.size === 'big'); el.classList.toggle('small', !!p && p.size === 'small');
+    el.querySelector('.pic').innerHTML = p ? SPECIES[p.species].icon : '';
+    if (p) { pn.innerHTML = `<b></b> <span>the ${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em> ` : ''}${SPECIES[p.species].name}</span>`; pn.querySelector('b').textContent = p.name; }
+    else pn.innerHTML = '';
+  });
+  if (popIndex != null && partyEl.children[popIndex]) { const el = partyEl.children[popIndex]; void el.offsetWidth; el.classList.add('pop'); }
+}
 function addToParty(species, name, quiet, size) {
-  const p = { species, name: name || pickName(), size: SIZES[size] ? size : null };
+  const p = makeScrumbly(species, name, size);
   party.push(p);
-  const el = partyEl.children[party.length - 1];
-  el.classList.add('filled'); if (!quiet) el.classList.add('pop');
-  el.querySelector('.pic').innerHTML = SPECIES[species].icon;
-  el.querySelector('.pname').innerHTML = `<b></b> <span>the ${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em> ` : ''}${SPECIES[species].name}</span>`;
-  el.classList.toggle('big', p.size === 'big'); el.classList.toggle('small', p.size === 'small');
-  el.querySelector('.pname b').textContent = p.name;
+  renderPartyHud(quiet ? null : party.length - 1);
   if (!quiet) saveGame();
   return p;
 }
@@ -1982,7 +2075,7 @@ aimRing.add(aimDot); aimRing.renderOrder = 3; scene.add(aimRing);
 const aimTarget = document.getElementById('aimTarget');
 const sim = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 }, _sp = new THREE.Vector3();
 function updateAim() {
-  const show = playing && !paused && !dexOpen && activeItem() === 'rock' && inv.eq < 0.05 && inv.rocks > 0 && !player.climb && throwAnim < 0;
+  const show = playing && !paused && !menuOpen() && activeItem() === 'rock' && inv.eq < 0.05 && inv.rocks > 0 && !player.climb && throwAnim < 0;
   aimDots.visible = aimRing.visible = show;
   if (!show) { aimTarget.hidden = true; return; }
   rockLaunch(sim);
@@ -2155,7 +2248,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = targetRock ? '<kbd>E</kbd>pick up rock' : '';
+  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
 }
@@ -2263,13 +2356,14 @@ function dexMarkCaught(id) { dexState.caught.add(id); dexState.scanned.add(id); 
 /* ---------- save: party (with names) + Scrumblydex progress, kept in this browser ---------- */
 const SAVE_KEY = 'scrumbly-island-save-v1';
 function saveGame() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ party: party.map(p => ({ species: p.species, name: p.name, size: p.size })), scanned: [...dexState.scanned], caught: [...dexState.caught] })); } catch (e) {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ party: party.map(p => ({ species: p.species, name: p.name, size: p.size })), box: boxSlots.map(p => p && { species: p.species, name: p.name, size: p.size }), scanned: [...dexState.scanned], caught: [...dexState.caught], metProf: typeof metProf !== 'undefined' && metProf })); } catch (e) {}
 }
 (function loadGame() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
   if (!s) return;
   (s.party || []).slice(0, PARTY_MAX).forEach(p => { if (SPECIES[p.species] && p.name) addToParty(p.species, String(p.name), true, p.size); });
+  (s.box || []).slice(0, BOX_SIZE).forEach((p, i) => { if (p && SPECIES[p.species] && p.name) boxSlots[i] = makeScrumbly(p.species, String(p.name), p.size); });
   (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
 })();
@@ -2434,6 +2528,422 @@ function updateDex(dt) {
   } else scanEl.hidden = true;
 }
 
+/* =========================================================
+   Professor Loveopolis's Ranch: hut, pen, the Professor, the Box
+   ========================================================= */
+const ranch = new THREE.Group();
+ranch.position.set(RANCH_X, 0, RANCH_Z); ranch.rotation.y = RANCH_YAW;
+scene.add(ranch);
+const gy = (u, v) => heightAt(...ranchWorld(u, v));
+const PEN = { u0: -3.2, u1: 8.8, v0: -5, v1: 4, gate0: 0.8, gate1: 4.2 };
+const POND = { u: 6.2, v: -2.6, r: 1.6 };
+const PROF = { u: 1.75, v: 4.6, r: 0.8 };
+const HUT = { u0: -9, u1: -4, v0: -2.25, v1: 2.25 };
+const lam = c => new THREE.MeshLambertMaterial({ color: c });
+const ranchSignReady = [];
+function rPut(mesh, u, y, v, ry = 0) { mesh.position.set(u, y, v); mesh.rotation.y = ry; mesh.castShadow = true; mesh.receiveShadow = true; ranch.add(mesh); return mesh; }
+function heartShape(s = 1) {
+  const h = new THREE.Shape();
+  h.moveTo(0, -0.5 * s);
+  h.bezierCurveTo(-0.55 * s, -0.05 * s, -0.6 * s, 0.45 * s, -0.25 * s, 0.5 * s);
+  h.bezierCurveTo(-0.08 * s, 0.52 * s, 0, 0.38 * s, 0, 0.3 * s);
+  h.bezierCurveTo(0, 0.38 * s, 0.08 * s, 0.52 * s, 0.25 * s, 0.5 * s);
+  h.bezierCurveTo(0.6 * s, 0.45 * s, 0.55 * s, -0.05 * s, 0, -0.5 * s);
+  return h;
+}
+function ranchSignTex(title, sub) {
+  return spriteTex((g, s) => {
+    g.canvas.width = 512; g.canvas.height = 160;
+    g.fillStyle = '#ffe3ec'; g.fillRect(0, 0, 512, 160);
+    g.strokeStyle = '#e2487f'; g.lineWidth = 12; g.strokeRect(6, 6, 500, 148);
+    g.textAlign = 'center'; g.fillStyle = '#7a2547'; g.font = '700 58px Fredoka, "Trebuchet MS", sans-serif'; g.fillText(title, 256, 78);
+    g.fillStyle = '#e2487f'; g.font = '600 34px Fredoka, "Trebuchet MS", sans-serif'; g.fillText(sub, 256, 126);
+  }, 512);
+}
+
+/* ---------- the hut ---------- */
+{
+  const hu = (HUT.u0 + HUT.u1) / 2, hv = (HUT.v0 + HUT.v1) / 2, w = HUT.u1 - HUT.u0, d = HUT.v1 - HUT.v0;
+  const floor = Math.min(gy(HUT.u0, HUT.v0), gy(HUT.u1, HUT.v0), gy(HUT.u0, HUT.v1), gy(HUT.u1, HUT.v1), gy(hu, hv)) + 0.05;
+  rPut(new THREE.Mesh(new THREE.BoxGeometry(w, 3.6, d), lam(0xfff1d6)), hu, floor + 0.8, hv);
+  for (const [cu, cv] of [[HUT.u0, HUT.v0], [HUT.u1, HUT.v0], [HUT.u0, HUT.v1], [HUT.u1, HUT.v1]]) rPut(new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.7, 0.3), lam(0xb98352)), cu, floor + 0.8, cv);
+  rPut(new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.18, d + 0.1), lam(0xb98352)), hu, floor + 2.55, hv);
+  const roofGeo = new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4); roofGeo.scale((w + 1.4) / Math.SQRT2, 2.3, (d + 1.4) / Math.SQRT2);
+  const roof = rPut(new THREE.Mesh(roofGeo, lam(0xf2c46b)), hu, floor + 2.6 + 1.15, hv);
+  const roof2 = new THREE.Mesh(roofGeo, lam(0xe5ab4c)); roof2.scale.set(0.97, 1, 0.97); roof2.position.y = -0.12; roof.add(roof2);
+  const heart = new THREE.Mesh(new THREE.ExtrudeGeometry(heartShape(0.9), { depth: 0.12, bevelEnabled: false }), new THREE.MeshLambertMaterial({ color: 0xff6fa5, emissive: 0x551028 }));
+  rPut(heart, hu, floor + 4.45, hv);
+  ranch.userData.heart = heart;
+  rPut(new THREE.Mesh(new THREE.BoxGeometry(1.15, 2.05, 0.1), lam(0x9a6234)), hu, floor + 1.02, HUT.v1 + 0.03);
+  rPut(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), lam(0xffd23f)), hu + 0.4, floor + 1.0, HUT.v1 + 0.1);
+  for (const wu of [hu - 1.6, hu + 1.6]) {
+    rPut(new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshLambertMaterial({ color: 0xaee8ff, emissive: 0x1a3a44 })), wu, floor + 1.55, HUT.v1 + 0.02);
+    rPut(new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.06, 6, 20), lam(0xb98352)), wu, floor + 1.55, HUT.v1 + 0.04);
+  }
+  rPut(new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, 0.14, 1.0), lam(0xc99566)), hu, floor + 0.05, HUT.v1 + 0.5);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.82), new THREE.MeshLambertMaterial({ map: ranchSignTex('Loveopolis Ranch', 'scrumbly day-care & cuddles') }));
+  rPut(sign, hu, floor + 2.98, HUT.v1 + 0.95); sign.castShadow = false;
+  ranchSignReady.push(sign);
+}
+
+/* ---------- the pen: fence, open gate, pond, flowers ---------- */
+const fenceSegs = [];   // [u0, v0, u1, v1] in ranch space, for collision
+{
+  const white = lam(0xfff4f8), pink = lam(0xff9ec0);
+  const edges = [[PEN.u0, PEN.v0, PEN.u1, PEN.v0], [PEN.u1, PEN.v0, PEN.u1, PEN.v1], [PEN.u1, PEN.v1, PEN.gate1, PEN.v1], [PEN.gate0, PEN.v1, PEN.u0, PEN.v1], [PEN.u0, PEN.v1, PEN.u0, PEN.v0]];
+  const postGeo = new THREE.BoxGeometry(0.16, 1.25, 0.16), capGeo = new THREE.SphereGeometry(0.11, 10, 8);
+  for (const [a0, b0, a1, b1] of edges) {
+    fenceSegs.push([a0, b0, a1, b1]);
+    const len = Math.hypot(a1 - a0, b1 - b0), n = Math.max(1, Math.round(len / 1.5));
+    const pts = Array.from({ length: n + 1 }, (_, i) => [lerp(a0, a1, i / n), lerp(b0, b1, i / n)]);
+    pts.forEach(([u, v]) => { const h = gy(u, v); rPut(new THREE.Mesh(postGeo, white), u, h + 0.4, v); rPut(new THREE.Mesh(capGeo, pink), u, h + 1.06, v); });
+    for (let i = 0; i < n; i++) {
+      const [ua, va] = pts[i], [ub, vb] = pts[i + 1], h = (gy(ua, va) + gy(ub, vb)) / 2, l = Math.hypot(ub - ua, vb - va);
+      const ry = Math.abs(ub - ua) > Math.abs(vb - va) ? 0 : Math.PI / 2;
+      for (const ry2 of [0.45, 0.82]) rPut(new THREE.Mesh(new THREE.BoxGeometry(l, 0.09, 0.06), white), (ua + ub) / 2, h + ry2, (va + vb) / 2, ry);
+    }
+  }
+  // gate swung wide open, folded back against the fence
+  const gh = gy(PEN.gate1 + 1.3, PEN.v1 + 0.25);
+  for (const yy of [0.35, 0.95]) rPut(new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 0.06), lam(0xffd0e0)), PEN.gate1 + 1.3, gh + yy, PEN.v1 + 0.25);
+  for (let i = 0; i <= 4; i++) rPut(new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.75, 0.06), lam(0xffd0e0)), PEN.gate1 + i * 0.65, gh + 0.65, PEN.v1 + 0.25);
+  // archway over the gate
+  for (const u of [PEN.gate0, PEN.gate1]) rPut(new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.8, 0.22), white), u, gy(u, PEN.v1) + 1.1, PEN.v1);
+  const arch = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 0.8), new THREE.MeshLambertMaterial({ map: ranchSignTex('Scrumbly Ranch', 'come in, come in!'), side: THREE.DoubleSide }));
+  rPut(arch, (PEN.gate0 + PEN.gate1) / 2, gy(2.5, PEN.v1) + 2.45, PEN.v1 + 0.12); arch.castShadow = false;
+  ranchSignReady.push(arch);
+  // pond for the water-loving ones
+  const ph = Math.max(gy(POND.u, POND.v), gy(POND.u + POND.r, POND.v), gy(POND.u - POND.r, POND.v), gy(POND.u, POND.v + POND.r), gy(POND.u, POND.v - POND.r));
+  POND.y = ph + 0.04;
+  rPut(new THREE.Mesh(new THREE.CylinderGeometry(POND.r, POND.r, 1.2, 32), new THREE.MeshLambertMaterial({ color: 0x5fd0e6, emissive: 0x0d3a48 })), POND.u, POND.y - 0.6, POND.v).castShadow = false;
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 0), lam(i % 2 ? 0xc9b8c4 : 0xb2a2b0)); s.scale.y = 0.6; rPut(s, POND.u + Math.cos(a) * (POND.r + 0.1), POND.y, POND.v + Math.sin(a) * (POND.r + 0.1), a); }
+  // flowers and a food bowl
+  const fcols = [0xff6fa5, 0xffd23f, 0xb98bff, 0xffffff, 0x7ee08a];
+  for (let i = 0; i < 22; i++) {
+    const u = lerp(PEN.u0 + 0.5, PEN.u1 - 0.5, Math.random()), v = lerp(PEN.v0 + 0.5, PEN.v1 - 0.5, Math.random());
+    if (Math.hypot(u - POND.u, v - POND.v) < POND.r + 0.5) continue;
+    const h = gy(u, v);
+    rPut(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 4), lam(0x5aa84a)), u, h + 0.15, v).castShadow = false;
+    rPut(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), lam(fcols[i % fcols.length])), u, h + 0.32, v).castShadow = false;
+  }
+  rPut(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.32, 0.25, 20), lam(0xff9ec0)), -1.8, gy(-1.8, -3.6) + 0.12, -3.6);
+  rPut(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 20), lam(0xffe08a)), -1.8, gy(-1.8, -3.6) + 0.24, -3.6);
+}
+// canvas signs need the display font loaded
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => {
+  ranchSignReady.forEach((m, i) => { m.material.map = i === 0 ? ranchSignTex('Loveopolis Ranch', 'scrumbly day-care & cuddles') : ranchSignTex('Scrumbly Ranch', 'come in, come in!'); m.material.needsUpdate = true; });
+});
+
+/* ---------- collision with the hut, fence and the Professor ---------- */
+function collideRanch(x, z) {
+  if (!inRanchZone(x, z, 2)) return [x, z];
+  let [u, v] = ranchLocal(x, z);
+  const R = PLAYER_R + 0.08;
+  // hut: push out of the box
+  if (u > HUT.u0 - R && u < HUT.u1 + R && v > HUT.v0 - R && v < HUT.v1 + R) {
+    const pushes = [[HUT.u0 - R - u, 0], [HUT.u1 + R - u, 0], [0, HUT.v0 - R - v], [0, HUT.v1 + R - v]];
+    pushes.sort((a, b) => Math.abs(a[0] + a[1]) - Math.abs(b[0] + b[1]));
+    u += pushes[0][0]; v += pushes[0][1];
+  }
+  for (const [a0, b0, a1, b1] of fenceSegs) {
+    const du = a1 - a0, dv = b1 - b0, l2 = du * du + dv * dv;
+    const t = clamp(((u - a0) * du + (v - b0) * dv) / l2, 0, 1), cu = a0 + du * t, cv = b0 + dv * t;
+    const dd = Math.hypot(u - cu, v - cv);
+    if (dd < R) { const k = dd > 1e-4 ? (R - dd) / dd : 0; u += (u - cu) * k; v += (v - cv) * k; }
+  }
+  const pd = Math.hypot(u - PROF.u, v - PROF.v), pr = PROF.r + PLAYER_R;
+  if (pd < pr) { const k = (pr - pd) / Math.max(pd, 1e-3); u += (u - PROF.u) * k; v += (v - PROF.v) * k; }
+  return ranchWorld(u, v);
+}
+
+/* ---------- Professor Loveopolis: a big fat bearded frog-man ---------- */
+const prof = (() => {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const green = new THREE.MeshLambertMaterial({ color: 0x8fcf6f, emissive: 0x1f3a14 }), coat = new THREE.MeshLambertMaterial({ color: 0xfafaff, side: THREE.DoubleSide });
+  const beardM = new THREE.MeshLambertMaterial({ color: 0xf4f1ea, emissive: 0x2a2826 }), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m); return m; };
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.17, 0.2, 0.5, 12), green, s * 0.35, 0.28, 0); add(new THREE.SphereGeometry(0.24, 14, 10), green, s * 0.4, 0.06, 0.15, 1.1, 0.4, 1.5); });
+  const belly = add(new THREE.SphereGeometry(0.78, 28, 20), green, 0, 1.05, 0, 1, 1.02, 0.92);
+  add(new THREE.SphereGeometry(0.6, 24, 16), lam(0xd9f0b8), 0, 0.98, 0.3, 0.95, 1, 0.75);   // pale tummy
+  add(new THREE.CylinderGeometry(0.8, 0.88, 1.25, 28, 1, true, Math.PI * 0.27, Math.PI * 1.46), coat, 0, 1.0, 0);
+  const head = new THREE.Group(); head.position.y = 2.0; body.add(head);
+  add(new THREE.SphereGeometry(0.5, 26, 18), green, 0, 0, 0, 1.28, 0.8, 1.05, head);
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.17, 16, 12), green, s * 0.32, 0.3, 0.08, 1, 0.95, 0.95, head);
+    add(new THREE.SphereGeometry(0.065, 12, 8), dark, s * 0.34, 0.34, 0.24, 1, 1, 0.6, head).name = 'pupil';
+    add(new THREE.TorusGeometry(0.13, 0.016, 6, 20), new THREE.MeshLambertMaterial({ color: 0xc9a227 }), s * 0.34, 0.33, 0.27, 1, 1, 1, head);
+  });
+  add(new THREE.CylinderGeometry(0.01, 0.01, 0.14, 4), new THREE.MeshLambertMaterial({ color: 0xc9a227 }), 0, 0.34, 0.31, 1, 1, 1, head).rotation.z = Math.PI / 2;
+  const mg = new THREE.TorusGeometry(0.5, 0.018, 6, 28, Math.PI * 0.55); mg.rotateX(Math.PI / 2); mg.rotateY(Math.PI * 0.275 - Math.PI / 2);
+  add(mg, lam(0x3f6b30), 0, -0.06, 0, 1.25, 1, 1, head).rotation.x = 0.18;
+  // the magnificent beard
+  [[0, -0.3, 0.46, 0.27], [-0.24, -0.27, 0.4, 0.23], [0.24, -0.27, 0.4, 0.23], [-0.42, -0.17, 0.26, 0.17], [0.42, -0.17, 0.26, 0.17],
+   [0, -0.56, 0.52, 0.28], [-0.22, -0.52, 0.47, 0.24], [0.22, -0.52, 0.47, 0.24], [-0.12, -0.8, 0.5, 0.22], [0.12, -0.8, 0.5, 0.22], [0, -1.0, 0.48, 0.17]]
+    .forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 14, 10), beardM, x, y, z, 1, 1, 0.75, head));
+  // arms
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.78, 1.45, 0.05); body.add(piv);
+    add(new THREE.CylinderGeometry(0.15, 0.17, 0.62, 12), coat, 0, -0.28, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.15, 12, 10), green, 0, -0.62, 0.02, 1, 1, 1, piv);
+    piv.rotation.z = s * 0.35; return piv;
+  });
+  const tag = (() => {
+    const t = spriteTex((g, s) => {
+      g.canvas.width = 512; g.canvas.height = 96;
+      g.fillStyle = 'rgba(255,250,246,.92)'; g.beginPath(); g.roundRect ? g.roundRect(4, 4, 504, 88, 30) : g.rect(4, 4, 504, 88); g.fill();
+      g.fillStyle = '#2c2552'; g.textAlign = 'center'; g.font = '700 50px Fredoka, sans-serif'; g.fillText('Professor Loveopolis', 256, 64);
+    }, 512);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.scale.set(2.4, 0.45, 1); sp.position.y = 3.05; sp.renderOrder = 6; root.add(sp); return sp;
+  })();
+  const [x, z] = ranchWorld(PROF.u, PROF.v);
+  root.position.set(x, heightAt(x, z), z); root.rotation.y = RANCH_YAW;
+  scene.add(root);
+  return { root, body, head, belly, arms, tag, face: 0, wave: 0, greeted: false, blink: 2 };
+})();
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => {
+  prof.tag.material.map = spriteTex((g) => {
+    g.canvas.width = 512; g.canvas.height = 96;
+    g.fillStyle = 'rgba(255,250,246,.92)'; g.beginPath(); g.roundRect ? g.roundRect(4, 4, 504, 88, 30) : g.rect(4, 4, 504, 88); g.fill();
+    g.fillStyle = '#2c2552'; g.textAlign = 'center'; g.font = '700 50px Fredoka, sans-serif'; g.fillText('Professor Loveopolis', 256, 64);
+  }, 512);
+  prof.tag.material.needsUpdate = true;
+});
+let nearProf = false;
+function profDistance() { return Math.hypot(player.x - prof.root.position.x, player.z - prof.root.position.z); }
+function profInReach() {
+  if (player.climb || profDistance() > 3.4) return false;
+  const dx = prof.root.position.x - player.x, dz = prof.root.position.z - player.z, l = Math.hypot(dx, dz) || 1;
+  return (dx * fwd.x + dz * fwd.z) / l > 0.35;
+}
+function updateProf(dt) {
+  const d = profDistance();
+  const [pu, pv] = ranchLocal(player.x, player.z);
+  const want = d < 14 ? Math.atan2(pu - PROF.u, pv - PROF.v) : 0;
+  prof.face += angDiff(prof.face, clamp(want, -1.6, 1.6)) * Math.min(1, dt * 3);
+  prof.root.rotation.y = RANCH_YAW + prof.face;
+  const br = Math.sin(time * 1.8);
+  prof.belly.scale.set(1 + br * 0.02, 1.02 - br * 0.015, 0.92 + br * 0.02);
+  prof.head.position.y = 2.0 + br * 0.015;
+  prof.head.rotation.z = Math.sin(time * 0.7) * 0.05;
+  if (!prof.greeted && d < 11 && playing) { prof.greeted = true; prof.wave = 2.2; sfx.profHello(); toast('Professor Loveopolis: "Ribbit-ho! Come in, come in!"'); }
+  if (prof.wave > 0) prof.wave -= dt;
+  const [aL, aR] = prof.arms;
+  aR.rotation.z = prof.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.35 : 0.35 + Math.sin(time * 1.8) * 0.03;
+  aL.rotation.z = -0.35 - Math.sin(time * 1.8) * 0.03;
+  prof.blink -= dt; const blinking = prof.blink < 0.12;
+  if (prof.blink < 0) prof.blink = 2.5 + Math.random() * 3;
+  prof.head.children.forEach(c => { if (c.name === 'pupil') c.scale.y = blinking ? 0.15 : 1; });
+  prof.tag.visible = d < 12;
+  if (ranch.userData.heart) ranch.userData.heart.rotation.y = time * 1.2;
+}
+
+/* ---------- hearts ---------- */
+const heartTex = spriteTex((g, s) => {
+  g.fillStyle = '#ff5c93'; g.strokeStyle = '#ffffff'; g.lineWidth = 8;
+  g.beginPath(); g.moveTo(s / 2, s * 0.86);
+  g.bezierCurveTo(s * 0.05, s * 0.55, s * 0.08, s * 0.12, s * 0.33, s * 0.14);
+  g.bezierCurveTo(s * 0.45, s * 0.15, s / 2, s * 0.26, s / 2, s * 0.3);
+  g.bezierCurveTo(s / 2, s * 0.26, s * 0.55, s * 0.15, s * 0.67, s * 0.14);
+  g.bezierCurveTo(s * 0.92, s * 0.12, s * 0.95, s * 0.55, s / 2, s * 0.86);
+  g.closePath(); g.fill(); g.stroke();
+});
+const hearts = Array.from({ length: 28 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: heartTex, transparent: true, depthWrite: false })); sp.visible = false; scene.add(sp); return { sp, life: 0 }; });
+let heartIdx = 0;
+function spawnHeart(x, y, z) { const h = hearts[heartIdx++ % hearts.length]; h.life = 1.4; h.x = x + (Math.random() - 0.5) * 0.4; h.y = y; h.z = z + (Math.random() - 0.5) * 0.4; h.ph = Math.random() * 6; h.sp.visible = true; }
+function updateHearts(dt) {
+  for (const h of hearts) {
+    if (h.life <= 0) { h.sp.visible = false; continue; }
+    h.life -= dt; const k = 1 - h.life / 1.4;
+    h.sp.position.set(h.x + Math.sin(k * 6 + h.ph) * 0.15, h.y + k * 1.1, h.z);
+    h.sp.scale.setScalar(0.28 * (k < 0.15 ? k / 0.15 : 1));
+    h.sp.material.opacity = Math.min(1, h.life / 0.4);
+  }
+}
+
+/* ---------- residents: a few boxed scrumblies living in the pen ---------- */
+const RESIDENTS_MAX = 5;
+let residents = [];
+function nameTag(text) {
+  const t = spriteTex((g) => {
+    g.canvas.width = 512; g.canvas.height = 80;
+    g.font = '600 40px Fredoka, sans-serif';
+    const w = Math.min(500, g.measureText(text).width + 44);
+    g.fillStyle = 'rgba(255,250,246,.9)'; g.beginPath(); g.roundRect ? g.roundRect(256 - w / 2, 6, w, 68, 26) : g.rect(256 - w / 2, 6, w, 68); g.fill();
+    g.fillStyle = '#2c2552'; g.textAlign = 'center'; g.fillText(text, 256, 54);
+  }, 512);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.scale.set(2.2, 0.34, 1); sp.renderOrder = 6; sp.visible = false;
+  return sp;
+}
+function penSpot(water) {
+  for (let i = 0; i < 50; i++) {
+    if (water) { const a = Math.random() * 6.28, r = Math.random() * (POND.r - 0.6); return [POND.u + Math.cos(a) * r, POND.v + Math.sin(a) * r]; }
+    const u = lerp(PEN.u0 + 0.8, PEN.u1 - 0.8, Math.random()), v = lerp(PEN.v0 + 0.8, PEN.v1 - 1.2, Math.random());
+    if (Math.hypot(u - POND.u, v - POND.v) > POND.r + 0.8) return [u, v];
+  }
+  return [0, 0];
+}
+function refreshResidents() {
+  residents.forEach(r => { scene.remove(r.c.root); });
+  const pool = boxSlots.filter(Boolean).slice().sort(() => Math.random() - 0.5).slice(0, RESIDENTS_MAX);
+  residents = pool.map(p => {
+    const water = p.species === 'mermiggly';
+    const c = water ? makeMermMesh() : makeBoboMesh();
+    applySize(c, p.size);
+    const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = (water ? 1.5 : 1.15);
+    tag.scale.multiplyScalar(1 / c.s);
+    const [u, v] = penSpot(water);
+    return { p, c, water, tag, u, v, tu: u, tv: v, wait: Math.random() * 2, hop: 0, face: Math.random() * 6.28, loveT: 0, heartT: 0, coo: 0 };
+  });
+}
+function updateResidents(dt) {
+  for (const r of residents) {
+    const [pu, pv] = ranchLocal(player.x, player.z);
+    const dPlayer = Math.hypot(pu - r.u, pv - r.v), close = dPlayer < 4 && playing;
+    let hopY = 0, sy = 1, sx = 1;
+    if (close) {
+      // so happy to see you!
+      r.face += angDiff(r.face, Math.atan2(pu - r.u, pv - r.v)) * Math.min(1, dt * 6);
+      r.hop += dt * 9; const k = Math.abs(Math.sin(r.hop)); hopY = r.water ? k * 0.12 : k * 0.25; sy = 0.92 + k * 0.16; sx = 1.04 - k * 0.06;
+      r.heartT -= dt; if (r.heartT <= 0) { r.heartT = 0.45 + Math.random() * 0.4; const [x, z] = ranchWorld(r.u, r.v); spawnHeart(x, r.c.root.position.y + (r.water ? 1.1 : 0.85) * r.c.s, z); }
+      r.coo -= dt; if (r.coo <= 0) { r.coo = 1.4 + Math.random() * 1.4; sfx.love(clamp(1.3 - dPlayer / 4, 0.3, 1)); }
+    } else {
+      r.coo = Math.min(r.coo, 0.3);
+      const mu = r.tu - r.u, mv = r.tv - r.v, md = Math.hypot(mu, mv);
+      if (md > 0.1) {
+        const sp = (r.water ? 0.9 : 1.1) * dt;
+        r.u += mu / md * Math.min(sp, md); r.v += mv / md * Math.min(sp, md);
+        r.face += angDiff(r.face, Math.atan2(mu, mv)) * Math.min(1, dt * 5);
+        r.hop += dt * 8; const k = Math.abs(Math.sin(r.hop)); hopY = r.water ? 0 : k * 0.16; sy = 0.92 + k * 0.14;
+      } else { r.wait -= dt; sy = 1 + Math.sin(time * 2.4 + r.u) * 0.03; if (r.wait <= 0) { r.wait = 1.5 + Math.random() * 3; [r.tu, r.tv] = penSpot(r.water); } }
+    }
+    const [x, z] = ranchWorld(r.u, r.v);
+    const y = r.water ? POND.y - 0.05 : gy(r.u, r.v);
+    r.c.root.position.set(x, y + hopY * r.c.s, z);
+    r.c.root.rotation.y = RANCH_YAW + r.face;
+    r.c.body.scale.set(sx, sy, sx);
+    r.tag.visible = dPlayer < 7;
+    if (r.water) { r.c.tail1.rotation.x = Math.sin(time * 3 + r.u) * 0.12; r.c.tail2.rotation.x = Math.sin(time * 3 + r.u - 0.9) * 0.18; r.c.arms[1].rotation.z = close ? 2.5 + Math.sin(time * 9) * 0.45 : 0.55; }
+  }
+}
+
+/* ---------- the Box screen ---------- */
+let boxOpen = false, boxCur = { area: 'party', i: 0 }, boxHeld = null, boxDirty = false;
+let metProf = (() => { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return !!(s && s.metProf); } catch (e) { return false; } })();
+function menuOpen() { return dexOpen || boxOpen; }
+const boxEl = document.getElementById('box'), boxPartyEl = document.getElementById('boxParty'), boxGridEl = document.getElementById('boxGrid');
+const boxSpeech = document.getElementById('boxSpeech'), boxFoot = document.getElementById('boxFoot');
+const PROF_LINES = [
+  'Ribbit-ho! Shall we shuffle your scrumblies about?',
+  'Your scrumblies are all fat and happy. Well, fatter and happier.',
+  'I sing them lullabies every night. Mostly sea shanties.',
+  'Remember, dear: always keep a partner by your side!',
+  'Do you know, I once raised a Bobo the size of a beach ball. Lovely chap. Terrible snorer.',
+  'Love, snacks and naps. That\'s the whole secret, really.'
+];
+const PROF_HELLO = 'Ribbit-ho! Welcome, welcome! I\'m Professor Loveopolis. Any scrumblies you can\'t carry, I\'ll look after right here at the ranch. Plenty of snacks, plenty of cuddles!';
+function profSay(text) { boxSpeech.textContent = text; boxSpeech.classList.remove('say'); void boxSpeech.offsetWidth; boxSpeech.classList.add('say'); }
+for (let i = 0; i < PARTY_MAX; i++) { const b = document.createElement('button'); b.className = 'bcell' + (i === 0 ? ' partner' : ''); b.addEventListener('click', () => { boxCur = { area: 'party', i }; boxActivate(); }); b.addEventListener('mouseenter', () => { boxCur = { area: 'party', i }; renderBox(); }); boxPartyEl.appendChild(b); }
+for (let i = 0; i < BOX_SIZE; i++) { const b = document.createElement('button'); b.className = 'bcell'; b.addEventListener('click', () => { boxCur = { area: 'box', i }; boxActivate(); }); b.addEventListener('mouseenter', () => { boxCur = { area: 'box', i }; renderBox(); }); boxGridEl.appendChild(b); }
+document.getElementById('boxClose').addEventListener('click', () => closeBox());
+const cellGet = c => c.area === 'party' ? (party[c.i] || null) : boxSlots[c.i];
+const sameCell = (a, b) => a && b && a.area === b.area && a.i === b.i;
+function cellHtml(p, partner) {
+  return (partner ? '<span class="tag">PARTNER</span>' : '') + (p
+    ? `<span class="ic ${p.size || ''}">${SPECIES[p.species].icon}</span><span class="nm"><b></b>${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em>` : ''}<i>${SPECIES[p.species].name}</i></span>`
+    : '<span class="empty"></span>');
+}
+function renderBox() {
+  const fill = (el, p, partner, cell) => {
+    el.innerHTML = cellHtml(p, partner); if (p) el.querySelector('.nm b').textContent = p.name;
+    el.classList.toggle('has', !!p); el.classList.toggle('cur', sameCell(boxCur, cell)); el.classList.toggle('held', sameCell(boxHeld, cell));
+  };
+  [...boxPartyEl.children].forEach((el, i) => fill(el, party[i] || null, i === 0, { area: 'party', i }));
+  [...boxGridEl.children].forEach((el, i) => fill(el, boxSlots[i], false, { area: 'box', i }));
+  document.getElementById('boxCount').textContent = `${boxSlots.filter(Boolean).length}/${BOX_SIZE}`;
+  const cur = cellGet(boxCur), held = boxHeld && cellGet(boxHeld);
+  boxFoot.innerHTML = held
+    ? `Moving <b></b>. Pick a slot to move it to, or swap with someone. <kbd>Esc</kbd> closes`
+    : (cur ? `<b></b>${boxCur.area === 'party' && boxCur.i === 0 ? ' · your partner' : ''}. Click to pick them up, then click where they should go.` : 'Click a scrumbly to pick it up, then click a slot to move or swap it.')
+      + ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or controller d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> close';
+  const b = boxFoot.querySelector('b'); if (b) b.textContent = fullName(held || cur);
+  const curEl = (boxCur.area === 'party' ? boxPartyEl : boxGridEl).children[boxCur.i]; if (curEl && boxCur.area === 'box') curEl.scrollIntoView({ block: 'nearest' });
+}
+function boxSwap(a, b) {
+  const P = Array.from({ length: PARTY_MAX }, (_, i) => party[i] || null), backup = boxSlots.slice();
+  const get = c => c.area === 'party' ? P[c.i] : boxSlots[c.i];
+  const set = (c, v) => { if (c.area === 'party') P[c.i] = v; else boxSlots[c.i] = v; };
+  const va = get(a), vb = get(b); set(a, vb); set(b, va);
+  const np = P.filter(Boolean);
+  if (!np.length) {
+    for (let i = 0; i < BOX_SIZE; i++) boxSlots[i] = backup[i];
+    profSay('Ah-ah-ah! Every catcher needs a partner by their side. Keep at least one scrumbly with you!'); sfx.dexNope();
+    return false;
+  }
+  party.length = 0; party.push(...np);
+  renderPartyHud(); saveGame(); boxDirty = true;
+  return true;
+}
+function boxActivate() {
+  if (!boxOpen) return;
+  if (!boxHeld) { if (cellGet(boxCur)) { boxHeld = { ...boxCur }; sfx.pickup(); } }
+  else if (sameCell(boxHeld, boxCur)) boxHeld = null;
+  else {
+    const p = cellGet(boxHeld);
+    if (boxSwap(boxHeld, boxCur)) {
+      sfx.dexTick();
+      // follow the moved scrumbly so its new spot is highlighted
+      if (boxCur.area === 'party') { const i = party.indexOf(p); if (i >= 0) boxCur = { area: 'party', i }; }
+    }
+    boxHeld = null;
+  }
+  renderBox();
+}
+const BOX_COLS = 6;
+function boxMove(dx, dy) {
+  if (boxCur.area === 'party') {
+    if (dx > 0) boxCur = { area: 'box', i: Math.min(boxCur.i, Math.ceil(BOX_SIZE / BOX_COLS) - 1) * BOX_COLS };
+    else boxCur = { area: 'party', i: clamp(boxCur.i + dy, 0, PARTY_MAX - 1) };
+  } else {
+    const col = boxCur.i % BOX_COLS, row = Math.floor(boxCur.i / BOX_COLS);
+    if (dx < 0 && col === 0) boxCur = { area: 'party', i: Math.min(row, PARTY_MAX - 1) };
+    else boxCur = { area: 'box', i: clamp(boxCur.i + dx + dy * BOX_COLS, 0, BOX_SIZE - 1) };
+  }
+  sfx.dexTick(); renderBox();
+}
+function boxKey(e) {
+  const k = e.code;
+  if (k === 'Escape' || k === 'KeyE') { closeBox(); return; }
+  if (k === 'Enter' || k === 'Space') { e.preventDefault(); boxActivate(); return; }
+  if (k === 'ArrowLeft' || k === 'KeyA') { e.preventDefault(); boxMove(-1, 0); }
+  if (k === 'ArrowRight' || k === 'KeyD') { e.preventDefault(); boxMove(1, 0); }
+  if (k === 'ArrowUp' || k === 'KeyW') { e.preventDefault(); boxMove(0, -1); }
+  if (k === 'ArrowDown' || k === 'KeyS') { e.preventDefault(); boxMove(0, 1); }
+}
+function openBox() {
+  if (boxOpen) return;
+  boxOpen = true; boxHeld = null; boxCur = { area: 'party', i: 0 }; boxDirty = false;
+  for (const k in keys) keys[k] = false;
+  profSay(metProf ? PROF_LINES[Math.floor(Math.random() * PROF_LINES.length)] : PROF_HELLO);
+  if (!metProf) { metProf = true; saveGame(); }
+  prof.wave = 1.5; sfx.profHello();
+  renderBox(); boxEl.hidden = false;
+  document.getElementById('crosshair').hidden = true;
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
+}
+function closeBox() {
+  if (!boxOpen) return;
+  boxOpen = false; boxEl.hidden = true; boxHeld = null; sfx.dexClose();
+  if (boxDirty) refreshResidents();
+  if (dragLook) return;
+  document.getElementById('crosshair').hidden = false;
+  try {
+    const p = canvas.requestPointerLock();
+    if (p && p.catch) p.catch(() => { paused = true; pauseEl.hidden = false; });
+  } catch (e) { paused = true; pauseEl.hidden = false; }
+}
+function updateRanch(dt) { updateProf(dt); updateResidents(dt); updateHearts(dt); }
+refreshResidents();
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
@@ -2465,13 +2975,14 @@ function frame() {
 function tick(dt) {
   time += dt;
   if (playing) pollPad();
-  if (playing && !paused && !dexOpen) updatePlayer(dt);
+  if (playing && !paused && !menuOpen()) updatePlayer(dt);
   else if (!playing) { player.yaw += dt * 0.04; camera.position.set(player.x, player.y + 1.65, player.z); }
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (shake > 0) { shake = Math.max(0, shake - dt * 0.5); camera.position.y -= shake * Math.sin(time * 60) * 0.3; camera.rotation.x -= shake * 0.25; }
   if (playing) updateViewmodel(dt);
   updateBobos(dt);
   updateMermigglies(dt);
+  updateRanch(dt);
   updateRocks(dt);
   updateAim();
   updateDex(dt);
@@ -2521,6 +3032,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, water, dexState, NAME_POOL, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, water, dexState, NAME_POOL, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
