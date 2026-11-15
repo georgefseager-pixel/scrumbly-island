@@ -2038,6 +2038,7 @@ const SHINY = {
   weevil: { shift: 0.04, tint: 0.1, sat: 0.3, light: 1.6, css: 'brightness(1.5) saturate(1.3) hue-rotate(10deg)' },
   beeappy: { shift: 0.52, tint: 0.62, sat: 0.35, css: 'hue-rotate(185deg) saturate(1.3)' },
   beeangy: { shift: 0.78, tint: 0.85, sat: 0.35, css: 'hue-rotate(280deg) saturate(1.2)' },
+  glimmery: { shift: 0.5, tint: 0.75, sat: 0.6, light: 0.62, css: 'saturate(2.2) brightness(.8) hue-rotate(160deg)' },
 };
 const _hsl = {};
 function shinyColor(col, d) {
@@ -2155,6 +2156,7 @@ function tryNetCatch() {
   if (netBeeappies()) got = true;
   if (netMermigglies()) got = true;
   if (netBink()) got = true;
+  if (netGlimmeries()) got = true;
   if (!got) netWeevils();
   return got;
 }
@@ -2744,7 +2746,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -3630,6 +3632,232 @@ function updateBeeappies(dt) {
 }
 
 /* =========================================================
+   Scrumblies: the Glimmery (a fluffy pastel fairy frog with a magic wand)
+   Flutters between the trees of Glimmerwood leaving a glitter trail.
+   A rock sends it zooming off; an apple coaxes it down within reach.
+   ========================================================= */
+const DYE = [0x7fe3c4, 0xbf9cf2, 0xff9fcb, 0xffe27a, 0x8fd0ff].map(c => new THREE.Color(c));
+// soft tie-dye: pastel patches that blend into each other across the fur
+function dyeGeo(geo, m4, seed = 0) {
+  const g = (geo.index ? geo.toNonIndexed() : geo); g.applyMatrix4(m4);
+  const p = g.attributes.position, c = new Float32Array(p.count * 3), col = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i) * 8 + seed, y = p.getY(i) * 8, z = p.getZ(i) * 8;
+    const t = (Math.sin(x * 1.3 + y * 0.7) + Math.sin(y * 1.1 - z * 1.4 + 1.7) + Math.sin(z * 1.2 + x * 0.9 + 3.1) + 3) / 6 * DYE.length;
+    const k = Math.floor(t) % DYE.length, f = t - Math.floor(t), s = f * f * (3 - 2 * f);
+    col.copy(DYE[k]).lerp(DYE[(k + 1) % DYE.length], s);
+    c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  return g;
+}
+const _dm = new THREE.Matrix4(), _dq = new THREE.Quaternion(), _dv = new THREE.Vector3(), _ds = new THREE.Vector3();
+const dyeAt = (geo, x, y, z, sx = 1, sy = 1, sz = 1, seed = 0) => dyeGeo(geo, _dm.compose(_dv.set(x, y, z), _dq.identity(), _ds.set(sx, sy, sz)), seed);
+function makeGlimmeryMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const furMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x1a1a22 });
+  // the fluffy body and big froggy head, all one tie-dyed piece
+  const parts = [
+    dyeAt(new THREE.SphereGeometry(0.28, 20, 14), 0, -0.12, 0, 1, 1.15, 0.9),
+    dyeAt(new THREE.SphereGeometry(0.34, 24, 16), 0, 0.33, 0.02, 1.25, 0.82, 1.0, 2),
+    dyeAt(new THREE.SphereGeometry(0.12, 14, 10), -0.24, 0.55, 0.08, 1, 0.95, 0.95, 4), dyeAt(new THREE.SphereGeometry(0.12, 14, 10), 0.24, 0.55, 0.08, 1, 0.95, 0.95, 5),
+    // dangly legs with big round feet
+    dyeAt(new THREE.SphereGeometry(0.09, 10, 8), -0.13, -0.42, 0.04, 1, 1.4, 1, 6), dyeAt(new THREE.SphereGeometry(0.09, 10, 8), 0.13, -0.42, 0.04, 1, 1.4, 1, 7),
+    dyeAt(new THREE.SphereGeometry(0.11, 12, 8), -0.15, -0.55, 0.09, 1.2, 0.55, 1.4, 8), dyeAt(new THREE.SphereGeometry(0.11, 12, 8), 0.15, -0.55, 0.09, 1.2, 0.55, 1.4, 9)
+  ];
+  const fluff = new THREE.Mesh(merge(parts), furMat); fluff.castShadow = true; body.add(fluff);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  // shiny bead eyes, lilac nostrils, a stitched smile and rosy cheeks
+  const bead = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 100, specular: 0x9999bb });
+  const eyes = [-1, 1].map(s => add(new THREE.SphereGeometry(0.045, 12, 10), bead, s * 0.25, 0.59, 0.19, 1, 1, 0.8));
+  [-1, 1].forEach(s => add(new THREE.SphereGeometry(0.025, 8, 6), new THREE.MeshLambertMaterial({ color: 0xa48ad8 }), s * 0.06, 0.36, 0.34, 1.3, 0.8, 0.6));
+  const sm = new THREE.TorusGeometry(0.34, 0.012, 6, 26, Math.PI * 0.5); sm.rotateX(Math.PI / 2); sm.rotateY(Math.PI * 0.25 - Math.PI / 2);
+  add(sm, new THREE.MeshLambertMaterial({ color: 0x7a5aa8 }), 0, 0.28, 0.02, 1.25, 1, 1.0).rotation.x = 0.12;
+  [-1, 1].forEach(s => add(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshLambertMaterial({ color: 0xff9cc4, emissive: 0x3a1020 }), s * 0.3, 0.3, 0.24, 1.2, 0.7, 0.4));
+  // stubby arms: the right one holds up a star-tipped wand
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.26, 0.05, 0.02); body.add(piv);
+    const arm = new THREE.Mesh(merge([dyeAt(new THREE.SphereGeometry(0.075, 10, 8), 0, -0.1, 0, 1, 1.6, 1, 10 + s), dyeAt(new THREE.SphereGeometry(0.09, 10, 8), 0, -0.22, 0.02, 1, 0.9, 0.9, 12 + s)]), furMat);
+    arm.castShadow = true; piv.add(arm); piv.rotation.z = s * 0.5; return piv;
+  });
+  const wand = new THREE.Group(); wand.position.set(0, -0.22, 0.05); arms[1].add(wand);
+  add(new THREE.CylinderGeometry(0.012, 0.014, 0.42, 6), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x404040 }), 0, -0.16, 0, 1, 1, 1, wand).rotation.x = 0;
+  const st = new THREE.Shape(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 0.045 : 0.11, a = Math.PI / 2 + i * Math.PI / 5; i ? st.lineTo(Math.cos(a) * r, Math.sin(a) * r) : st.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+  const starGeo = new THREE.ExtrudeGeometry(st, { depth: 0.03, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01, bevelSegments: 1 }); starGeo.translate(0, 0, -0.015);
+  const star = add(starGeo, new THREE.MeshBasicMaterial({ color: 0xfff27a }), 0, -0.42, 0, 1, 1, 1, wand);
+  wand.rotation.set(0.6, 0, 0);                             // held out past the paw, tipped a little forward
+  // two pairs of shimmering fairy wings
+  const wingMat = new THREE.MeshLambertMaterial({ color: 0xe6f6ff, emissive: 0x405870, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+  const wingMat2 = new THREE.MeshLambertMaterial({ color: 0xffe0f2, emissive: 0x604058, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+  const fairyWings = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.12, 0.14, -0.22); body.add(piv);
+    const up = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), wingMat); up.scale.set(1.25, 0.7, 1); up.position.set(s * 0.3, 0.14, 0); up.rotation.set(-0.35, 0, s * 0.5); piv.add(up);
+    const lo = new THREE.Mesh(new THREE.CircleGeometry(0.2, 18), wingMat2); lo.scale.set(1.2, 0.7, 1); lo.position.set(s * 0.22, -0.14, 0.02); lo.rotation.set(-0.35, 0, -s * 0.5); piv.add(lo);
+    return piv;
+  });
+  const mad = new THREE.Sprite(new THREE.SpriteMaterial({ map: angerTex, depthTest: false })); mad.position.set(0.3, 0.85, 0); mad.scale.setScalar(0.35); mad.visible = false; mad.renderOrder = 5; root.add(mad);
+  scene.add(root);
+  return { root, body, fluff, eyes, arms, wand, star, fairyWings, mad };
+}
+const GLIM_COUNT = 5, GLIM_LOW = 3.4, GLIM_HIGH = 6.8, GLIM_LURED_T = 15;
+const glimmeries = [];
+const glimInForest = (x, z) => { const d = inland(x, z); return d > HEDGE_OUT + 3 && d < FOREST_OUT - 4; };
+function glimHome(away) {
+  for (let i = 0; i < 200; i++) {
+    const th = Math.random() * 6.28, [x, z] = polar(th, HEDGE_OUT + 8 + Math.random() * (FOREST_OUT - HEDGE_OUT - 16));
+    if (away && Math.hypot(x - away.x, z - away.z) < 30) continue;
+    if (glimmeries.some(g => Math.hypot(g.hx - x, g.hz - z) < 35)) continue;
+    return { x, z };
+  }
+  const [x, z] = polar(Math.random() * 6.28, (HEDGE_OUT + FOREST_OUT) / 2); return { x, z };
+}
+function newGlimmery() {
+  const h = glimHome();
+  const g = Object.assign(compactCreature(makeGlimmeryMesh()), { species: 'glimmery', x: h.x, z: h.z, hx: h.x, hz: h.z, y: 0, tx: h.x, tz: h.z, face: Math.random() * 6.28, state: 'drift', t: 0, phase: Math.random() * 6.28, wait: 0, glitT: 0, chimeT: Math.random() * 3 });
+  applySize(g, rollSize()); applyShiny(g, rollShiny());
+  g.y = heightAt(g.x, g.z) + 5;
+  glimmeries.push(g);
+  return g;
+}
+for (let i = 0; i < GLIM_COUNT; i++) newGlimmery();
+// the glitter trail: one shared cloud of twinkling specks that fade as they fall
+const GLITTER_N = 360;
+const glitter = (() => {
+  const pos = new Float32Array(GLITTER_N * 3), col = new Float32Array(GLITTER_N * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const tex = spriteTex((c, s) => {
+    const grd = c.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.25, 'rgba(255,255,255,.7)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = grd; c.fillRect(0, 0, s, s);
+    c.fillStyle = '#fff'; c.beginPath(); c.moveTo(s / 2, 0); c.lineTo(s * 0.56, s * 0.44); c.lineTo(s, s / 2); c.lineTo(s * 0.56, s * 0.56); c.lineTo(s / 2, s); c.lineTo(s * 0.44, s * 0.56); c.lineTo(0, s / 2); c.lineTo(s * 0.44, s * 0.44); c.closePath(); c.fill();
+  }, 64);
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.2, map: tex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  pts.frustumCulled = false; scene.add(pts);
+  return { pts, life: new Float32Array(GLITTER_N), vel: new Float32Array(GLITTER_N * 3), base: Array.from({ length: GLITTER_N }, () => new THREE.Color()), next: 0 };
+})();
+const GLITTER_COLS = [0xfff27a, 0xffc2dc, 0xb8e4ff, 0xd2b8f5, 0xa8f0d8, 0xffffff].map(c => new THREE.Color(c));
+function emitGlitter(x, y, z, n = 1) {
+  for (let k = 0; k < n; k++) {
+    const i = glitter.next++ % GLITTER_N;
+    glitter.pts.geometry.attributes.position.setXYZ(i, x + (Math.random() - 0.5) * 0.15, y + (Math.random() - 0.5) * 0.15, z + (Math.random() - 0.5) * 0.15);
+    glitter.vel[i * 3] = (Math.random() - 0.5) * 0.3; glitter.vel[i * 3 + 1] = -0.25 - Math.random() * 0.3; glitter.vel[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+    glitter.life[i] = 1.2 + Math.random() * 0.6; glitter.base[i].copy(GLITTER_COLS[Math.floor(Math.random() * GLITTER_COLS.length)]);
+  }
+}
+function updateGlitter(dt) {
+  const p = glitter.pts.geometry.attributes.position, c = glitter.pts.geometry.attributes.color;
+  for (let i = 0; i < GLITTER_N; i++) {
+    if (glitter.life[i] <= 0) { c.setXYZ(i, 0, 0, 0); continue; }
+    glitter.life[i] -= dt;
+    p.setXYZ(i, p.getX(i) + glitter.vel[i * 3] * dt, p.getY(i) + glitter.vel[i * 3 + 1] * dt, p.getZ(i) + glitter.vel[i * 3 + 2] * dt);
+    const k = Math.max(0, Math.min(1, glitter.life[i] / 0.8)) * (0.6 + 0.4 * Math.sin(time * 20 + i));     // fade and twinkle
+    const b = glitter.base[i]; c.setXYZ(i, b.r * k, b.g * k, b.b * k);
+  }
+  p.needsUpdate = true; c.needsUpdate = true;
+}
+const glimSfx = {
+  chime(v) { if (!actx || v < 0.04) return; const t = actx.currentTime; [88, 91, 95, 100].forEach((m, i) => tone(t + i * 0.07, mtof(m), mtof(m), 0.35, 0.025 * v, 'sine')); },
+  yelp(v) { if (!actx) return; const t = actx.currentTime; tone(t, 900, 1600, 0.15, 0.06 * v, 'triangle'); tone(t + 0.15, 1600, 700, 0.2, 0.05 * v, 'triangle'); },
+  happy(v) { if (!actx) return; const t = actx.currentTime; [84, 88, 91, 96, 100].forEach((m, i) => tone(t + i * 0.08, mtof(m), mtof(m) * 1.003, 0.4, 0.04 * v, 'sine')); }
+};
+let glimHints = {};
+const glimHitBy = (g, x, y, z) => Math.hypot(x - g.x, y - g.y, z - g.z) < 0.5 * g.s + 0.22;
+function rockHitsGlimmery(r) {
+  for (const g of glimmeries) {
+    if (!g.root.visible || !['drift', 'lured'].includes(g.state) || !glimHitBy(g, r.x, r.y, r.z)) continue;
+    g.state = 'flee'; g.t = 0; glimSfx.yelp(1);
+    // zoom off, away from you, somewhere else in the forest
+    const ax = g.x - player.x, az = g.z - player.z, al = Math.hypot(ax, az) || 1;
+    let tx = g.x + ax / al * 30, tz = g.z + az / al * 30;
+    if (!glimInForest(tx, tz)) { const h = glimHome(player); tx = h.x; tz = h.z; }
+    g.tx = g.hx = tx; g.tz = g.hz = tz;
+    if (!glimHints.flee) { glimHints.flee = true; toast('Eep! The Glimmery zoomed off in a puff of glitter.'); }
+    return g;
+  }
+  return null;
+}
+function lureGlimmery(g) {
+  if (!['drift', 'flee', 'lured'].includes(g.state)) return;
+  g.state = 'lured'; g.t = 0; g.tx = g.x; g.tz = g.z; glimSfx.happy(1);
+  for (let i = 0; i < 3; i++) setTimeout(() => spawnHeart(g.x, g.y + 0.6, g.z), i * 200);
+  if (!glimHints.lured) { glimHints.lured = true; toast('The Glimmery munched the apple and floated down, all dreamy...'); }
+}
+const glimInNet = g => inNetZone(g.x, player.y, g.z) && g.y - player.y > -0.4 && g.y - player.y < 2.1;
+function netGlimmeries() {
+  let got = false;
+  for (const g of glimmeries) {
+    if (!g.root.visible || !glimInNet(g)) continue;
+    if (g.state === 'lured') { if (catchScrumbly('glimmery', g.size, false, g.shiny)) { g.state = 'caught'; g.t = 0; got = true; } }
+    else if (g.state === 'drift' && !glimHints.dodge) { glimHints.dodge = true; toast('The Glimmery twirled just out of reach!'); }
+  }
+  return got;
+}
+function updateGlimmeries(dt) {
+  for (const g of glimmeries) {
+    g.t += dt;
+    const ground = heightAt(g.x, g.z), near = Math.hypot(player.x - g.x, player.z - g.z);
+    let speed = 0, wantY = g.y, flap = 26;
+    switch (g.state) {
+      case 'drift': {
+        // a lazy flutter between the trees, rising and dipping (but never low enough to reach)
+        g.phase += dt * Math.PI * 2 / 11;
+        wantY = ground + ((GLIM_LOW + GLIM_HIGH) / 2 - Math.cos(g.phase) * (GLIM_HIGH - GLIM_LOW) / 2);
+        const mx = g.tx - g.x, mz = g.tz - g.z, md = Math.hypot(mx, mz);
+        if (md > 0.5) { speed = 1.6; g.face += angDiff(g.face, Math.atan2(mx, mz)) * Math.min(1, dt * 1.5); }
+        else { g.wait -= dt; if (g.wait <= 0) { g.wait = 1 + Math.random() * 2.5; for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28, r = 3 + Math.random() * 12, x = g.hx + Math.cos(a) * r, z = g.hz + Math.sin(a) * r; if (glimInForest(x, z)) { g.tx = x; g.tz = z; break; } } } }
+        if (!glimHints.seen && near < 26 && playing) { glimHints.seen = true; toast('A little rainbow frog with fairy wings is fluttering between the trees, sprinkling glitter!'); }
+        break;
+      }
+      case 'flee': {
+        wantY = ground + GLIM_HIGH + 2.5; flap = 45;
+        const mx = g.tx - g.x, mz = g.tz - g.z, md = Math.hypot(mx, mz);
+        if (md > 0.5) { speed = 6; g.face += angDiff(g.face, Math.atan2(mx, mz)) * Math.min(1, dt * 6); }
+        if (g.t > 6 || md < 1) { g.state = 'drift'; g.t = 0; }
+        break;
+      }
+      case 'lured': {
+        // dreamy and full of apple: floats down to just above the ground and drifts towards you
+        wantY = ground + 1.05 + Math.sin(time * 2) * 0.12; flap = 16;
+        g.face += angDiff(g.face, Math.atan2(player.x - g.x, player.z - g.z)) * Math.min(1, dt * 3);
+        if (near > 2.2 && near < 14 && glimInForest(g.x + (player.x - g.x) * 0.05, g.z + (player.z - g.z) * 0.05)) speed = 0.7;
+        if (Math.random() < dt * 0.8) spawnHeart(g.x, g.y + 0.6 * g.s, g.z);
+        if (g.t > GLIM_LURED_T) { g.state = 'drift'; g.t = 0; g.hx = g.x; g.hz = g.z; g.tx = g.x; g.tz = g.z; }
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, g.t / 0.45); camera.getWorldDirection(_cv);
+        g.x = lerp(g.x, camera.position.x + _cv.x * 1.2, k * 0.35); g.z = lerp(g.z, camera.position.z + _cv.z * 1.2, k * 0.35); wantY = lerp(g.y, camera.position.y - 0.4, k * 0.35);
+        g.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { g.state = 'gone'; g.t = 0; g.root.visible = false; g.respawn = 30 + Math.random() * 20; }
+        break;
+      }
+      case 'gone': {
+        if (g.t > g.respawn) { const h = glimHome(player); g.x = g.hx = g.tx = h.x; g.z = g.hz = g.tz = h.z; g.y = heightAt(h.x, h.z) + 6; applySize(g, rollSize()); applyShiny(g, rollShiny()); g.body.scale.setScalar(1); g.state = 'drift'; g.t = 0; g.root.visible = true; }
+        break;
+      }
+    }
+    if (speed > 0) { g.x += Math.sin(g.face) * speed * dt; g.z += Math.cos(g.face) * speed * dt; }
+    g.y = g.state === 'caught' ? wantY : lerp(g.y, Math.max(wantY, ground + 0.8), Math.min(1, dt * (g.state === 'flee' ? 3 : 1.6)));
+    if (!g.root.visible) continue;
+    g.root.position.set(g.x, g.y + Math.sin(time * 2.6 + g.hx) * 0.07, g.z);
+    g.root.rotation.set(0, g.face, 0);
+    g.body.rotation.x = g.state === 'flee' ? 0.4 : Math.sin(time * 1.3 + g.hz) * 0.08;
+    g.body.rotation.z = Math.sin(time * 1.9 + g.hx) * 0.1;
+    g.fairyWings.forEach((w, i) => { w.rotation.y = (i ? -1 : 1) * (0.25 + Math.sin(time * flap + i * 0.4) * 0.55); });
+    g.arms[1].rotation.z = 0.5 + Math.sin(time * 3 + g.hx) * 0.35 + (g.state === 'lured' ? 0.6 : 0);   // waving the wand about
+    g.arms[0].rotation.z = -0.5 - Math.sin(time * 2.2 + g.hz) * 0.15;
+    g.star.rotation.z = time * 2;
+    g.mad.visible = g.state === 'flee' && g.t < 1.5;
+    // glitter from the wand tip as it flies
+    if (g.body.visible !== false && near < 90) {
+      g.glitT -= dt;
+      if (g.glitT <= 0) { g.glitT = g.state === 'flee' ? 0.015 : 0.05; g.star.getWorldPosition(_dv); emitGlitter(_dv.x, _dv.y, _dv.z, g.state === 'flee' ? 2 : 1); }
+    }
+    g.chimeT -= dt; if (g.chimeT <= 0) { g.chimeT = 2.5 + Math.random() * 3; glimSfx.chime(clamp(1 - Math.hypot(near, g.y - player.y) / 22, 0, 1)); }
+  }
+  updateGlitter(dt);
+}
+
+/* =========================================================
    Scrumblies: Bink (one of a kind!)
    A small, fluffy pink alien sitting on a tiny flying saucer. It putters round
    the whole beach in one long loop and never stops or slows. One bonk only
@@ -4003,6 +4231,7 @@ function updateAim() {
     }
     for (const b of beeappies) if (b.root.visible && ['drift', 'calm'].includes(b.state) && beeHitBy(b, sim.x, sim.y, sim.z)) { hit = b; land = { x: sim.x, y: sim.y, z: sim.z }; }
     if (bink.root.visible && bink.state === 'fly' && binkHitBy(bink, sim.x, sim.y, sim.z)) { hit = bink; land = { x: sim.x, y: sim.y, z: sim.z }; }
+    for (const g of glimmeries) if (g.root.visible && ['drift', 'lured'].includes(g.state) && glimHitBy(g, sim.x, sim.y, sim.z)) { hit = g; land = { x: sim.x, y: sim.y, z: sim.z }; }
     for (const w of weevils) if (w.root.visible && w.state === 'run' && weevilHitBy(w, sim.x, sim.y, sim.z)) { hit = w; land = { x: w.x, y: w.y, z: w.z }; }
     for (const d of ducksharks) if (sharkStunnable(d) && d.state !== 'stunned' && sharkHitBy(d, sim.x, sim.y, sim.z)) { hit = d; land = { x: d.x, y: water.position.y, z: d.z }; }
     for (const q of pengins) if (penginHittable(q) && penginHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
@@ -4051,6 +4280,7 @@ function updateRocks(dt) {
     }
     if (r.bounces <= 1 && rockHitsBee(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsBink(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
+    if (r.bounces <= 1 && rockHitsGlimmery(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsWeevil(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsShark(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsPengin(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
@@ -4318,6 +4548,12 @@ SPECIES.bink = {
   fact: 'There is only one Bink. Nobody knows where it came from, but every single day it putters right round the island on its tiny flying saucer, peering sleepily over the edge. It seems to be looking for something. Possibly a friend. Possibly a snack.',
   hint: 'Its little saucer never stops, never slows and flies well out of reach. One bonk won\'t bring it down... but it\'s a sturdy little craft, not an unbreakable one. Patience. Keep following.'
 };
+SPECIES.glimmery = {
+  name: 'Glimmery', num: 10, where: 'Glimmerwood · fluttering between the trees',
+  icon: '<svg viewBox="0 0 48 48"><defs><linearGradient id="glg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8f0d8"/><stop offset=".3" stop-color="#d2b8f5"/><stop offset=".55" stop-color="#ffc2dc"/><stop offset=".8" stop-color="#fff2a8"/><stop offset="1" stop-color="#b8e4ff"/></linearGradient></defs><ellipse cx="9" cy="24" rx="8" ry="5" fill="#e6f6ff" opacity=".85" transform="rotate(-25 9 24)"/><ellipse cx="39" cy="24" rx="8" ry="5" fill="#ffe0f2" opacity=".85" transform="rotate(25 39 24)"/><ellipse cx="24" cy="35" rx="10" ry="9" fill="url(#glg)"/><ellipse cx="24" cy="21" rx="14" ry="10" fill="url(#glg)"/><circle cx="15" cy="13" r="5" fill="url(#glg)"/><circle cx="33" cy="13" r="5" fill="url(#glg)"/><circle cx="15" cy="13" r="2" fill="#0c0c10"/><circle cx="33" cy="13" r="2" fill="#0c0c10"/><path d="M14 23 Q24 30 34 23" stroke="#7a5aa8" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="22" cy="20" r=".9" fill="#a48ad8"/><circle cx="26" cy="20" r=".9" fill="#a48ad8"/><path d="M40 33 L44 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M44 5 l1.6 3.6 3.9.4-2.9 2.6.8 3.8-3.4-2-3.4 2 .8-3.8-2.9-2.6 3.9-.4z" fill="#fff27a" stroke="#e5b400" stroke-width=".6"/><circle cx="38" cy="7" r="1" fill="#fff27a"/><circle cx="42" cy="18" r=".8" fill="#ffc2dc"/></svg>',
+  fact: 'Glimmeries are made of sunbeams, dandelion fluff and about forty per cent glitter. They tidy nothing. Everything they touch sparkles for weeks.',
+  hint: 'Flits about high between the trees and is far too quick and flighty to reach. Throw anything hard at it and it zooms off in a huff. It does have a famously sweet tooth, though... and a full tummy makes a fairy very, very sleepy.'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -4388,6 +4624,7 @@ function scrumblyCandidates() {
   for (const q of pengins) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'pengin', y: 0.3 * q.s });
   for (const b of beeappies) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: b.state === 'angry' ? 'beeangy' : 'beeappy', y: 0 });
   if (bink.root.visible && bink.state !== 'caught') out.push({ o: bink, id: 'bink', y: 0.5 });
+  for (const g of glimmeries) if (g.root.visible && g.state !== 'caught') out.push({ o: g, id: 'glimmery', y: 0.15 });
   for (const w of weevils) if (w.root.visible && w.state !== 'caught') out.push({ o: w, id: 'weevil', y: 0.25 * w.s });
   for (const d of ducksharks) if (d.root.visible && d.state !== 'caught') out.push({ o: d, id: 'duckshark', y: 0.5 * d.s });
   return out;
@@ -4822,9 +5059,10 @@ function updateResidents(dt) {
     }
     const [x, z] = ranchWorld(r.u, r.v);
     const y = r.water ? POND.y - 0.05 : gy(r.u, r.v);
-    const hover = ['beeappy', 'beeangy'].includes(r.p.species) ? 1.2 + Math.sin(time * 2 + r.u) * 0.2 : r.p.species === 'bink' ? 0.35 + Math.sin(time * 1.6 + r.u) * 0.08 : 0;
+    const hover = ['beeappy', 'beeangy', 'glimmery'].includes(r.p.species) ? 1.2 + Math.sin(time * 2 + r.u) * 0.2 : r.p.species === 'bink' ? 0.35 + Math.sin(time * 1.6 + r.u) * 0.08 : 0;
     if (r.c.ufo) binkIdle(r.c);
     if (r.c.wings) r.c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
+    if (r.c.fairyWings) r.c.fairyWings.forEach((w, i) => { w.rotation.y = (i ? -1 : 1) * (0.25 + Math.sin(time * 22 + i * 0.4) * 0.55); });
     r.c.root.position.set(x, y + hopY * r.c.s + hover, z);
     r.c.root.rotation.y = RANCH_YAW + r.face;
     r.c.body.scale.set(sx, sy, sx);
@@ -5035,9 +5273,10 @@ function updatePartner(dt) {
   }
   if (P.squish > 0) { P.squish = Math.max(0, P.squish - dt * 2.2); const w = Math.sin(P.squish * 18) * P.squish; sy -= w * 0.25; sx += w * 0.18; }
   P.y = lerp(P.y, partnerY(P.x, P.z), Math.min(1, dt * 10));
-  const hover = ['beeappy', 'beeangy'].includes(P.p.species) ? 1.1 + Math.sin(time * 2.2) * 0.15 : P.p.species === 'bink' ? 0.4 + Math.sin(time * 1.6) * 0.08 : 0;
+  const hover = ['beeappy', 'beeangy', 'glimmery'].includes(P.p.species) ? 1.1 + Math.sin(time * 2.2) * 0.15 : P.p.species === 'bink' ? 0.4 + Math.sin(time * 1.6) * 0.08 : 0;
   if (P.c.ufo) binkIdle(P.c);
   if (P.c.wings) P.c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
+  if (P.c.fairyWings) P.c.fairyWings.forEach((w, i) => { w.rotation.y = (i ? -1 : 1) * (0.25 + Math.sin(time * 22 + i * 0.4) * 0.55); });
   P.c.root.position.set(P.x, P.y + hopY * s + hover, P.z);
   P.c.root.rotation.set(0, P.face, 0);
   P.c.body.scale.set(sx, sy, sx);
@@ -5083,6 +5322,7 @@ const BOND_SPECIES_LINES = {
   ,beeappy: ['{name} hummed you a happy little tune.', '{name} did a loop-the-loop just for you.', '{name} is very glad you never throw things at it.', '{name} is buzzing with joy. Literally.', '{name} bumped gently into your head. On purpose. With love.']
   ,beeangy: ['{name} is still a tiny bit cross. About what, nobody knows.', '{name} glared at a seagull until it left. You’re very safe.', '{name} buzzed something grumpy. You think it was a compliment.', '{name} is secretly very fond of you. Don’t tell it you know.', '{name} is trying out being calm. It lasted four seconds.']
   ,bink: ['{name} took you for a spin on its saucer. Only a short one. You were very brave.', '{name} beeped at you twice. You’re fairly sure it means “friend”.', '{name} has stopped looking for whatever it was looking for. It says it found it.', '{name} gave you a slow, sleepy, very happy blink.', '{name} polished its saucer just for you. It’s extremely shiny now.']
+  ,glimmery: ['{name} tapped you with its wand. You feel 3% more magical.', '{name} sprinkled glitter on your shoes. It will never come off. You don’t mind.', '{name} did a little twirl in the air just for you.', '{name} is humming a tinkly fairy tune.', '{name} would very much like another apple. Just saying.']
 };
 let bondTimer = 70 + Math.random() * 50, bondBag = [];
 const bondEl = document.getElementById('bond');
@@ -5513,7 +5753,8 @@ const WELCOME_SPECIES = {
   weevil: 'I ran four hundred laps while you were gone! Let\'s go!',
   beeappy: 'Bzzz! I\'m absolutely buzzing to see you!',
   beeangy: 'Hmph. You took your time. ...Fine. I missed you. A bit.',
-  bink: '*beep boop* ...that means I missed you. I flew round the whole island looking for you!'
+  bink: '*beep boop* ...that means I missed you. I flew round the whole island looking for you!',
+  glimmery: '*twinkle twinkle* You\'re back! I saved you some glitter. Well, I tried. It went everywhere.'
 };
 function showTitlePartner() {
   const s = readSave(SAVE_KEY), p = s && Array.isArray(s.party) && unpackP(s.party[0]);
@@ -5540,13 +5781,14 @@ function updateTitlePartner(dt) {
   T.next -= dt; if (T.next <= 0) { T.hop = 1; T.next = 2.5 + Math.random() * 2.5; }
   T.hop = Math.max(0, T.hop - dt * 1.8);
   const h = Math.sin(T.hop * Math.PI) * 0.25;
-  const fly = ['beeappy', 'beeangy'].includes(T.p.species) ? 0.45 + Math.sin(time * 2) * 0.06 : T.p.species === 'bink' ? 0.15 + Math.sin(time * 1.6) * 0.04 : 0;
+  const fly = ['beeappy', 'beeangy', 'glimmery'].includes(T.p.species) ? 0.45 + Math.sin(time * 2) * 0.06 : T.p.species === 'bink' ? 0.15 + Math.sin(time * 1.6) * 0.04 : 0;
   if (c.ufo) binkIdle(c);
   c.root.position.set(Math.min(1.25, 0.62 * aspect), -0.95 + h + fly, -2.6);
   c.root.scale.setScalar(c.s * T.base);
   c.root.rotation.set(0.08, -0.35 + Math.sin(time * 0.8) * 0.12, 0);
   if (c.body) { c.body.scale.set(1 + T.hop * 0.08, 1 - T.hop * 0.1 + Math.sin(time * 2.6) * 0.02, 1 + T.hop * 0.08); }
   if (c.wings) c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
+  if (c.fairyWings) c.fairyWings.forEach((w, i) => { w.rotation.y = (i ? -1 : 1) * (0.25 + Math.sin(time * 22 + i * 0.4) * 0.55); });
   if (c.arms && T.p.species === 'mermiggly') c.arms[1].rotation.z = 2.5 + Math.sin(time * 9) * 0.45;
   if (c.tail1) c.tail1.rotation.x = Math.sin(time * 3) * 0.12;
   // keep the speech bubble just above the partner's head, wherever the screen shape puts them
@@ -6833,6 +7075,7 @@ const appleSfx = { munch() { if (!actx) return; const t = actx.currentTime; for 
 // a hook for scrumblies that care about being fed (filled in later)
 function onAppleEaten(c) {
   c.fed = (c.fed || 0) + 1;
+  if (c.species === 'glimmery') lureGlimmery(c);
   // a Mermiggly that gets an apple becomes your friend
   if (c.species === 'mermiggly' && ['swim', 'play', 'wave', 'surface', 'flee', 'friend', 'happy'].includes(c.state)) {
     c.state = 'happy'; c.t = 0; c.hopN = -1; c.leap = -1; c.ex.visible = false; c.mad.visible = false; c.red = 0;
@@ -7003,7 +7246,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -7057,6 +7300,7 @@ function tick(dt) {
   updateGiant(dt);
   updateBeeappies(dt);
   updateBink(dt);
+  updateGlimmeries(dt);
   updateRanch(dt);
   updateScrim(dt);
   updateTeal(dt);
@@ -7119,7 +7363,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
