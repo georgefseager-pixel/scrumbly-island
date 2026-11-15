@@ -1615,6 +1615,7 @@ function tryNetCatch() {
   if (typeof netSpeshuls === 'function' && netSpeshuls()) got = true;
   if (netTrapped()) got = true;
   if (netDucksharks()) got = true;
+  if (netBeeappies()) got = true;
   if (!got) netWeevils();
   return got;
 }
@@ -2151,7 +2152,7 @@ function makeSpeshulMesh() {
   scene.add(root);
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
-function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : makeBoboMesh(); }
+function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -2852,6 +2853,146 @@ function updateWeevils(dt) {
   }
 }
 
+/* =========================================================
+   Scrumblies: the Beeappy (a big, round, happy bumblebee)
+   Drifts overhead bobbing up and down and never lands.
+   Bonk it and it turns red and comes after you!
+   ========================================================= */
+function makeBeeappyMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const yellow = new THREE.MeshLambertMaterial({ color: 0xffd21f, emissive: 0x3a2c00 }), black = new THREE.MeshLambertMaterial({ color: 0x24222a, emissive: 0x0a0a0e });
+  const white = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x4a4a4a }), shiny = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 90, specular: 0x8888aa });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  // round fuzzy body with two black stripes towards the back (all inside one squashed group)
+  const shape = new THREE.Group(); shape.scale.set(0.95, 0.88, 1.15); body.add(shape);
+  add(new THREE.SphereGeometry(0.42, 26, 20), yellow, 0, 0, 0, 1, 1, 1, shape);
+  for (const [z, w] of [[-0.12, 0.085], [-0.29, 0.075]]) {
+    const r = Math.sqrt(0.42 * 0.42 - z * z) + 0.012;
+    const band = add(new THREE.CylinderGeometry(r, r, w, 28, 1, true), black, 0, 0, z, 1, 1, 1, shape); band.rotation.x = Math.PI / 2; band.material = black;
+  }
+  // shiny button eyes and a little smile
+  const eyes = [-1, 1].map(s => add(new THREE.SphereGeometry(0.055, 14, 10), shiny, s * 0.23, 0.05, 0.4, 1, 1, 0.7));
+  const smile = add(new THREE.TorusGeometry(0.06, 0.014, 6, 14, Math.PI), black, 0.0, -0.1, 0.465, 1, 0.7, 1); smile.rotation.z = Math.PI;
+  // fluffy white wings on top
+  const wings = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.12, 0.33, -0.02); body.add(piv);
+    add(new THREE.SphereGeometry(0.2, 14, 10), white, s * 0.14, 0.1, 0, 1.15, 0.38, 0.85, piv).rotation.z = s * 0.35;
+    return piv;
+  });
+  const mad = new THREE.Sprite(new THREE.SpriteMaterial({ map: angerTex, depthTest: false })); mad.position.set(0.3, 0.6, 0); mad.scale.setScalar(0.4); mad.visible = false; mad.renderOrder = 5; root.add(mad);
+  scene.add(root);
+  return { root, body, wings, eyes, mad, yellow };
+}
+
+const BEE_COUNT = 4, BEE_LOW = 1.0, BEE_HIGH = 6.0, BEE_PERIOD = 12;
+const beeappies = [];
+function beeGround(x, z) { return Math.max(heightAt(x, z), water.position.y); }
+function newBeeappy(x, z) {
+  const b = Object.assign(makeBeeappyMesh(), { x, z, hx: x, hz: z, y: 0, tx: x, tz: z, face: Math.random() * 6.28, state: 'drift', t: 0, phase: Math.random() * 6.28, buzzT: Math.random() * 2, red: 0, wait: 0 });
+  applySize(b, rollSize());
+  b.y = beeGround(x, z) + 3;
+  beeappies.push(b);
+  return b;
+}
+{
+  // over the sand, spread round the island, one within reach of the start
+  const spots = [];
+  for (let i = 0; i < 2000 && spots.length < BEE_COUNT; i++) {
+    const th = spots.length === 0 ? spawnTheta + 0.15 + Math.random() * 0.2 : Math.random() * 6.28, [x, z] = polar(th, 10 + Math.random() * 40);
+    if (!boboSpotOK(x, z) || spots.some(s => Math.hypot(s[0] - x, s[1] - z) < 60) || (spots.length === 0 && Math.hypot(x - spawnX, z - spawnZ) < 20)) continue;
+    spots.push([x, z]);
+  }
+  spots.forEach(([x, z]) => newBeeappy(x, z));
+}
+const beeSfx = {
+  buzz(v) { if (!actx || v < 0.04) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 165 + Math.random() * 20; lfo.frequency.value = 28; lg.gain.value = 12; lfo.connect(lg); lg.connect(o.frequency);
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; o.connect(f); f.connect(g); g.connect(sfxBus);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05 * v, t + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    o.start(t); lfo.start(t); o.stop(t + 1); lfo.stop(t + 1); },
+  angry(v) { if (!actx) return; const t = actx.currentTime; tone(t, 320, 520, 0.25, 0.1 * v, 'sawtooth'); tone(t + 0.25, 520, 380, 0.3, 0.09 * v, 'sawtooth'); },
+  happy(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 700, 950, 0.1, 0.05 * v, 'triangle'); tone(t + 0.12, 950, 1200, 0.12, 0.05 * v, 'triangle'); }
+};
+let beeHints = { seen: false, angry: false };
+const BEE_RED = new THREE.Color(0xff3b3b), BEE_YELLOW = new THREE.Color(0xffd21f);
+const beeHitBy = (b, x, y, z) => Math.hypot(x - b.x, y - b.y, z - b.z) < 0.48 * b.s + 0.2;
+function rockHitsBee(r) {
+  for (const b of beeappies) {
+    if (!b.root.visible || !['drift', 'angry', 'calm'].includes(b.state) || !beeHitBy(b, r.x, r.y, r.z)) continue;
+    b.state = 'angry'; b.t = 0; b.stung = false; beeSfx.angry(1);
+    if (!beeHints.angry) { beeHints.angry = true; toast('Uh oh. That Beeappy is NOT happy any more!'); }
+    return b;
+  }
+  return null;
+}
+// the net reaches a little above your head
+const beeInNet = b => inNetZone(b.x, player.y, b.z) && b.y - player.y > -0.4 && b.y - player.y < 2.1;
+function netBeeappies() {
+  let got = false;
+  for (const b of beeappies) {
+    if (!b.root.visible || !['drift', 'angry', 'calm'].includes(b.state) || !beeInNet(b)) continue;
+    if (catchScrumbly('beeappy', b.size)) { b.state = 'caught'; b.t = 0; got = true; }
+  }
+  return got;
+}
+function updateBeeappies(dt) {
+  for (const b of beeappies) {
+    b.t += dt;
+    const ground = beeGround(b.x, b.z);
+    let speed = 0, wantY = b.y;
+    const near = Math.hypot(player.x - b.x, player.z - b.z);
+    switch (b.state) {
+      case 'drift':
+      case 'calm': {
+        // lazy wandering, bobbing between low (net height) and high above the palms
+        b.phase += dt * Math.PI * 2 / BEE_PERIOD;
+        const alt = (BEE_LOW + BEE_HIGH) / 2 - Math.cos(b.phase) * (BEE_HIGH - BEE_LOW) / 2;
+        wantY = ground + alt * (0.9 + b.s * 0.1);
+        const mx = b.tx - b.x, mz = b.tz - b.z, md = Math.hypot(mx, mz);
+        if (md > 0.5) { speed = 1.8; b.face += angDiff(b.face, Math.atan2(mx, mz)) * Math.min(1, dt * 1.5); }
+        else { b.wait -= dt; if (b.wait <= 0) { b.wait = 1 + Math.random() * 2; for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = 3 + Math.random() * 12, x = b.hx + Math.cos(a) * r, z = b.hz + Math.sin(a) * r; if (inland(x, z) > -8 && inland(x, z) < INLAND_LIMIT - 4 && !inRanchZone(x, z, 2)) { b.tx = x; b.tz = z; break; } } } }
+        if (b.state === 'calm' && b.t > 2) b.state = 'drift';
+        if (!beeHints.seen && near < 22 && playing) { beeHints.seen = true; toast('Bzzzz! A big round bumblebee is bobbing about overhead.'); }
+        break;
+      }
+      case 'angry': {
+        // red with rage, straight for your face
+        const tx = camera.position.x, ty = camera.position.y - 0.15, tz = camera.position.z;
+        const dx = tx - b.x, dy = ty - b.y, dz = tz - b.z, d = Math.hypot(dx, dy, dz);
+        b.face += angDiff(b.face, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
+        const sp = 4.2 * dt; b.x += dx / d * Math.min(sp, d); b.z += dz / d * Math.min(sp, d); wantY = b.y + dy / d * Math.min(sp, d);
+        if (d < 0.6 * b.s + 0.2 && !knocked && playing) { hurtPlayer(1); b.state = 'calm'; b.t = 0; b.tx = b.hx; b.tz = b.hz; }
+        else if (b.t > 9 || knocked) { b.state = 'calm'; b.t = 0; b.tx = b.hx; b.tz = b.hz; beeSfx.happy(1); }
+        if (Math.random() < dt * 2) beeSfx.buzz(1.4);
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, b.t / 0.45); camera.getWorldDirection(_cv);
+        b.x = lerp(b.x, camera.position.x + _cv.x * 1.2, k * 0.35); b.z = lerp(b.z, camera.position.z + _cv.z * 1.2, k * 0.35); wantY = lerp(b.y, camera.position.y - 0.4, k * 0.35);
+        b.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { b.state = 'gone'; b.t = 0; b.root.visible = false; b.respawn = 20 + Math.random() * 15; }
+        break;
+      }
+      case 'gone': {
+        if (b.t > b.respawn && Math.hypot(player.x - b.hx, player.z - b.hz) > 25) { applySize(b, rollSize()); b.body.scale.setScalar(1); b.red = 0; b.x = b.hx; b.z = b.hz; b.y = beeGround(b.x, b.z) + 5; b.state = 'drift'; b.t = 0; b.root.visible = true; }
+        break;
+      }
+    }
+    if (speed > 0) { b.x += Math.sin(b.face) * speed * dt; b.z += Math.cos(b.face) * speed * dt; }
+    b.y = b.state === 'angry' || b.state === 'caught' ? wantY : lerp(b.y, Math.max(wantY, ground + 0.6), Math.min(1, dt * 2));
+    if (!b.root.visible) continue;
+    b.buzzT -= dt; if (b.buzzT <= 0 && b.state !== 'angry') { b.buzzT = 1.6 + Math.random(); beeSfx.buzz(clamp(1 - Math.hypot(near, b.y - player.y) / 18, 0, 1)); }
+    b.red = clamp(b.red + (b.state === 'angry' ? dt * 3 : -dt * 0.6), 0, 1);
+    b.yellow.color.copy(BEE_YELLOW).lerp(BEE_RED, b.red * 0.85);
+    b.mad.visible = b.state === 'angry';
+    b.root.position.set(b.x, b.y + Math.sin(time * 3 + b.hx) * 0.08, b.z);
+    b.root.rotation.set(0, b.face, 0);
+    b.body.rotation.x = b.state === 'angry' ? 0.25 : Math.sin(time * 1.4 + b.hz) * 0.08;
+    b.body.rotation.z = Math.sin(time * 2.2 + b.hx) * 0.08;
+    b.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * (b.state === 'angry' ? 70 : 45) + i) * 0.45); });
+  }
+}
+
 /* ---------- your health, getting bitten, and waking up at the ranch ---------- */
 const MAX_HEALTH = 1;
 let health = MAX_HEALTH, knocked = false;
@@ -3033,6 +3174,7 @@ function updateAim() {
       const base = water.position.y + m.rise - 0.15;
       if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 * m.s && sim.y > base && sim.y < base + 1.05 * m.s) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
     }
+    for (const b of beeappies) if (b.root.visible && ['drift', 'calm'].includes(b.state) && beeHitBy(b, sim.x, sim.y, sim.z)) { hit = b; land = { x: sim.x, y: sim.y, z: sim.z }; }
     for (const w of weevils) if (w.root.visible && w.state === 'run' && weevilHitBy(w, sim.x, sim.y, sim.z)) { hit = w; land = { x: w.x, y: w.y, z: w.z }; }
     for (const d of ducksharks) if (sharkStunnable(d) && d.state !== 'stunned' && sharkHitBy(d, sim.x, sim.y, sim.z)) { hit = d; land = { x: d.x, y: water.position.y, z: d.z }; }
     for (const q of pengins) if (penginHittable(q) && penginHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
@@ -3079,6 +3221,7 @@ function updateRocks(dt) {
       const m = rockHitsMerm(r);
       if (m) { sfx.thud(); const nx = r.x - m.x, nz = r.z - m.z, nl = Math.hypot(nx, nz) || 1; r.vx = nx / nl * 2; r.vz = nz / nl * 2; r.vy = 3; r.bounces = 2; }
     }
+    if (r.bounces <= 1 && rockHitsBee(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsWeevil(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsShark(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsPengin(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
@@ -3325,6 +3468,12 @@ SPECIES.weevil = {
   fact: 'A Weevil has run the very same loop, every single day, for as long as anyone can remember. It has no idea why. It has no intention of stopping. It is extremely happy about all of this.',
   hint: 'Much too fast to net, and a bonk with a rock just makes it cross without slowing it down. But it always runs the same circuit, so follow the paw prints in the sand and set a cage trap right on its track.'
 };
+SPECIES.beeappy = {
+  name: 'Beeappy', num: 7, where: 'Pinksand Shore · floating high above the sand',
+  icon: '<svg viewBox="0 0 48 48"><ellipse cx="17" cy="13" rx="9" ry="5.5" fill="#fff" stroke="#e4e4e4" stroke-width="1.2" transform="rotate(-18 17 13)"/><ellipse cx="31" cy="12" rx="8" ry="5" fill="#fff" stroke="#e4e4e4" stroke-width="1.2" transform="rotate(15 31 12)"/><ellipse cx="24" cy="28" rx="19" ry="15" fill="#ffd21f"/><path d="M11 17.5 C8 23 8 33 11 38.5 L15.5 41 C12.5 35 12.5 21 15.5 15.5 Z" fill="#24222a"/><path d="M19 14 C16.5 21 16.5 35 19 42.5 L23 43 C20.5 35 20.5 21 23 13.2 Z" fill="#24222a"/><circle cx="33" cy="25" r="2.6" fill="#0c0c10"/><circle cx="33.8" cy="24.2" r=".8" fill="#fff"/><circle cx="41.5" cy="26" r="1.6" fill="#0c0c10"/><path d="M34 32 Q37 34.5 40 32" stroke="#24222a" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>',
+  fact: 'A Beeappy is always, always happy. It hums a little tune as it floats along and has never once stopped smiling. Except that one time. Nobody talks about that time.',
+  hint: 'Floats overhead, bobbing up and down, and never once lands. Wait for it to dip low enough to reach, or leap at it from somewhere high. And whatever you do, don\'t throw things at it.'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -3392,6 +3541,7 @@ function scrumblyCandidates() {
   for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
   for (const m of speshuls) if (m.root.visible && m.state !== 'caught') out.push({ o: m, id: 'speshul', y: 0.4 * m.s });
   for (const q of pengins) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'pengin', y: 0.3 * q.s });
+  for (const b of beeappies) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: 'beeappy', y: 0 });
   for (const w of weevils) if (w.root.visible && w.state !== 'caught') out.push({ o: w, id: 'weevil', y: 0.25 * w.s });
   for (const d of ducksharks) if (d.root.visible && d.state !== 'caught') out.push({ o: d, id: 'duckshark', y: 0.5 * d.s });
   return out;
@@ -3807,7 +3957,9 @@ function updateResidents(dt) {
     }
     const [x, z] = ranchWorld(r.u, r.v);
     const y = r.water ? POND.y - 0.05 : gy(r.u, r.v);
-    r.c.root.position.set(x, y + hopY * r.c.s, z);
+    const hover = r.p.species === 'beeappy' ? 1.2 + Math.sin(time * 2 + r.u) * 0.2 : 0;
+    if (r.c.wings) r.c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
+    r.c.root.position.set(x, y + hopY * r.c.s + hover, z);
     r.c.root.rotation.y = RANCH_YAW + r.face;
     r.c.body.scale.set(sx, sy, sx);
     r.tag.visible = dPlayer < 7;
@@ -4016,7 +4168,9 @@ function updatePartner(dt) {
   }
   if (P.squish > 0) { P.squish = Math.max(0, P.squish - dt * 2.2); const w = Math.sin(P.squish * 18) * P.squish; sy -= w * 0.25; sx += w * 0.18; }
   P.y = lerp(P.y, partnerY(P.x, P.z), Math.min(1, dt * 10));
-  P.c.root.position.set(P.x, P.y + hopY * s, P.z);
+  const hover = P.p.species === 'beeappy' ? 1.1 + Math.sin(time * 2.2) * 0.15 : 0;
+  if (P.c.wings) P.c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
+  P.c.root.position.set(P.x, P.y + hopY * s + hover, P.z);
   P.c.root.rotation.set(0, P.face, 0);
   P.c.body.scale.set(sx, sy, sx);
   if (P.c.eyes) P.c.eyes.forEach(e => { e.scale.y = petT > 0 ? 0.25 : 1; });   // happy squint while being petted
@@ -4058,6 +4212,7 @@ const BOND_SPECIES_LINES = {
   ,pengin: ['{name} found a cosy little gap to sit in. It’s very proud of it.', '{name} peeked out from behind you and decided you’re safe.', '{name} is a tiny bit less shy today.', '{name} waddled right up close. That’s a big deal for a Pengin.']
   ,duckshark: ['{name} quacked at you. You’re fairly sure it was a quack.', '{name} is trying very hard not to bite anything today.', '{name} paddled a little circle of joy.', '{name} is guarding you very fiercely. From a seagull.', '{name} did a dabble. It’s very proud of it.']
   ,weevil: ['{name} ran three laps round you out of sheer joy.', '{name} has stopped running in circles. For now.', '{name} wagged so hard its whole body wiggled.', '{name} is very, very good at being a sausage.', '{name} would like you to throw something. Anything. Please.']
+  ,beeappy: ['{name} hummed you a happy little tune.', '{name} did a loop-the-loop just for you.', '{name} is very glad you never throw things at it.', '{name} is buzzing with joy. Literally.', '{name} bumped gently into your head. On purpose. With love.']
 };
 let bondTimer = 70 + Math.random() * 50, bondBag = [];
 const bondEl = document.getElementById('bond');
@@ -4639,6 +4794,7 @@ function tick(dt) {
   updatePengins(dt);
   updateDucksharks(dt);
   updateWeevils(dt);
+  updateBeeappies(dt);
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -4693,6 +4849,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, ducksharks, weevils, weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
