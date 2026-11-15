@@ -48,11 +48,11 @@
   #area { top: calc(20px + env(safe-area-inset-top, 0px)); left: 0; right: 0; text-align: center; font-family: var(--display); font-weight: 700;
           font-size: clamp(1.6rem, 5vw, 2.6rem); color: var(--cream); text-shadow: 0 3px 0 var(--pink-deep); opacity: 0; transition: opacity 1.2s; }
   #area small { display: block; font-family: var(--body); font-size: .9rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); text-shadow: none; }
-  #toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--cream);
+  #toast { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--cream);
            color: var(--ink); font-weight: 800; padding: 10px 18px; border-radius: 16px; box-shadow: 0 4px 0 rgba(44,37,82,.2); opacity: 0;
            transition: opacity .3s, transform .3s; max-width: calc(100vw - 48px); text-align: center; }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #hint { left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); font-size: .8rem; font-weight: 700;
+  #hint { left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); max-width: min(30rem, calc(100vw - 150px)); font-size: .8rem; font-weight: 700;
           background: rgba(255,250,246,.75); padding: 6px 10px; border-radius: 10px; }
   .chip { position: fixed; z-index: 15; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px));
           font-family: var(--display); font-weight: 600; font-size: .95rem; background: var(--cream); color: var(--ink); border: 0; border-radius: 12px;
@@ -77,13 +77,46 @@
              background: #ffd23f; color: var(--ink); box-shadow: 0 5px 0 #e59a2f; }
   #prompt { left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-weight: 800; font-size: .95rem; background: rgba(255,250,246,.9);
             padding: 6px 12px; border-radius: 12px; box-shadow: 0 3px 0 rgba(44,37,82,.18); white-space: nowrap; }
-  #catches { top: calc(14px + env(safe-area-inset-top, 0px)); left: calc(14px + env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 8px;
-             font-family: var(--display); font-weight: 600; font-size: .95rem; background: var(--cream); padding: 6px 12px 6px 8px; border-radius: 12px; box-shadow: 0 3px 0 rgba(44,37,82,.2); }
-  #catches b { font-weight: 700; color: var(--pink-deep); font-size: 1.1rem; }
-  #catches i { width: 24px; height: 20px; border-radius: 50% 50% 42% 42% / 62% 62% 38% 38%; background: #fffbf4; box-shadow: inset 0 -3px 0 #f0e2d6, 0 0 0 2px #e9d9cc; position: relative; }
-  #catches i::after { content: ''; position: absolute; left: 6px; top: 8px; width: 3px; height: 4px; border-radius: 2px; background: #8a3d1c; box-shadow: 9px 0 0 #8a3d1c; }
-  #catches.pop { animation: pop .5s; }
   @keyframes pop { 30% { transform: scale(1.25) rotate(-4deg); } }
+  @keyframes nope { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+
+  /* inventory hotbar (bottom centre; top centre on touch so it clears the thumbs) */
+  #hotbar { position: fixed; z-index: 14; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+            display: flex; gap: 6px; padding: 6px; border-radius: 18px; background: rgba(44,37,82,.35); backdrop-filter: blur(4px); }
+  .touch #hotbar { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); }
+  .slot { --s: clamp(46px, 7vw, 58px); position: relative; width: var(--s); height: var(--s); padding: 5px; border: 0; border-radius: 13px; cursor: pointer;
+          background: rgba(255,250,246,.82); box-shadow: inset 0 -3px 0 rgba(44,37,82,.15); transition: transform .15s, background .15s; touch-action: manipulation; }
+  .slot svg { width: 100%; height: 100%; display: block; }
+  .slot.empty { background: rgba(255,250,246,.28); box-shadow: inset 0 0 0 2px rgba(255,250,246,.4); cursor: default; }
+  .slot.dim svg { opacity: .35; filter: grayscale(1); }
+  .slot.active { background: #fff3a8; box-shadow: inset 0 0 0 3px var(--pink), 0 4px 0 var(--pink-deep); transform: translateY(-5px); }
+  .slot .key { position: absolute; left: 5px; top: 3px; font-family: var(--display); font-weight: 700; font-size: .7rem; color: rgba(44,37,82,.55); }
+  .touch .slot .key { display: none; }
+  .slot .count { position: absolute; right: 4px; bottom: 2px; font-family: var(--display); font-weight: 700; font-size: .95rem; color: var(--ink); text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+  .slot .name { position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%); font-family: var(--display); font-weight: 600; font-size: .8rem;
+                color: var(--cream); background: var(--ink); padding: 2px 8px; border-radius: 8px; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .touch .slot .name { bottom: auto; top: calc(100% + 9px); }
+  .slot.active .name { opacity: 1; }
+  .slot.bump { animation: pop .4s; }
+  .slot.nope { animation: nope .35s; }
+
+  /* party (left side) */
+  #party { position: fixed; z-index: 14; left: calc(12px + env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-50%);
+           display: flex; flex-direction: column; gap: 7px; pointer-events: none; }
+  .pslot { --s: clamp(44px, 8.5vh, 62px); position: relative; width: var(--s); height: var(--s); border-radius: 16px;
+           background: rgba(255,250,246,.3); box-shadow: inset 0 0 0 2px rgba(255,250,246,.6); display: grid; place-items: center; }
+  .pslot.partner { --s: clamp(52px, 10.5vh, 76px); border-radius: 20px; box-shadow: inset 0 0 0 3px rgba(255,210,63,.85); margin-top: 12px; }
+  .pslot.filled { background: var(--cream); box-shadow: inset 0 -3px 0 rgba(44,37,82,.12), 0 3px 0 rgba(44,37,82,.2); }
+  .pslot.partner.filled { background: #fff3a8; box-shadow: inset 0 0 0 3px #ffd23f, 0 4px 0 #e59a2f; }
+  .pslot.pop { animation: pop .55s; }
+  .pslot .pic { width: 80%; height: 80%; }
+  .pslot .pic svg { width: 100%; height: 100%; display: block; }
+  .pslot .tag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); font-family: var(--display); font-weight: 700; font-size: .62rem; letter-spacing: .08em;
+                background: var(--pink); color: var(--cream); padding: 2px 7px; border-radius: 7px; box-shadow: 0 2px 0 var(--pink-deep); white-space: nowrap; }
+  .pslot .pname { position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); font-family: var(--display); font-weight: 600; font-size: .78rem;
+                  background: rgba(255,250,246,.85); padding: 1px 7px; border-radius: 7px; white-space: nowrap; }
+  .pslot .pname:empty { display: none; }
+  #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
 
@@ -98,7 +131,8 @@
       <li><kbd>Shift</kbd>run</li>
       <li><kbd>Space</kbd>jump</li>
       <li><kbd>Mouse</kbd>look</li>
-      <li><kbd>Click</kbd>swing net / throw</li>
+      <li><kbd>Click</kbd>use item</li>
+      <li><kbd>1–5</kbd>swap item</li>
       <li><kbd>E</kbd>pick up rock</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
@@ -110,7 +144,7 @@
 <div id="pause" hidden><div>Paused. Click to keep exploring</div></div>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click swing net / throw · F swing net · E pick up rock · Walk into a palm to climb · M music · Esc pause</div>
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–5 / scroll swap item · E pick up rock · Walk into a palm to climb · M music · Esc pause</div>
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div id="joy" hidden><i></i></div>
@@ -118,7 +152,8 @@
 <button id="netBtn" hidden>Net</button>
 <button id="grabBtn" hidden>Grab</button>
 <div class="hud" id="prompt" hidden></div>
-<div class="hud" id="catches" hidden><i></i>Bobos <b>0</b></div>
+<div id="hotbar" hidden></div>
+<div id="party" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -878,13 +913,15 @@ function pollPad() {
   if (!gp) return;
   const ax = gp.axes, b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
   pad.mx = dz(ax[0] || 0); pad.my = dz(ax[1] || 0); pad.lx = dz(ax[2] || 0); pad.ly = dz(ax[3] || 0);
-  pad.run = b(10) || b(4) || Math.hypot(pad.mx, pad.my) > 0.95;
+  pad.run = b(10) || b(6) || Math.hypot(pad.mx, pad.my) > 0.95; // L3 / LT / full tilt
   const now = gp.buttons.map(x => x.pressed);
   const tap = i => now[i] && !pad.prev[i];
   if (playing && !paused) {
     if (tap(0)) jumpQueued = true;                    // A / Cross
-    if (tap(7) || tap(5) || tap(2)) swingQueued = true; // RT / RB / X / Square: throw if holding a rock, else swing
+    if (tap(7) || tap(2)) swingQueued = true;          // RT / X / Square: use the item in hand
     if (tap(1)) pickQueued = true;                     // B / Circle: pick up rock
+    if (tap(5) || tap(15)) cycleSlot(1);               // RB / d-pad right: next item
+    if (tap(4) || tap(14)) cycleSlot(-1);              // LB / d-pad left: previous item
     if (tap(3)) toggleMusic();                        // Y / Triangle
   } else if (!playing && (tap(0) || tap(9))) startGame();
   pad.prev = now;
@@ -980,7 +1017,7 @@ function updatePlayer(dt) {
       const cb = Math.sin(player.climb.phase * 2) * 0.03;
       camera.position.set(player.x, player.y + 1.65 + cb, player.z);
       camera.fov = lerp(camera.fov, 72, Math.min(1, dt * 5)); camera.updateProjectionMatrix();
-      swingQueued = pickQueued = netOnly = false; targetRock = null; updatePrompt();
+      swingQueued = pickQueued = false; targetRock = null; updatePrompt();
       return;
     }
   }
@@ -1018,12 +1055,7 @@ function updatePlayer(dt) {
 
   targetRock = findTargetRock();
   if (pickQueued) { pickQueued = false; pickUpRock(); }
-  if (swingQueued) {
-    swingQueued = false;
-    if (heldRock && !netOnly) { if (throwAnim < 0) throwRock(); }
-    else if (swing.t < 0) startSwing();
-  }
-  netOnly = false;
+  if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
   if (jumpQueued && player.grounded) { player.vy = 7.6 * (1 - 0.3 * wet); player.grounded = false; sfxJump(); if (depth > 0.1) splash(player.x, player.z, 10, 0.7); }
@@ -1091,7 +1123,7 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  document.getElementById('hint').textContent = 'Drag to look · Click swing net / throw · F swing net · E pick up rock · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
+  document.getElementById('hint').textContent = 'Drag to look · Click use item · 1–5 / scroll swap item · E pick up rock · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
@@ -1115,7 +1147,8 @@ musicBtn.addEventListener('click', e => { e.stopPropagation(); toggleMusic(); ca
 
 // touch controls
 if (isTouch) {
-  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li><li><kbd>Net</kbd>swing / throw</li><li><kbd>Grab</kbd>pick up rock</li><li><kbd>Walk into a palm</kbd>climb</li>';
+  document.documentElement.classList.add('touch');
+  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li><li><kbd>Net</kbd>use item</li><li><kbd>Grab</kbd>pick up rock</li><li><kbd>Tap a slot</kbd>swap item</li><li><kbd>Walk into a palm</kbd>climb</li>';
 }
 const joyEl = document.getElementById('joy'), knob = joyEl.querySelector('i'), jumpBtn = document.getElementById('jumpBtn');
 jumpBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); jumpQueued = true; }, { passive: false });
@@ -1145,7 +1178,8 @@ function startGame() {
   initAudio();
   if (actx && actx.state === 'suspended') actx.resume();
   document.getElementById('title').hidden = true;
-  musicBtn.hidden = false; document.getElementById('catches').hidden = false;
+  musicBtn.hidden = false; partyEl.hidden = false; hotbarEl.hidden = false;
+  setTimeout(() => document.getElementById('hint').classList.add('fade'), 20000);
   setTimeout(() => toast(isTouch ? 'A Bobo! Stun it from above or with a rock, then net it.' : 'Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
   if (isTouch) { joyEl.hidden = false; jumpBtn.hidden = false; document.getElementById('netBtn').hidden = false; }
   else { document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer(); }
@@ -1210,7 +1244,7 @@ function makeBoboMesh() {
   return { root, body, eyes, mouth, ex, stars };
 }
 
-const ALERT_R = 9, REAPPEAR_R = 17, STUN_T = 5, BOBO_COUNT = 5;
+const ALERT_R = 6, REAPPEAR_R = 12, STUN_T = 5, BOBO_COUNT = 5;
 const bobos = [];
 let caughtCount = 0;
 const beachPalms = palms.filter(p => inland(p.x, p.z) < INLAND_LIMIT - 4);
@@ -1272,13 +1306,37 @@ function tryNetCatch() {
     if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried') continue;
     const dx = b.x - player.x, dzz = b.z - player.z, along = dx * fwd.x + dzz * fwd.z, lat = Math.abs(dx * fwd.z - dzz * fwd.x);
     if (along < -0.4 || along > 3.0 || lat > 1.15 || Math.abs(b.y - player.y) > 1.6) continue;
-    if (b.state === 'stunned') { setState(b, 'caught'); caughtCount++; updateCatchHud(); sfx.caught(); toast(caughtCount === 1 ? 'You caught a Bobo! Squishy!' : `Another Bobo! That's ${caughtCount}.`); got = true; }
+    if (b.state === 'stunned' && party.length >= PARTY_MAX) { sfx.wriggle(); toast(`Your party is full! You can only carry ${PARTY_MAX} scrumblies.`); setState(b, 'idle'); startBurrow(b); }
+    else if (b.state === 'stunned') {
+      setState(b, 'caught'); caughtCount++; sfx.caught();
+      addToParty('bobo');
+      toast(party.length === 1 ? 'You caught a Bobo! It\'s your partner now.' : `Caught a Bobo! Party: ${party.length}/${PARTY_MAX}`);
+      got = true;
+    }
     else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first.'); startBurrow(b); }
   }
   return got;
 }
-const catchEl = document.getElementById('catches');
-function updateCatchHud() { catchEl.querySelector('b').textContent = caughtCount; catchEl.classList.remove('pop'); void catchEl.offsetWidth; catchEl.classList.add('pop'); }
+
+/* ---------- party (left side) ---------- */
+const PARTY_MAX = 5;
+const SPECIES = {
+  bobo: { name: 'Bobo', icon: '<svg viewBox="0 0 48 48"><g stroke="#e6d3c4" stroke-width="1.6"><path d="M6 35 C4 23 12 14 24 14 C36 14 44 23 42 35 C41 40 35 41 24 41 C13 41 7 40 6 35 Z" fill="#fffbf4"/><circle cx="19" cy="14.5" r="3.4" fill="#fffbf4"/><circle cx="29" cy="14.5" r="3.4" fill="#fffbf4"/><circle cx="24" cy="12" r="4.2" fill="#fffbf4"/></g><ellipse cx="18" cy="28" rx="2.4" ry="3" fill="#8a3d1c"/><ellipse cx="30" cy="28" rx="2.4" ry="3" fill="#8a3d1c"/><path d="M21 32 Q24 35 27 32" stroke="#8a3d1c" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="13.5" cy="32" r="2.2" fill="#f47c8c"/><circle cx="34.5" cy="32" r="2.2" fill="#f47c8c"/></svg>' }
+};
+const party = [];
+const partyEl = document.getElementById('party');
+for (let i = 0; i < PARTY_MAX; i++) {
+  const s = document.createElement('div'); s.className = 'pslot' + (i === 0 ? ' partner' : '');
+  s.innerHTML = (i === 0 ? '<span class="tag">PARTNER</span>' : '') + '<span class="pic"></span><span class="pname"></span>';
+  partyEl.appendChild(s);
+}
+function addToParty(species) {
+  party.push({ species });
+  const el = partyEl.children[party.length - 1];
+  el.classList.add('filled', 'pop');
+  el.querySelector('.pic').innerHTML = SPECIES[species].icon;
+  el.querySelector('.pname').textContent = SPECIES[species].name;
+}
 
 const _cv = new THREE.Vector3();
 function updateBobos(dt) {
@@ -1320,7 +1378,9 @@ function updateBobos(dt) {
         break;
       }
       case 'buried': {
-        if (b.t > 2.5 && dist > REAPPEAR_R) {
+        // comes back once you've backed off, or once you're up a tree where it can't see you
+        const outOfSight = player.climb || player.y - b.y > 2.2;
+        if ((b.t > 2.5 && dist > REAPPEAR_R) || (b.t > 1.5 && outOfSight)) {
           // pop up near where it dove (it doesn't go far)
           for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = Math.random() * 3, x = b.x + Math.cos(a) * r, z = b.z + Math.sin(a) * r; if (boboSpotOK(x, z)) { setBoboAt(b, x, z); break; } }
           setState(b, 'emerge'); b.root.visible = true; sandPuff(b.x, b.z, 22); if (dist < 40) sfx.emerge();
@@ -1409,10 +1469,50 @@ function addRock(x, z) {
   for (let i = 0; i < 4; i++) { const a = spawnTheta + 0.02 + i * 0.012, [x, z] = polar(a, 22 + i * 2.5); if (boboSpotOK(x, z)) addRock(x, z); }
   for (let i = 0; i < 26; i++) { const [x, z] = polar(Math.random() * 6.28, 8 + Math.random() * 52); if (boboSpotOK(x, z)) addRock(x, z); }
 }
-let heldRock = null, targetRock = null, throwAnim = -1, pickQueued = false;
+/* ---------- inventory hotbar ---------- */
+const MAX_ROCKS = 10;
+const ITEM_DEFS = {
+  net: { name: 'Net', icon: '<svg viewBox="0 0 48 48"><path d="M10 40 L24 24" stroke="#e0b07a" stroke-width="4.5" stroke-linecap="round"/><path d="M8 42 L13 37" stroke="#ff6fa5" stroke-width="6" stroke-linecap="round"/><ellipse cx="31" cy="16" rx="11" ry="11" fill="rgba(255,255,255,.55)" stroke="#19b3ae" stroke-width="4"/><path d="M23 9 L39 23 M21 16 L34 28 M27 6 L41 18 M22 22 L28 27 M39 9 L25 25 M41 15 L31 26 M35 6 L22 19" stroke="#fff" stroke-width="1.6" opacity=".9"/></svg>' },
+  rock: { name: 'Rocks', icon: '<svg viewBox="0 0 48 48"><path d="M9 32 C7 24 13 15 22 14 C31 12 40 18 41 27 C42 35 34 38 25 38 C16 38 10 37 9 32 Z" fill="#a99487" stroke="#7d6d70" stroke-width="2.5"/><path d="M15 22 C18 19 22 18 26 18" stroke="#cbb9b3" stroke-width="3" stroke-linecap="round" fill="none"/></svg>' }
+};
+const inv = { slots: ['net', 'rock', null, null, null], active: 0, shown: 0, eq: 0, rocks: 0 };
+const hotbarEl = document.getElementById('hotbar');
+inv.slots.forEach((id, i) => {
+  const b = document.createElement('button'); b.className = 'slot'; b.dataset.i = i;
+  b.innerHTML = `<span class="key">${i + 1}</span>${id ? ITEM_DEFS[id].icon : ''}<span class="count"></span><span class="name">${id ? ITEM_DEFS[id].name : ''}</span>`;
+  if (!id) b.classList.add('empty');
+  const pick = e => { e.preventDefault(); e.stopPropagation(); selectSlot(i); canvas.focus(); };
+  b.addEventListener('touchstart', pick, { passive: false }); b.addEventListener('mousedown', pick);
+  hotbarEl.appendChild(b);
+});
+function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || (id === 'rock' && inv.rocks > 0); }
+function selectSlot(i, quiet) {
+  if (i === inv.active) return;
+  if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'.replace('press E', isTouch ? 'tap Grab' : 'press E')); } return; }
+  inv.active = i; sfx.pickup(); renderHotbar();
+}
+function cycleSlot(dir) {
+  for (let k = 1; k <= inv.slots.length; k++) { const i = (inv.active + dir * k + inv.slots.length * 5) % inv.slots.length; if (slotUsable(i)) { selectSlot(i, true); return; } }
+}
+function renderHotbar() {
+  [...hotbarEl.children].forEach((el, i) => {
+    el.classList.toggle('active', i === inv.active);
+    el.classList.toggle('dim', !!inv.slots[i] && !slotUsable(i));
+    if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
+  });
+}
+renderHotbar();
+const activeItem = () => inv.slots[inv.shown];
+function useItem() {
+  if (inv.eq > 0.05 || player.climb) return;             // mid-swap or hands full of tree
+  if (activeItem() === 'net') { if (swing.t < 0) startSwing(); }
+  else if (activeItem() === 'rock' && throwAnim < 0) throwRock();
+}
+
+let targetRock = null, throwAnim = -1, pickQueued = false;
 const _dir = new THREE.Vector3(), _to = new THREE.Vector3();
 function findTargetRock() {
-  if (heldRock || player.climb) return null;
+  if (player.climb || inv.rocks >= MAX_ROCKS) return null;
   camera.getWorldDirection(_dir);
   let best = null, bestScore = Infinity;
   for (const r of rocks) {
@@ -1428,15 +1528,17 @@ function findTargetRock() {
   return best;
 }
 function pickUpRock() {
-  if (!targetRock) return;
-  heldRock = targetRock; heldRock.state = 'held'; heldRock.mesh.visible = false; targetRock = null;
-  sfx.pickup();
-  if (!pickHintShown) { pickHintShown = true; toast(isTouch ? 'Tap Throw to toss it at a Bobo' : 'Click to throw it · F still swings the net'); }
+  if (!targetRock) { if (inv.rocks >= MAX_ROCKS) toast(`Your pockets are full! (${MAX_ROCKS} rocks)`); return; }
+  targetRock.state = 'inv'; targetRock.mesh.visible = false; targetRock = null;
+  inv.rocks++; renderHotbar(); sfx.pickup();
+  const el = hotbarEl.children[inv.slots.indexOf('rock')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  if (!pickHintShown && activeItem() !== 'rock') { pickHintShown = true; toast(isTouch ? 'Got a rock! Tap the rock slot to get it out.' : 'Got a rock! Press 2 or scroll to get it out.'); }
 }
 let pickHintShown = false;
 function throwRock() {
-  if (!heldRock || player.climb) return;
-  const r = heldRock; heldRock = null;
+  const r = rocks.find(x => x.state === 'inv');
+  if (!r || player.climb) return;
+  inv.rocks--; renderHotbar();
   camera.getWorldDirection(_dir);
   _to.set(0.25, -0.25, -0.5).applyQuaternion(camera.quaternion);
   r.x = camera.position.x + _to.x; r.y = camera.position.y + _to.y; r.z = camera.position.z + _to.z;
@@ -1551,7 +1653,6 @@ function placeArm(h, shoulder) {
 const SHOULDER_R = new THREE.Vector3(0.36, -0.62, 0.15), SHOULDER_L = new THREE.Vector3(-0.38, -0.66, 0.12);
 const heldRockMesh = new THREE.Mesh(rockGeo, new THREE.MeshLambertMaterial({ color: 0xa99487 }));
 heldRockMesh.scale.setScalar(0.55); heldRockMesh.visible = false; viewScene.add(heldRockMesh);
-let holdBlend = 0;
 const CLIMB_SHOULDER_R = new THREE.Vector3(0.34, -0.7, 0.05), CLIMB_SHOULDER_L = new THREE.Vector3(-0.34, -0.7, 0.05);
 
 // net poses: [x, y, z, pitch, roll, yaw]
@@ -1574,17 +1675,14 @@ function netSlam() {
   shake = 0.09;
   tryNetCatch();
 }
-let netOnly = false;
 const promptEl = document.getElementById('prompt'), grabBtn = document.getElementById('grabBtn');
 let promptText = '';
 function updatePrompt() {
-  let t = '';
-  if (targetRock) t = isTouch ? '' : '<kbd>E</kbd>pick up rock';
-  else if (heldRock && !player.climb) t = isTouch ? '' : '<kbd>Click</kbd>throw rock';
+  const t = targetRock && !isTouch ? '<kbd>E</kbd>pick up rock' : '';
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
   if (isTouch) {
     grabBtn.hidden = !targetRock;
-    netBtn.textContent = heldRock ? 'Throw' : 'Net';
+    netBtn.textContent = activeItem() === 'rock' ? 'Throw' : 'Net';
   }
 }
 let shake = 0;
@@ -1605,34 +1703,40 @@ function updateViewmodel(dt) {
     else mixPose(POSE_HIT, POSE_REST, easeIO(Math.min(1, (t - 0.6) / 0.4)));
     if (t >= 1) swing.t = -1;
   } else mixPose(POSE_REST, POSE_REST, 0);
+  // item swap: lower what's in hand, then raise the new one
+  if (inv.shown !== inv.active) { inv.eq = Math.min(1, inv.eq + dt * 7); if (inv.eq >= 1) { inv.shown = inv.active; swing.t = -1; throwAnim = -1; } }
+  else inv.eq = Math.max(0, inv.eq - dt * 7);
+  const eqDrop = easeIO(inv.eq) * 0.9, item = activeItem();
   const bx = Math.cos(walkPhase) * 0.018 * sway, by = -Math.abs(Math.sin(walkPhase)) * 0.022 * sway + Math.sin(time * 1.6) * 0.006;
-  net.position.set(pose[0] + bx, pose[1] + by - cbk * 1.3, pose[2]);
+  net.position.set(pose[0] + bx, pose[1] + by - cbk * 1.3 - eqDrop, pose[2]);
   net.rotation.set(pose[3] - cbk * 0.6, pose[5], pose[4], 'YXZ');
-  net.visible = climbBlend < 0.99;
+  net.visible = item === 'net' && climbBlend < 0.99;
 
   // ----- hands -----
   if (climbBlend < 0.5) {
-    // right hand grips the handle; left hand tucked away
-    net.updateMatrixWorld();
-    handR.g.position.set(0, 0.02, 0).applyMatrix4(net.matrixWorld);
-    handR.g.quaternion.copy(net.quaternion);
-    handR.g.rotateY(-0.3);
-    placeArm(handR, SHOULDER_R);
-    handR.g.visible = handR.arm.visible = net.visible;
-    // left hand: holding a rock, or following through after a throw
-    const showL = !!heldRock || throwAnim >= 0;
-    heldRockMesh.visible = !!heldRock;
-    if (showL) {
+    handL.g.visible = handL.arm.visible = false;
+    if (item === 'net') {
+      // right hand grips the handle
+      heldRockMesh.visible = false;
+      net.updateMatrixWorld();
+      handR.g.position.set(0, 0.02, 0).applyMatrix4(net.matrixWorld);
+      handR.g.quaternion.copy(net.quaternion);
+      handR.g.rotateY(-0.3);
+    } else {
+      // right hand holds a rock; throwing thrusts it forward, then the next rock comes up
       let k = 0, fwdK = 0;
-      if (throwAnim >= 0) { throwAnim += dt / 0.4; const t = Math.min(1, throwAnim); fwdK = Math.sin(t * Math.PI); k = t; if (throwAnim >= 1) throwAnim = -1; }
-      const drop = (heldRock && throwAnim < 0 ? (1 - holdBlend) * 0.5 : 0) + cbk * 1.2 + (throwAnim >= 0 ? Math.max(0, k - 0.5) * 0.9 : 0);
-      handL.g.position.set(-0.27 + fwdK * 0.12 + bx, -0.27 + fwdK * 0.1 + by - drop, -0.6 - fwdK * 0.25);
-      handL.g.rotation.set(-0.35 - fwdK * 0.6, 0.35, 0.25);
-      placeArm(handL, SHOULDER_L);
-      handL.g.visible = handL.arm.visible = true;
-      heldRockMesh.position.set(0, 0.075, -0.06).applyQuaternion(handL.g.quaternion).add(handL.g.position);
-    } else handL.g.visible = handL.arm.visible = false;
-    holdBlend = heldRock ? Math.min(1, holdBlend + dt * 5) : 0;
+      if (throwAnim >= 0) {
+        throwAnim += dt / 0.45; k = Math.min(1, throwAnim); fwdK = Math.sin(Math.min(1, k * 1.6) * Math.PI);
+        if (throwAnim >= 1) { throwAnim = -1; if (inv.rocks === 0) selectSlot(0, true); }
+      }
+      const reload = throwAnim >= 0 && k > 0.45 ? Math.sin((k - 0.45) / 0.55 * Math.PI) * 0.35 : 0;
+      handR.g.position.set(0.27 - fwdK * 0.1 + bx, -0.27 + fwdK * 0.12 + by - eqDrop - cbk * 1.2 - reload, -0.6 - fwdK * 0.28);
+      handR.g.rotation.set(-0.35 - fwdK * 0.7, -0.35, -0.25);
+      heldRockMesh.visible = inv.rocks > 0 && (throwAnim < 0 || k > 0.6);
+      heldRockMesh.position.set(0, 0.075, -0.06).applyQuaternion(handR.g.quaternion).add(handR.g.position);
+    }
+    placeArm(handR, SHOULDER_R);
+    handR.g.visible = handR.arm.visible = climbBlend < 0.99;
   } else {
     // climbing: hands reach up the trunk one after another (any held rock is pocketed)
     throwAnim = -1; heldRockMesh.visible = false;
@@ -1660,9 +1764,11 @@ canvas.addEventListener('mouseup', e => {
 });
 window.addEventListener('keydown', e => {
   if (!playing || paused || e.repeat) return;
-  if (e.code === 'KeyF') { swingQueued = true; netOnly = true; }
   if (e.code === 'KeyE') pickQueued = true;
+  const n = /^Digit([1-5])$/.exec(e.code); if (n) selectSlot(+n[1] - 1);
+  if (e.code === 'KeyQ') cycleSlot(1);
 });
+canvas.addEventListener('wheel', e => { if (!playing || paused) return; e.preventDefault(); if (Math.abs(e.deltaY) > 2) cycleSlot(e.deltaY > 0 ? 1 : -1); }, { passive: false });
 const netBtn = document.getElementById('netBtn');
 netBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); swingQueued = true; }, { passive: false });
 grabBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); pickQueued = true; }, { passive: false });
@@ -1732,6 +1838,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  held: () => heldRock, target: () => targetRock, caught: () => caughtCount, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
