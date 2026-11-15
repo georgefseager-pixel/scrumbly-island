@@ -230,6 +230,16 @@
   .box-foot { color: #2f5a20; font-weight: 700; font-size: .85rem; text-align: center; min-height: 1.3em; }
   .box-foot kbd { background: #3f6b30; }
   @media (max-width: 720px) { .box-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } #boxParty { grid-template-columns: repeat(5, 1fr); } #boxParty .bcell { grid-template-columns: 1fr; height: auto; } #boxParty .bcell .nm { display: none; } }
+  /* partner bond notes */
+  #bond { left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; max-width: min(460px, calc(100vw - 32px));
+          background: #fff0f6; border: 3px solid var(--pink); border-radius: 20px; padding: 8px 16px 8px 8px; box-shadow: 0 4px 0 var(--pink-deep);
+          font-weight: 800; line-height: 1.3; opacity: 0; transform: translate(-50%, -20px) scale(.95); transition: opacity .35s, transform .45s cubic-bezier(.2,1.5,.4,1); }
+  #bond.in { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  #bond .pic { flex: none; width: 46px; height: 46px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: inset 0 0 0 2px #ffc2db; }
+  #bond .pic svg { width: 80%; height: 80%; }
+  #bond p { margin: 0; }
+  #bond b { color: var(--pink-deep); }
+  #bond::after { content: '♥'; position: absolute; right: -8px; top: -12px; color: var(--pink); font-size: 1.4rem; text-shadow: 0 2px 0 #fff; }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
@@ -294,6 +304,7 @@
     <div class="box-foot" id="boxFoot"></div>
   </div>
 </div>
+<div class="hud" id="bond" hidden></div>
 <div id="hotbar" hidden></div>
 <div id="party" hidden></div>
 
@@ -1225,8 +1236,9 @@ function updatePlayer(dt) {
   }
 
   nearProf = profInReach();
-  targetRock = nearProf ? null : findTargetRock();
-  if (pickQueued) { pickQueued = false; if (nearProf) openBox(); else pickUpRock(); }
+  nearPartner = !nearProf && partnerInReach();
+  targetRock = nearProf || nearPartner ? null : findTargetRock();
+  if (pickQueued) { pickQueued = false; if (nearProf) openBox(); else if (nearPartner) petPartner(); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -2243,9 +2255,10 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
+  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
+  const pn = promptEl.querySelector('.pn'); if (pn && partner && pn.textContent !== partner.p.name) pn.textContent = partner.p.name;
 }
 let shake = 0;
 
@@ -2277,6 +2290,13 @@ function updateViewmodel(dt) {
   // ----- hands -----
   if (climbBlend < 0.5) {
     handL.g.visible = handL.arm.visible = false;
+    if (petT > 0) {
+      // left hand gives your partner a pat
+      const k = 1 - petT / 0.9, reach = Math.sin(Math.min(1, k * 1.3) * Math.PI), pat = Math.abs(Math.sin(k * Math.PI * 4));
+      handL.g.position.set(-0.12 + bx, -0.36 + reach * 0.2 - pat * 0.07 + by, -0.55 - reach * 0.35);
+      handL.g.rotation.set(-1.25, 0.2, 0.15);
+      placeArm(handL, SHOULDER_L); handL.g.visible = handL.arm.visible = true;
+    }
     dexModel.visible = false;
     if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
     else if (item === 'net') {
@@ -2939,6 +2959,148 @@ function closeBox() {
 function updateRanch(dt) { updateProf(dt); updateResidents(dt); updateHearts(dt); }
 refreshResidents();
 
+/* =========================================================
+   Your partner: follows you about, loves a pat
+   ========================================================= */
+let partner = null, nearPartner = false, petT = 0, petCD = 0;
+const sparkles = Array.from({ length: 24 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, depthWrite: false })); sp.visible = false; scene.add(sp); return { sp, life: 0 }; });
+let sparkIdx = 0;
+function spawnSparkle(x, y, z) {
+  const s = sparkles[sparkIdx++ % sparkles.length], a = Math.random() * 6.28, sp = 0.8 + Math.random() * 1.2;
+  Object.assign(s, { life: 0.8, x, y, z, vx: Math.cos(a) * sp, vy: 1.5 + Math.random() * 1.5, vz: Math.sin(a) * sp }); s.sp.visible = true;
+}
+function updateSparkles(dt) {
+  for (const s of sparkles) {
+    if (s.life <= 0) { s.sp.visible = false; continue; }
+    s.life -= dt; s.vy -= 4 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+    s.sp.position.set(s.x, s.y, s.z); s.sp.scale.setScalar(0.16 * Math.min(1, s.life / 0.3)); s.sp.material.rotation += dt * 6;
+  }
+}
+function syncPartner() {
+  const p = party[0] || null;
+  if (partner && partner.p === p) return;
+  const old = partner;
+  if (old) scene.remove(old.c.root);
+  partner = null;
+  if (!p) return;
+  const water = p.species === 'mermiggly';
+  const c = water ? makeMermMesh() : makeBoboMesh();
+  applySize(c, p.size);
+  const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = water ? 1.5 : 1.15; tag.scale.multiplyScalar(1 / c.s);
+  // appear just behind you with a little puff
+  const x = old ? old.x : player.x - fwd.x * 2, z = old ? old.z : player.z - fwd.z * 2;
+  partner = { p, c, water, tag, x, z, y: heightAt(x, z), face: player.yaw + Math.PI, hop: 0, squish: 0, idle: 0 };
+  if (playing) { sandPuff(x, z, 14); sfx.emerge(); }
+}
+const partnerY = (x, z) => { const g = heightAt(x, z); return Math.max(g, water.position.y - (partner.water ? 0.05 : 0.3) * partner.c.s); };
+function partnerInReach() {
+  if (!partner || player.climb) return false;
+  const pr = partner.c.root.position;
+  if (Math.hypot(pr.x - player.x, pr.z - player.z) > 2.8) return false;
+  camera.getWorldDirection(_dir);
+  _to.set(pr.x - camera.position.x, pr.y + 0.35 * partner.c.s - camera.position.y, pr.z - camera.position.z).normalize();
+  return _to.dot(_dir) > 0.8;
+}
+function petPartner() {
+  if (!partner || petCD > 0) return;
+  petT = 0.9; petCD = 0.9; partner.squish = 1; partner.idle = 0;
+  const pr = partner.c.root.position;
+  for (let i = 0; i < 3; i++) spawnHeart(pr.x, pr.y + 0.8 * partner.c.s, pr.z);
+  for (let i = 0; i < 8; i++) spawnSparkle(pr.x, pr.y + 0.5 * partner.c.s, pr.z);
+  sfx.love(1); mermSfx.giggle(0.8);
+  if (Math.random() < 0.12) bondTimer = Math.min(bondTimer, 1.5);   // occasionally they tell you how they feel
+}
+function updatePartner(dt) {
+  syncPartner();
+  petCD = Math.max(0, petCD - dt); petT = Math.max(0, petT - dt);
+  if (!partner) return;
+  const P = partner, s = P.c.s;
+  // where to be: a couple of metres behind you, a little to the side
+  let tx, tz;
+  if (player.climb) { const tp = player.climb.p; tx = tp.x + (player.x - tp.x) * 1.8; tz = tp.z + (player.z - tp.z) * 1.8; }
+  else { tx = player.x - fwd.x * (1.8 + s * 0.4) + right.x * 0.7; tz = player.z - fwd.z * (1.8 + s * 0.4) + right.z * 0.7; }
+  if (!walkable(tx, tz)) { tx = player.x; tz = player.z; }
+  const dx = tx - P.x, dz = tz - P.z, d = Math.hypot(dx, dz), far = Math.hypot(player.x - P.x, player.z - P.z);
+  if (far > 30) { P.x = player.x - fwd.x * 2; P.z = player.z - fwd.z * 2; sandPuff(P.x, P.z, 10); }
+  let hopY = 0, sy = 1, sx = 1;
+  // only set off once you've wandered a few metres away, then settle down near you
+  const leash = 3.2 + s * 0.6;
+  if (!P.moving && far > leash && petT <= 0) P.moving = true;
+  if (P.moving && (d < 0.45 || far < leash - 1.2)) P.moving = false;
+  if (P.moving && petT <= 0) {
+    const sp = clamp(d * 2.2, 1.5, 10) * dt * (P.y < water.position.y - 0.1 ? 0.6 : 1);
+    P.x += dx / d * Math.min(sp, d); P.z += dz / d * Math.min(sp, d);
+    P.face += angDiff(P.face, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
+    P.hop += dt * (8 + Math.min(d, 6)); const k = Math.abs(Math.sin(P.hop));
+    hopY = P.water ? k * 0.06 : k * 0.2; sy = 0.92 + k * 0.14; sx = 1.05 - k * 0.07; P.idle = 0;
+  } else {
+    // waiting: look at you, breathe, and every so often do a happy little hop
+    P.face += angDiff(P.face, Math.atan2(player.x - P.x, player.z - P.z)) * Math.min(1, dt * 4);
+    P.idle += dt; sy = 1 + Math.sin(time * 2.6) * 0.03; sx = 1 - (sy - 1) * 0.5;
+    if (P.idle > 4) { const k = Math.sin((P.idle - 4) * 7); if (P.idle < 4 + Math.PI / 7) hopY = Math.abs(k) * 0.3; else P.idle = -Math.random() * 6; }
+  }
+  if (P.squish > 0) { P.squish = Math.max(0, P.squish - dt * 2.2); const w = Math.sin(P.squish * 18) * P.squish; sy -= w * 0.25; sx += w * 0.18; }
+  P.y = lerp(P.y, partnerY(P.x, P.z), Math.min(1, dt * 10));
+  P.c.root.position.set(P.x, P.y + hopY * s, P.z);
+  P.c.root.rotation.set(0, P.face, 0);
+  P.c.body.scale.set(sx, sy, sx);
+  if (P.c.eyes) P.c.eyes.forEach(e => { e.scale.y = petT > 0 ? 0.25 : 1; });   // happy squint while being petted
+  if (P.water) { P.c.tail1.rotation.x = Math.sin(time * 4) * 0.15; P.c.tail2.rotation.x = Math.sin(time * 4 - 0.9) * 0.22; P.c.arms[1].rotation.z = petT > 0 ? 2.5 + Math.sin(time * 9) * 0.4 : 0.55; }
+  const near = Math.hypot(player.x - P.x, player.z - P.z);
+  P.tag.visible = near < 5 || petT > 0;
+}
+
+/* ---------- little notes about how your partner feels ---------- */
+const BOND_LINES = [
+  '{name} really likes hanging out with you.', '{name} feels safe around you.', '{name} is humming a happy little tune.',
+  '{name} keeps glancing at you and smiling.', '{name} bumped into your leg on purpose. Probably.', '{name} thinks you\'re the best catcher on the island.',
+  '{name} is having the nicest day.', '{name} wiggles happily.', '{name} wants you to know it\'s proud of you.',
+  '{name} found a shiny shell and wants you to see it.', '{name} is doing a tiny happy dance.', '{name} trusts you completely.',
+  '{name} is so glad it met you.', '{name} sniffs the sea breeze and sighs contentedly.', '{name} is trying to match your footsteps.',
+  '{name} looks up at you with sparkly eyes.', '{name} would follow you anywhere.', '{name} is feeling extra squishy today.',
+  '{name} let out a tiny contented sigh.', '{name} thinks the sand is especially nice today.', '{name} feels like the luckiest {species} on the island.',
+  '{name} is quietly, enormously happy.', '{name} seems to be smiling at nothing in particular.', '{name} keeps close so it doesn\'t lose you.',
+  '{name} is daydreaming about snacks.', '{name} gave a happy little squeak.', '{name} has decided you are its favourite person.',
+  '{name} feels warm and fuzzy inside.', '{name} is getting braver every day.', '{name} is watching the waves with you.',
+  '{name} wants to stay by your side.', '{name} thinks you have a lovely laugh.', '{name} is pretending it isn\'t tired.',
+  '{name} loves your adventures together.', '{name} wishes today would never end.', '{name} nearly nodded off, then hopped to catch up.',
+  '{name} is bopping along to the music.', '{name} just did a little hop for no reason.', '{name} feels very looked after.',
+  '{name} is so happy you\'re here.', '{name} thinks you\'re doing a great job.', '{name} seems very relaxed.',
+  '{name} is counting the clouds. It got to three.', '{name} admires your net technique.', '{name} wonders what\'s past the jungle.',
+  '{name} would share its snacks with you. Probably.', '{name} feels at home with you.', '{name} is absolutely beaming.',
+  '{name} snuggles a little closer.', '{name} is in a wonderful mood.', '{name} keeps an eye out for you.',
+  '{name} thinks today smells like adventure.', '{name} is your number one fan.', '{name} wiggles whenever you say its name.',
+  '{name} feels braver with you around.', '{name} believes in you.', '{name} is having a lovely time.',
+  '{name} is very glad to be your partner.', '{name} would like a pat, if you\'re offering.', '{name} is getting the hang of this exploring thing.',
+  '{name} tried to copy your jump. Nearly!', '{name} thinks the palm trees are waving at you both.', '{name} saved you a spot in the shade.',
+  '{name} made a tiny sandcastle. It\'s for you.', '{name} hopes you\'re having fun too.', '{name} feels like part of a team.',
+  '{name} thinks you\'re a very good friend.', '{name} is collecting happy memories.', '{name} is extremely pleased with itself, and with you.'
+];
+const BOND_SPECIES_LINES = {
+  bobo: ['{name} is glowing just a tiny bit.', '{name} hasn\'t felt like hiding in the sand all day.', '{name} is puffed up with pride. Literally.', '{name} feels squishy-soft and safe.'],
+  mermiggly: ['{name} waved at you. Then waved again, just in case.', '{name} blew you a little bubble.', '{name} did a happy ribbit.']
+};
+let bondTimer = 70 + Math.random() * 50, bondBag = [];
+const bondEl = document.getElementById('bond');
+let bondHide = 0;
+function showBond() {
+  if (!partner) return;
+  if (!bondBag.length) bondBag = BOND_LINES.concat(BOND_SPECIES_LINES[partner.p.species] || []).sort(() => Math.random() - 0.5);
+  const line = bondBag.pop().replace('{species}', SPECIES[partner.p.species].name);
+  const [before, after] = line.split('{name}');
+  bondEl.innerHTML = `<span class="pic">${SPECIES[partner.p.species].icon}</span><p></p>`;
+  const pEl = bondEl.querySelector('p'); pEl.append(before || ''); const b = document.createElement('b'); b.textContent = partner.p.name; pEl.append(b, after || '');
+  bondEl.hidden = false; bondEl.classList.remove('in'); void bondEl.offsetWidth; bondEl.classList.add('in');
+  clearTimeout(bondHide); bondHide = setTimeout(() => bondEl.classList.remove('in'), 6000);
+  const pr = partner.c.root.position; spawnHeart(pr.x, pr.y + 0.8 * partner.c.s, pr.z);
+  sfx.love(0.7);
+}
+function updateBond(dt) {
+  if (!partner || !playing || paused || menuOpen()) return;
+  bondTimer -= dt;
+  if (bondTimer <= 0) { bondTimer = 120 + Math.random() * 120; showBond(); }
+}
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
@@ -2978,6 +3140,8 @@ function tick(dt) {
   updateBobos(dt);
   updateMermigglies(dt);
   updateRanch(dt);
+  if (playing) { updatePartner(dt); updateBond(dt); }
+  updateSparkles(dt);
   updateRocks(dt);
   updateAim();
   updateDex(dt);
@@ -3027,6 +3191,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, water, dexState, NAME_POOL, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
