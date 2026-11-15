@@ -98,7 +98,9 @@
   .pslot .tag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); font-family: var(--display); font-weight: 700; font-size: .62rem; letter-spacing: .08em;
                 background: var(--pink); color: var(--cream); padding: 2px 7px; border-radius: 7px; box-shadow: 0 2px 0 var(--pink-deep); white-space: nowrap; }
   .pslot .pname { position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); font-family: var(--display); font-weight: 600; font-size: .78rem;
-                  background: rgba(255,250,246,.85); padding: 1px 7px; border-radius: 7px; white-space: nowrap; }
+                  background: rgba(255,250,246,.88); padding: 2px 8px; border-radius: 8px; width: max-content; max-width: 170px; line-height: 1.15; }
+  .pslot .pname b { font-weight: 700; color: var(--ink); }
+  .pslot .pname span { font-weight: 500; color: rgba(44,37,82,.65); }
   .pslot .pname:empty { display: none; }
   /* bracket drawn round a scrumbly you're about to hit / scan */
   .target { left: 0; top: 0; width: 64px; height: 64px; }
@@ -1370,9 +1372,9 @@ function tryNetCatch() {
     if (b.state === 'stunned' && party.length >= PARTY_MAX) { sfx.wriggle(); toast(`Your party is full! You can only carry ${PARTY_MAX} scrumblies.`); setState(b, 'idle'); startBurrow(b); }
     else if (b.state === 'stunned') {
       setState(b, 'caught'); caughtCount++; sfx.caught();
-      addToParty('bobo');
       dexMarkCaught('bobo');
-      toast(party.length === 1 ? 'You caught a Bobo! It\'s your partner now.' : `Caught a Bobo! Party: ${party.length}/${PARTY_MAX}`);
+      const p = addToParty('bobo');
+      toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
       got = true;
     }
     else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first.'); startBurrow(b); }
@@ -1392,12 +1394,73 @@ for (let i = 0; i < PARTY_MAX; i++) {
   s.innerHTML = (i === 0 ? '<span class="tag">PARTNER</span>' : '') + '<span class="pic"></span><span class="pname"></span>';
   partyEl.appendChild(s);
 }
-function addToParty(species) {
-  party.push({ species });
+/* ---------- random names for caught scrumblies ---------- */
+const NAME_POOL = [
+  // normal names
+  'Alice', 'Ben', 'Charlotte', 'Dave', 'Edith', 'Frank', 'Gemma', 'Harold', 'Isla', 'Jamie', 'Kevin', 'Linda', 'Margaret', 'Nigel', 'Olive',
+  'Patricia', 'Quentin', 'Rosie', 'Steve', 'Tom', 'Ursula', 'Vera', 'Wendy', 'Barry', 'Gary', 'Susan', 'Colin', 'Brenda', 'Derek', 'Maureen',
+  'Phil', 'Janet', 'Doris', 'Graham', 'Hilda', 'Keith', 'Agnes', 'Malcolm', 'Norma', 'Trevor', 'Beryl', 'Kim', 'Dennis', 'Lois',
+  // silly names
+  'Sir Squishington', 'Captain Wobble', 'Lord Fluffbottom', 'Mr. Bubbles', 'Count Snorkula', 'Professor Puddle', 'Wigglesworth', 'Dame Jiggles',
+  'Baron von Blob', 'Duke of Damp', 'Snorbert', 'Gloopy McGlooperson', 'Admiral Splash', 'Squidge', 'Bumbleton', 'Flapjack Jr.', 'Doctor Boing',
+  'Lady Wobbleton', 'Sergeant Squeak', 'The Big Cheese', 'Mister Mumbles', 'Chonkers', 'Wibbly Pete', 'Noodle Supreme', 'Grumbo', 'Sploosh',
+  'Bartholomew Bounce', 'Queen Quibble', 'Little Kevin', 'Big Steve', 'Sir Reginald Puddingface', 'Blorbo', 'Dingus', 'Gubbins',
+  // cute names
+  'Mochi', 'Peaches', 'Button', 'Pudding', 'Bubbles', 'Sprout', 'Pip', 'Poppy', 'Honeybun', 'Twinkle', 'Cupcake', 'Bean', 'Daisy', 'Nibbles',
+  'Pumpkin', 'Sugarplum', 'Tofu', 'Boba', 'Marshmallow', 'Snuggles', 'Pebbles', 'Dewdrop', 'Clover', 'Bubblegum', 'Puff', 'Sunny', 'Biscotti',
+  'Wiggles', 'Tiny', 'Squishy', 'Momo', 'Dumpling', 'Peanut', 'Cinnamon', 'Blossom', 'Jellybean', 'Coco', 'Smudge',
+  // words that aren't names
+  'Pretzel', 'Toaster', 'Spoon', 'Wednesday', 'Gravy', 'Pickle', 'Biscuit', 'Cabbage', 'Thursday', 'Kettle', 'Waffle', 'Teacup', 'Sock',
+  'Crumpet', 'Sandwich', 'Moss', 'Thunder', 'Marmalade', 'Croissant', 'Lasagna', 'Spatula', 'Raisin', 'Turnip', 'Parsnip', 'Burrito',
+  'Nugget', 'Doorknob', 'Umbrella', 'Stapler', 'Tuesday', 'Custard', 'Haggis', 'Beans on Toast', 'Wellington', 'Trombone', 'Paperclip',
+  'Gazebo', 'Sprinkles', 'Radish', 'Meatball', 'Soup', 'Taxes', 'Bin Day', 'Cardigan', 'Hot Water Bottle', 'Jacket Potato',
+  // Ouran High School Host Club
+  'Tamaki', 'Haruhi', 'Kyoya', 'Kaoru', 'Hikaru', 'Honey', 'Mori', 'Renge', 'Usa-chan', 'Nekozawa', 'Beelzenef', 'Commoner',
+  // Phoenix Wright: Ace Attorney
+  'Phoenix', 'Maya', 'Edgeworth', 'Gumshoe', 'Franziska', 'Godot', 'Pearl', 'Larry', 'Mia', 'Apollo', 'Trucy', 'Athena', 'Klavier',
+  'Blackquill', 'Von Karma', 'Steel Samurai', 'Oldbag', 'Objection', 'Hold It', 'Pink Princess', 'Missile',
+  // My Chemical Romance
+  'Gerard', 'Mikey', 'Frankie', 'Ray', 'Helena', 'Party Poison', 'Kobra Kid', 'Jet Star', 'Fun Ghoul', 'Dr. Death Defying', 'Black Parade',
+  'Danger Days', 'Ghoul', 'Teenagers', 'Sing',
+  // Red Rising
+  'Darrow', 'Sevro', 'Mustang', 'Victra', 'Cassius', 'Ragnar', 'Pax', 'Roque', 'Eo', 'Quinn', 'Fitchner', 'Goblin', 'Howler', 'Reaper',
+  'Lysander', 'Pebble', 'Clown', 'Holiday', 'Thistle', 'Tactus', 'Bloodydamn',
+  // Black Butler
+  'Sebastian', 'Ciel', 'Grell', 'Undertaker', 'Lizzy', 'Finny', 'Bard', 'Mey-Rin', 'Tanaka', 'Soma', 'Agni', 'Pluto', 'Lau', 'Snake', 'Joker',
+  // Mistborn
+  'Vin', 'Kelsier', 'Elend', 'Sazed', 'Spook', 'Breeze', 'Ham', 'Dockson', 'Marsh', 'TenSoon', 'Wax', 'Wayne', 'Marasi', 'Steris', 'MeLaan',
+  'OreSeur', 'Lord Ruler', 'Atium', 'Pewter',
+  // Attack on Titan
+  'Eren', 'Mikasa', 'Armin', 'Levi', 'Hange', 'Erwin', 'Sasha', 'Connie', 'Jean', 'Historia', 'Ymir', 'Reiner', 'Bertholdt', 'Annie',
+  'Zeke', 'Pieck', 'Falco', 'Gabi', 'Potato Girl', 'Colossal', 'Tatakae',
+  // The Summer Hikaru Died
+  'Yoshiki', 'Not-Hikaru', 'Asako', 'Hikaru (Probably)', 'Summer',
+  // The Witcher
+  'Geralt', 'Yennefer', 'Ciri', 'Jaskier', 'Dandelion', 'Triss', 'Roach', 'Vesemir', 'Lambert', 'Eskel', 'Regis', 'Zoltan', 'Shani', 'Keira',
+  'Gaunter', 'Toss a Coin', 'Hmm', 'Gwent',
+  // Red Dead Redemption 2
+  'Arthur', 'Dutch', 'John', 'Sadie', 'Charles', 'Hosea', 'Lenny', 'Javier', 'Micah', 'Bill', 'Abigail', 'Uncle', 'Pearson', 'Kieran',
+  'Tilly', 'Karen', 'Mary-Beth', 'Strauss', 'Swanson', 'Trelawny', 'Boadicea', 'Cain', 'Mango', 'Tahiti', 'I Have a Plan', 'Cowpoke',
+  // Professor Layton
+  'Hershel', 'Luke', 'Flora', 'Emmy', 'Chelmey', 'Barton', 'Don Paolo', 'Descole', 'Clive', 'Puzzle', 'Top Hat', 'Laytonian', 'Granny Riddleton'
+];
+function pickName() {
+  const used = new Set(party.map(p => p.name));
+  const free = NAME_POOL.filter(n => !used.has(n));
+  return free[Math.floor(Math.random() * free.length)] || 'Mystery';
+}
+const fullName = p => `${p.name} the ${SPECIES[p.species].name}`;
+
+function addToParty(species, name, quiet) {
+  const p = { species, name: name || pickName() };
+  party.push(p);
   const el = partyEl.children[party.length - 1];
-  el.classList.add('filled', 'pop');
+  el.classList.add('filled'); if (!quiet) el.classList.add('pop');
   el.querySelector('.pic').innerHTML = SPECIES[species].icon;
-  el.querySelector('.pname').textContent = SPECIES[species].name;
+  el.querySelector('.pname').innerHTML = `<b></b> <span>the ${SPECIES[species].name}</span>`;
+  el.querySelector('.pname b').textContent = p.name;
+  if (!quiet) saveGame();
+  return p;
 }
 
 const _cv = new THREE.Vector3();
@@ -2178,7 +2241,21 @@ const DEX_ENTRIES = Array.from({ length: DEX_SIZE }, (_, i) => {
 });
 const dexState = { scanned: new Set(), caught: new Set(), sel: 0 };
 const pad3 = n => String(n).padStart(3, '0');
-function dexMarkCaught(id) { dexState.caught.add(id); dexState.scanned.add(id); if (dexOpen) renderDex(); }
+function dexMarkCaught(id) { dexState.caught.add(id); dexState.scanned.add(id); saveGame(); if (dexOpen) renderDex(); }
+
+/* ---------- save: party (with names) + Scrumblydex progress, kept in this browser ---------- */
+const SAVE_KEY = 'scrumbly-island-save-v1';
+function saveGame() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ party: party.map(p => ({ species: p.species, name: p.name })), scanned: [...dexState.scanned], caught: [...dexState.caught] })); } catch (e) {}
+}
+(function loadGame() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
+  if (!s) return;
+  (s.party || []).slice(0, PARTY_MAX).forEach(p => { if (SPECIES[p.species] && p.name) addToParty(p.species, String(p.name), true); });
+  (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
+  (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
+})();
 
 /* ---------- the device in your hand ---------- */
 const dexModel = new THREE.Group();
@@ -2238,7 +2315,7 @@ function startScan() {
 }
 function finishScan() {
   const id = scan.target.id, isNew = !dexState.scanned.has(id);
-  dexState.scanned.add(id); scan = null;
+  dexState.scanned.add(id); scan = null; saveGame();
   sfx.dexDone(isNew); showDexCard(id, isNew);
 }
 
@@ -2427,6 +2504,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, water, dexState, openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, water, dexState, NAME_POOL, openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
