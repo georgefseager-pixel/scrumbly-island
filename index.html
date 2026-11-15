@@ -323,7 +323,7 @@
   /* ===== TV-friendly layout: everything scales with --ui and keeps clear of the screen edges (--sx / --sy).
      The UI is enlarged with CSS zoom, which also scales viewport units, so edge offsets are divided by --ui. ===== */
   :root { --ui: 1.5; --sx: 5vw; --sy: 5vh; --ex: calc(var(--sx) / var(--ui)); --ey: calc(var(--sy) / var(--ui)); }
-  #area, #toast, #hint, .chip, #prompt, #hotbar, #party, #objective, #health, #gold, #bond, #dexCard, #titleGreet, #dialog, .title-card, .menu, .dex-shell, .box-shell, #crosshair { zoom: var(--ui); }
+  #area, #toast, #hint, .chip, #prompt, #hotbar, #party, #objective, #health, #teleHold, #gold, #bond, #dexCard, #titleGreet, #dialog, .title-card, .menu, .dex-shell, .box-shell, #crosshair { zoom: var(--ui); }
   #title { padding: var(--sy) var(--sx); }
   .title-card { margin: 0; }
   #area { top: var(--ey); }
@@ -382,6 +382,15 @@
   .req.cur { outline: 4px solid var(--pink); outline-offset: 3px; }
   .board-empty { grid-column: 1 / -1; text-align: center; color: #fff; font-weight: 700; }
   .box-foot .coin { margin: 0 2px; }
+  /* ---------- Dr. Tealbottom and her teleporter ---------- */
+  #dialog.teal .dlg-card { border-color: #2fb5a8; box-shadow: 0 5px 0 #1f8077, 0 14px 30px rgba(44,37,82,.3); }
+  #dialog.teal .dbody b { color: #1f8077; }
+  #dialog.teal .prof-pic { background: #e6fbff; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #1f8077; }
+  #teleHold { left: 50%; top: 58%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(255,250,246,.9); padding: 8px 16px 8px 10px; border-radius: 999px; font-family: var(--display); color: #1f8077; box-shadow: 0 3px 0 rgba(44,37,82,.2); }
+  #teleHold .ring { width: 30px; height: 30px; border-radius: 50%; background: conic-gradient(#ff3d5a var(--k, 0%), rgba(44,37,82,.15) 0); -webkit-mask: radial-gradient(circle, transparent 8px, #000 9px); mask: radial-gradient(circle, transparent 8px, #000 9px); }
+  #teleFlash { position: fixed; inset: 0; z-index: 27; pointer-events: none; background: radial-gradient(circle, #ffffff 0%, #9ef0ff 45%, #2fb5a8 100%); opacity: 0; transition: opacity .55s; }
+  #teleFlash.on { opacity: 1; }
+  .slot.cooling svg { opacity: .45; }
 </style>
 
 <canvas id="game" tabindex="0"></canvas>
@@ -485,6 +494,8 @@
 </div>
 <div class="hud" id="health" hidden></div>
 <div class="hud" id="gold" hidden></div>
+<div class="hud" id="teleHold" hidden><span class="ring"></span><b>Teleporting…</b></div>
+<div id="teleFlash" hidden></div>
 <div id="scrimMenu" hidden>
   <div class="box-shell scrim-shell" role="dialog" aria-label="Scrimple Scrumple">
     <div class="box-top">
@@ -1320,6 +1331,7 @@ function pollPad() {
   const ax = gp.axes, b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
   pad.mx = dz(ax[0] || 0); pad.my = dz(ax[1] || 0); pad.lx = dz(ax[2] || 0); pad.ly = dz(ax[3] || 0);
   pad.run = b(10) || b(6) || Math.hypot(pad.mx, pad.my) > 0.95; // L3 / LT / full tilt
+  pad.fire = b(7) || b(2);
   const now = gp.buttons.map(x => x.pressed);
   const tap = i => now[i] && !pad.prev[i];
   if (tap(9) && playing && !menuOpen()) { if (paused) resumeGame(); else openPause(); pad.prev = now; return; }
@@ -1469,6 +1481,7 @@ function updatePlayer(dt) {
   nx = hit.px; nz = hit.pz;
   { const rp = collideRanch(nx, nz); nx = rp[0]; nz = rp[1]; }
   { const sp = collideScrim(nx, nz); nx = sp[0]; nz = sp[1]; }
+  { const tp = collideTeal(nx, nz); nx = tp[0]; nz = tp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
     // cancel velocity into the trunk
@@ -1491,11 +1504,11 @@ function updatePlayer(dt) {
   }
 
   nearProf = profInReach();
-  nearScrim = !nearProf && scrimInReach(); nearBoard = !nearProf && !nearScrim && boardInReach();
-  nearPartner = !nearProf && !nearScrim && !nearBoard && partnerInReach();
-  nearTrap = nearProf || nearPartner || nearScrim || nearBoard ? null : findNearTrap();
-  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard ? null : findTargetRock();
-  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
+  nearScrim = !nearProf && scrimInReach(); nearBoard = !nearProf && !nearScrim && boardInReach(); nearTeal = !nearProf && !nearScrim && !nearBoard && tealInReach();
+  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && partnerInReach();
+  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal ? null : findNearTrap();
+  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal ? null : findTargetRock();
+  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1562,6 +1575,8 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyM' && !e.repeat) toggleMusic();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('mouseup', e => { if (e.button === 0) mouseFire = false; });
+window.addEventListener('blur', () => { mouseFire = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 const pauseEl = document.getElementById('pause');
@@ -1830,6 +1845,7 @@ function catchScrumbly(species, size, ambush, shiny) {
   dexMarkCaught(species);
   const p = addToParty(species, null, false, size, shiny);
   tutOnCatch(p);
+  tealOnCatch(species, ambush);
   const lead = ambush ? 'Ambush! ' : '';
   const one = SPECIES[species].unique ? ` It’s one of a kind: there’s only one ${p.name} in the whole world!` : '';
   toast(party.length === 1 ? `${lead}You caught ${fullName(p)}! It's your partner now.${one}` : `${lead}You caught ${fullName(p)}!${one} Party: ${party.length}/${PARTY_MAX}`);
@@ -3476,7 +3492,7 @@ function updateBink(dt) {
 }
 
 /* ---------- your health, getting bitten, and waking up at the ranch ---------- */
-const MAX_HEALTH = 1;
+let MAX_HEALTH = 1;
 let health = MAX_HEALTH, knocked = false;
 const healthEl = document.getElementById('health'), hurtEl = document.getElementById('hurt'), koEl = document.getElementById('ko');
 function renderHealth() { healthEl.innerHTML = Array.from({ length: MAX_HEALTH }, (_, i) => `<i class="${i < health ? 'full' : ''}"></i>`).join(''); }
@@ -3545,8 +3561,9 @@ const ITEM_DEFS = {
   rock: { name: 'Rocks', icon: '<svg viewBox="0 0 48 48"><path d="M9 32 C7 24 13 15 22 14 C31 12 40 18 41 27 C42 35 34 38 25 38 C16 38 10 37 9 32 Z" fill="#a99487" stroke="#7d6d70" stroke-width="2.5"/><path d="M15 22 C18 19 22 18 26 18" stroke="#cbb9b3" stroke-width="3" stroke-linecap="round" fill="none"/></svg>' }
   , dex: { name: 'Scrumblydex', icon: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="37" rx="6" fill="#e8384f" stroke="#a81f37" stroke-width="2.5"/><rect x="15" y="17" width="18" height="13" rx="2.5" fill="#8ef0e8" stroke="#5a2236" stroke-width="1.8"/><circle cx="18" cy="11.5" r="3.4" fill="#ffd23f" stroke="#a81f37" stroke-width="1.5"/><circle cx="25" cy="11" r="1.4" fill="#fff"/><circle cx="29.5" cy="11" r="1.4" fill="#7ee08a"/><path d="M18 36h6M21 33v6" stroke="#5a2236" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="36" r="2.3" fill="#5a2236"/></svg>' }
   , trap: { name: 'Cage traps', icon: '<svg viewBox="0 0 48 48"><rect x="7" y="35" width="34" height="5" rx="1.5" fill="#b98352"/><rect x="7" y="9" width="34" height="4" rx="1.5" fill="#b98352"/><path d="M10 13v22M16 13v22M22 13v22M28 13v22M34 13v22M39 13v22" stroke="#9aa6b8" stroke-width="2.4"/><circle cx="24" cy="33.5" r="3.5" fill="#ff6fa5"/></svg>' }
+  , tele: { name: 'Teleporter', icon: '<svg viewBox="0 0 48 48"><path d="M30 4 L30 12" stroke="#4a5060" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="4" r="2.6" fill="#2fb5a8"/><rect x="14" y="11" width="20" height="32" rx="5" fill="#e8e4f0" stroke="#4a5060" stroke-width="2.5"/><circle cx="24" cy="22" r="6" fill="#ff3d5a" stroke="#a81f37" stroke-width="2"/><circle cx="22.3" cy="20.3" r="1.6" fill="#fff" opacity=".7"/><rect x="18" y="32" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><rect x="18" y="37" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><circle cx="31" cy="15.5" r="1.4" fill="#5ff07a"/></svg>' }
 };
-const inv = { slots: ['net', 'rock', 'dex', 'trap', null], active: 0, shown: 0, eq: 0, rocks: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
+const inv = { slots: ['net', 'rock', 'dex', 'trap', 'tele'], active: 0, shown: 0, eq: 0, rocks: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
 const owns = id => id === 'rock' || (id === 'trap' ? inv.trapsOwned > 0 : !!(id && inv.owned[id]));
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
@@ -3557,7 +3574,7 @@ inv.slots.forEach((id, i) => {
   b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
-function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0); }
+function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0) || (id === 'tele' && owns('tele')); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
   if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
@@ -3573,6 +3590,7 @@ function renderHotbar() {
     el.classList.toggle('dim', !!inv.slots[i] && !slotUsable(i));
     if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
     if (inv.slots[i] === 'trap') el.querySelector('.count').textContent = inv.traps ? inv.traps : '';
+    if (inv.slots[i] === 'tele') { el.querySelector('.count').textContent = teleCool > 0 ? Math.ceil(teleCool / 60) + 'm' : ''; el.classList.toggle('cooling', teleCool > 0); }
   });
 }
 renderHotbar();
@@ -3583,6 +3601,7 @@ function useItem() {
   else if (activeItem() === 'rock' && throwAnim < 0) throwRock();
   else if (activeItem() === 'dex') startScan();
   else if (activeItem() === 'trap' && throwAnim < 0 && inv.traps > 0) placeTrap();
+  else if (activeItem() === 'tele') teleUse();
 }
 
 let targetRock = null, throwAnim = -1, pickQueued = false;
@@ -3828,7 +3847,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
+  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -3873,8 +3892,10 @@ function updateViewmodel(dt) {
     }
     heldTrapMesh.visible = false;
     dexModel.visible = false;
+    teleModel.visible = false;
     if (!item) { heldRockMesh.visible = heldTrapMesh.visible = false; }
     else if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
+    else if (item === 'tele') { heldRockMesh.visible = false; poseTeleHand(bx, by, eqDrop, cbk); }
     else if (item === 'net') {
       // right hand grips the handle
       heldRockMesh.visible = false;
@@ -3902,7 +3923,7 @@ function updateViewmodel(dt) {
     handR.g.visible = handR.arm.visible = !!item && climbBlend < 0.99;
   } else {
     // climbing: hands reach up the trunk one after another (any held rock is pocketed)
-    throwAnim = -1; heldRockMesh.visible = false; dexModel.visible = false;
+    throwAnim = -1; heldRockMesh.visible = false; dexModel.visible = false; teleModel.visible = false;
     const ph = player.climb ? player.climb.phase : 0, lift = (1 - cbk) * 0.9;
     [[handL, -1, 0], [handR, 1, Math.PI]].forEach(([h, s, off]) => {
       const c = Math.sin(ph + off);
@@ -4364,7 +4385,7 @@ const prof = (() => {
   }, 512);
   prof.tag.material.needsUpdate = true;
 });
-let nearProf = false, nearScrim = false, nearBoard = false;
+let nearProf = false, nearScrim = false, nearBoard = false, nearTeal = false;
 function profDistance() { return Math.hypot(player.x - prof.root.position.x, player.z - prof.root.position.z); }
 function profInReach() {
   if (player.climb || profDistance() > 3.4) return false;
@@ -4865,7 +4886,7 @@ function netTrapped() {
 }
 function updateTraps(dt) {
   // placement preview
-  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard;
+  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal;
   if (!holding) trapSpot = null;
   trapGhost.visible = holding;
   if (holding) { trapSpot = trapPlacement(); trapGhost.position.set(trapSpot.x, trapSpot.y, trapSpot.z); trapGhost.rotation.y = trapSpot.yaw; ghostMat.color.setHex(trapSpot.ok ? 0x7ee08a : 0xff6f7f); ghostMat.opacity = 0.35 + Math.sin(time * 5) * 0.1; }
@@ -4898,7 +4919,7 @@ function snapshot() {
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
-    gold, scrim: scrimSave(),
+    gold, scrim: scrimSave(), teal: tealSave(),
     music: musicOn
   };
 }
@@ -4928,7 +4949,7 @@ function applySnapshot(s) {
   // older saves (from before the tutorial) start with everything
   const fresh = typeof s.tutorial === 'string';
   tut.stage = fresh ? s.tutorial : 'done';
-  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex } : { net: true, dex: true };
+  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex, tele: !!s.owned.tele } : { net: true, dex: true, tele: !!(s.owned && s.owned.tele) };
   inv.trapsOwned = fresh ? clamp(+s.trapsOwned || 0, 0, 3) : 3;
   prof.greeted = false; closeDialog(true); updateObjective();
   // where you were standing
@@ -4944,7 +4965,7 @@ function applySnapshot(s) {
   setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
-  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold();
+  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); tealLoad(s.teal);
   refreshResidents(); bondBag = [];
 }
 // a short description of a save, for the slot list
@@ -5225,7 +5246,7 @@ function showLine() {
   dlgItem.hidden = true;
   if (L.give) giveItem(L.give);
   if (L.act) L.act();
-  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else sfx.profTalk(); }
+  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else sfx.profTalk(); }
 }
 function dialogAdvance() {
   if (!dialogOpen) return;
@@ -5259,10 +5280,10 @@ function giveItem(id) {
   const g = GIFT[id], slot = g.give();
   renderHotbar();
   // pull the new thing out so you can see it
-  if (!player.climb) { inv.active = slot; inv.shown = slot; inv.eq = 1; renderHotbar(); }
-  dlgItem.innerHTML = `<span class="pic">${ITEM_DEFS[id === 'trap' ? 'trap' : id].icon}</span><span><small>You got the</small><b>${g.name}!</b><em>${g.blurb}</em></span>`;
+  if (slot != null && !player.climb) { inv.active = slot; inv.shown = slot; inv.eq = 1; renderHotbar(); }
+  dlgItem.innerHTML = `<span class="pic">${g.svg || ITEM_DEFS[g.icon || id].icon}</span><span><small>You got the</small><b>${g.name}!</b><em>${g.blurb}</em></span>`;
   dlgItem.hidden = false; dlgItem.classList.remove('pop'); void dlgItem.offsetWidth; dlgItem.classList.add('pop');
-  const el = hotbarEl.children[slot]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  const el = slot != null && hotbarEl.children[slot]; if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   sfx.caught(); saveGame();
 }
 
@@ -5860,9 +5881,9 @@ function setDialogSpeaker(who) {
   dlgWho = who;
   const pic = dlgEl.querySelector('.prof-pic'), name = dlgEl.querySelector('.dbody b');
   if (profDlgPic === null) profDlgPic = pic.innerHTML;
-  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : profDlgPic;
-  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : 'Professor Loveopolis';
-  dlgEl.classList.toggle('scrim', who === 'scrim');
+  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : profDlgPic;
+  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : 'Professor Loveopolis';
+  dlgEl.classList.toggle('scrim', who === 'scrim'); dlgEl.classList.toggle('teal', who === 'teal');
 }
 
 /* ---------- saving ---------- */
@@ -5906,11 +5927,348 @@ function updateScrim(dt) {
   if (guy.tag) guy.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
 }
 
+/* =========================================================
+   Islanders: Dr. Tealbottom, scrumbly behaviour scientist
+   A teal frog-woman in a lab coat, camped by a satellite beacon. She sets
+   three experiments: an ambush catch, proof of the Beeangy, proof of the UFO.
+   Rewards: a second trap, a health injection, and the teleporter remote.
+   Then she moves to the ranch to pester her colleague Loveopolis.
+   ========================================================= */
+const TEAL_STAGES = ['unmet', 'ambush', 'beeangy', 'ufo', 'leaving', 'ranch'];
+const tealState = { stage: 'unmet', ambushDone: false };
+const tealAt = s => TEAL_STAGES.indexOf(tealState.stage) >= TEAL_STAGES.indexOf(s);
+const TELE_COOLDOWN = 600, TELE_HOLD = 3;
+var teleCool = 0, teleHold = 0, teleZapping = false, mouseFire = false;   // var: the hotbar reads teleCool before this runs
+// her field station: the other way along the beach from the ranch
+const TEAL = (() => {
+  let best = null;
+  for (let i = 0; i < 800 && !best; i++) {
+    const th = spawnTheta - 0.85 + (Math.random() - 0.5) * Math.min(1.6, 0.3 + i / 300), d = 18 + Math.random() * 16;
+    const [x, z] = polar(th, d);
+    if (!boboSpotOK(x, z) || inRanchZone(x, z, 22) || Math.hypot(x - SCRIM.x, z - SCRIM.z) < 50 || beachPalms.some(p => Math.hypot(p.x - x, p.z - z) < 5) || nooks.some(n => Math.hypot(n.x - x, n.z - z) < 8) || weevilTracks.some(t => Math.hypot(t.cx - x, t.cz - z) < 20)) continue;
+    best = { th, x, z };
+  }
+  if (!best) { const th = spawnTheta - 0.85, [x, z] = polar(th, 24); best = { th, x, z }; }
+  return { ...best, out: [Math.cos(best.th), Math.sin(best.th)], side: [Math.sin(best.th), -Math.cos(best.th)], yaw: Math.PI / 2 - best.th };
+})();
+const tealWorld = (u, v) => [TEAL.x + TEAL.side[0] * u + TEAL.out[0] * v, TEAL.z + TEAL.side[1] * u + TEAL.out[1] * v];
+// the satellite beacon: a tripod, a dish that slowly sweeps the sky, and a blinking light
+const beacon = (() => {
+  const root = new THREE.Group(); root.position.set(TEAL.x, heightAt(TEAL.x, TEAL.z), TEAL.z); root.rotation.y = TEAL.yaw; scene.add(root);
+  const metal = lam(0xc9ced8), dark = lam(0x4a5060), white = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x303030 });
+  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; campRod([Math.cos(a) * 0.75, 0, Math.sin(a) * 0.75], [0, 1.5, 0], 0.035, dark, root); }
+  campAdd(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8), metal, 0, 1.9, 0, root);
+  const head = new THREE.Group(); head.position.y = 2.5; root.add(head);
+  campAdd(new THREE.BoxGeometry(0.3, 0.2, 0.3), dark, 0, 0, 0, head);
+  const tilt = new THREE.Group(); tilt.rotation.x = -0.7; head.add(tilt);
+  const dish = campAdd(new THREE.SphereGeometry(1.0, 24, 8, 0, Math.PI * 2, 0, 0.8), white, 0, 0, 0, tilt); dish.rotation.x = Math.PI; dish.position.y = 1.25;
+  dish.material = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x303030, side: THREE.DoubleSide });
+  campRod([0, 0.25, 0], [0, 1.15, 0], 0.025, metal, tilt);
+  campAdd(new THREE.SphereGeometry(0.08, 10, 8), lam(0x2fb5a8), 0, 1.18, 0, tilt);
+  const light = campAdd(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3d5a }), 0, 0.17, 0, head);
+  // a little control box with a glowing screen
+  campAdd(new THREE.BoxGeometry(0.5, 0.4, 0.3), lam(0xe8e4f0), 0.9, 0.2, 0.5, root);
+  const screen = campAdd(new THREE.PlaneGeometry(0.34, 0.2), new THREE.MeshBasicMaterial({ color: 0x5ff0d0 }), 0.9, 0.27, 0.652, root);
+  return { root, head, light, screen };
+})();
+compactCreature({ root: beacon.root, head: beacon.head, light: beacon.light, screen: beacon.screen });
+// Dr. Tealbottom: tall teal frog-woman in a lab coat, goggles pushed up, a big curly bun and a clipboard
+const teal = (() => {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); scene.add(root);
+  const tealM = new THREE.MeshLambertMaterial({ color: 0x2fb5a8, emissive: 0x0a3a34 }), coat = new THREE.MeshLambertMaterial({ color: 0xfafaff, emissive: 0x202020 });
+  const hair = lam(0x23395b), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 }), gold = lam(0xc9a227);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.08, 0.1, 0.8, 10), tealM, s * 0.17, 0.4, 0); add(new THREE.SphereGeometry(0.15, 12, 8), lam(0x2a2a3a), s * 0.19, 0.05, 0.08, 1, 0.5, 1.5); });
+  add(new THREE.SphereGeometry(0.36, 20, 14), tealM, 0, 1.18, 0, 1, 1.25, 0.85);
+  // the lab coat: a long white flare, collar and buttons
+  add(new THREE.CylinderGeometry(0.34, 0.5, 1.0, 22), coat, 0, 1.0, 0, 1, 1, 0.82);
+  add(new THREE.CylinderGeometry(0.3, 0.36, 0.3, 22), coat, 0, 1.6, 0, 1, 1, 0.85);
+  add(new THREE.BoxGeometry(0.06, 0.9, 0.03), lam(0xd8dbe6), 0, 1.05, 0.39);
+  [1.35, 1.1, 0.85].forEach(y => add(new THREE.SphereGeometry(0.025, 8, 6), lam(0x2fb5a8), 0.06, y, 0.4));
+  add(new THREE.BoxGeometry(0.12, 0.14, 0.02), lam(0xdfe6f2), -0.18, 1.35, 0.33).rotation.y = -0.3;     // a pocket with pens
+  [[0xe8384f, -0.21], [0x3a6ee8, -0.17]].forEach(([c, x]) => add(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 6), lam(c), x, 1.44, 0.33));
+  const head = new THREE.Group(); head.position.y = 1.98; body.add(head);
+  add(new THREE.SphereGeometry(0.38, 22, 16), tealM, 0, 0, 0, 1.25, 0.8, 1.05, head);
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.15, 14, 10), tealM, s * 0.28, 0.28, 0.08, 1, 0.95, 0.95, head);
+    add(new THREE.SphereGeometry(0.1, 12, 10), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x444444 }), s * 0.28, 0.29, 0.18, 1, 1, 0.6, head);
+    add(new THREE.SphereGeometry(0.058, 10, 8), dark, s * 0.28, 0.29, 0.235, 1, 1, 0.5, head).name = 'pupil';
+    [-0.06, 0, 0.06].forEach((dx, k) => add(new THREE.BoxGeometry(0.014, 0.06, 0.014), dark, s * 0.28 + dx * s, 0.4, 0.19, 1, 1, 1, head).rotation.z = -s * (0.45 - k * 0.3));  // lashes
+    add(new THREE.SphereGeometry(0.05, 10, 8), lam(0x6fd6c8), s * 0.36, -0.06, 0.28, 1.2, 0.7, 0.4, head);   // rosy-teal cheeks
+  });
+  const smile = new THREE.TorusGeometry(0.38, 0.018, 6, 26, Math.PI * 0.42); smile.rotateX(Math.PI / 2); smile.rotateY(Math.PI * 0.21 - Math.PI / 2);
+  add(smile, lam(0x0f4a44), 0, -0.07, 0, 1.25, 1, 1.06, head).rotation.x = 0.22;
+  // goggles pushed up on her forehead, on a strap
+  const strap = new THREE.TorusGeometry(0.38, 0.025, 6, 30); strap.rotateX(Math.PI / 2);
+  add(strap, lam(0x3a3a48), 0, 0.12, -0.02, 1.27, 1, 1.08, head).rotation.x = -0.25;
+  [-1, 1].forEach(s => { const g = add(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 16), lam(0x3a3a48), s * 0.12, 0.27, 0.27, 1, 1, 1, head); g.rotation.x = Math.PI / 2 - 0.5; add(new THREE.CylinderGeometry(0.07, 0.07, 0.072, 16), new THREE.MeshLambertMaterial({ color: 0x9ef0ff, emissive: 0x1a5060 }), s * 0.12, 0.27, 0.27, 1, 1, 1, head).rotation.x = Math.PI / 2 - 0.5; });
+  // a big curly bun
+  [[0, 0.36, -0.12, 0.17], [-0.12, 0.32, -0.2, 0.12], [0.12, 0.32, -0.2, 0.12], [0, 0.48, -0.16, 0.12], [0, 0.3, -0.28, 0.12]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 12, 10), hair, x, y, z, 1, 1, 1, head));
+  // arms: one holds a clipboard, the other gestures
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.4, 1.55, 0); body.add(piv);
+    add(new THREE.CylinderGeometry(0.075, 0.085, 0.6, 10), coat, 0, -0.3, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.09, 12, 10), tealM, 0, -0.63, 0.02, 1, 1, 1, piv);
+    piv.rotation.z = s * 0.2; return piv;
+  });
+  const board = new THREE.Group(); board.position.set(0, -0.62, 0.12); board.rotation.set(-1.0, 0, 0); arms[0].add(board);
+  add(new THREE.BoxGeometry(0.28, 0.36, 0.02), lam(0xb98352), 0, 0, 0, 1, 1, 1, board);
+  add(new THREE.BoxGeometry(0.24, 0.3, 0.01), lam(0xffffff), 0, -0.01, 0.015, 1, 1, 1, board);
+  add(new THREE.BoxGeometry(0.1, 0.04, 0.03), gold, 0, 0.17, 0.015, 1, 1, 1, board);
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.7); mark.renderOrder = 7; mark.position.y = 3.2; root.add(mark);
+  return { root, body, head, arms, mark, tag: null, face: 0, wave: 0, greeted: false, blink: 2, x: 0, z: 0, baseYaw: 0 };
+})();
+teal.pupils = []; teal.head.traverse(o => { if (o.name === 'pupil') teal.pupils.push(o); });
+compactCreature({ root: teal.root, pupils: teal.pupils });
+const setTealTag = () => { if (teal.tag) teal.root.remove(teal.tag); teal.tag = nameTag('Dr. Tealbottom'); teal.tag.position.y = 2.75; teal.root.add(teal.tag); };
+setTealTag();
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(setTealTag);
+// where she stands: by her beacon, or (once her experiments are done) beside the ranch
+function placeTeal() {
+  let x, z, yaw;
+  if (tealState.stage === 'ranch') { [x, z] = ranchWorld(-6.3, 4.3); yaw = RANCH_YAW; }
+  else { [x, z] = tealWorld(-1.6, 0.9); yaw = TEAL.yaw; }
+  teal.x = x; teal.z = z; teal.baseYaw = yaw; teal.root.position.set(x, heightAt(x, z), z);
+}
+placeTeal();
+function collideTeal(x, z) {
+  if (!scrimHere()) return [x, z];
+  for (const [cx, cz, r] of [[teal.x, teal.z, 0.45], [TEAL.x, TEAL.z, 0.8], [...tealWorld(0.9, 0.5), 0.35]]) {
+    const dx = x - cx, dz = z - cz, d = Math.hypot(dx, dz), rr = r + PLAYER_R;
+    if (d < rr) { const k = (rr - d) / Math.max(d, 1e-3); x += dx * k; z += dz * k; }
+  }
+  return [x, z];
+}
+function tealInReach() { return scrimHere() && teal.root.visible && facingPoint(teal.x, teal.z, 3.4); }
+const tealSfx = {
+  talk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 3; i++) { const f = 520 + Math.random() * 260; tone(t + i * 0.08, f, f * 0.85, 0.06, 0.05, 'sine'); } },
+  hello() { if (!actx) return; const t = actx.currentTime; tone(t, 660, 990, 0.12, 0.06, 'sine'); tone(t + 0.13, 990, 1320, 0.16, 0.05, 'sine'); },
+  beep(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 1760, 1760, 0.05, 0.03 * v, 'sine'); },
+  zap() { if (!actx) return; const t = actx.currentTime; tone(t, 200, 2400, 0.7, 0.08, 'sawtooth'); tone(t + 0.1, 400, 3200, 0.6, 0.05, 'sine'); noiseHit(t + 0.55, 'highpass', 3000, 0.08, 0.4, sfxBus, 0.7); },
+  charge(k) { if (!actx) return; const t = actx.currentTime; tone(t, 300 + k * 900, 320 + k * 900, 0.09, 0.035, 'square'); }
+};
+const TEAL_PIC = '<svg viewBox="0 0 64 64"><circle cx="32" cy="11" r="8" fill="#23395b"/><circle cx="24" cy="13" r="5.5" fill="#23395b"/><circle cx="40" cy="13" r="5.5" fill="#23395b"/><circle cx="17" cy="20" r="9" fill="#2fb5a8"/><circle cx="47" cy="20" r="9" fill="#2fb5a8"/><ellipse cx="32" cy="36" rx="26" ry="19" fill="#2fb5a8"/><circle cx="17" cy="21" r="6" fill="#fff"/><circle cx="47" cy="21" r="6" fill="#fff"/><circle cx="17.5" cy="22" r="3.4" fill="#1d1b22"/><circle cx="46.5" cy="22" r="3.4" fill="#1d1b22"/><path d="M11 14 l-2.5 -3 M15 12.5 l-1 -3.5 M53 14 l2.5 -3 M49 12.5 l1 -3.5" stroke="#1d1b22" stroke-width="1.6" stroke-linecap="round"/><path d="M8 29 Q32 22 56 29" stroke="#3a3a48" stroke-width="3" fill="none"/><circle cx="26" cy="27" r="5" fill="#9ef0ff" stroke="#3a3a48" stroke-width="2.4"/><circle cx="38" cy="27" r="5" fill="#9ef0ff" stroke="#3a3a48" stroke-width="2.4"/><path d="M21 42 Q32 49 43 42" stroke="#0f4a44" stroke-width="2.4" fill="none" stroke-linecap="round"/><ellipse cx="13" cy="38" rx="3.5" ry="2.2" fill="#6fd6c8"/><ellipse cx="51" cy="38" rx="3.5" ry="2.2" fill="#6fd6c8"/><path d="M14 64 L20 54 L32 60 L44 54 L50 64 Z" fill="#fafaff"/></svg>';
+
+/* ---------- the health injection, and healing up at the ranch ---------- */
+function setMaxHealth(n) { MAX_HEALTH = n; health = Math.min(Math.max(health, 0), MAX_HEALTH); renderHealth(); }
+let ranchHealHint = false;
+function ranchHeal() {
+  if (!playing || knocked || health >= MAX_HEALTH || !inRanchZone(player.x, player.z, 3)) return;
+  health = MAX_HEALTH; renderHealth(); sfx.love(1);
+  toast(ranchHealHint ? 'Patched up at the ranch. Full health!' : 'Professor Loveopolis dabs on some seaweed salve. Full health! (The ranch always fixes you up.)');
+  ranchHealHint = true;
+}
+
+/* ---------- gifts she hands over ---------- */
+const INJECT_ICON = '<svg viewBox="0 0 48 48"><path d="M34 6 L42 14" stroke="#9aa6b8" stroke-width="4" stroke-linecap="round"/><path d="M38 10 L30 18" stroke="#9aa6b8" stroke-width="3"/><rect x="13" y="16" width="12" height="26" rx="3" transform="rotate(45 24 24)" fill="#e9fbff" stroke="#2fb5a8" stroke-width="2.5"/><rect x="14.5" y="25" width="9" height="12" rx="2" transform="rotate(45 24 24)" fill="#ff4f86"/><path d="M8 40 L12 36" stroke="#9aa6b8" stroke-width="2" stroke-linecap="round"/><path d="M33 33 C30 30.5 28.5 29 28.5 27.3 C28.5 26 29.5 25 30.7 25 C31.5 25 32.4 25.5 33 26.3 C33.6 25.5 34.5 25 35.3 25 C36.5 25 37.5 26 37.5 27.3 C37.5 29 36 30.5 33 33Z" fill="#ff4f86"/></svg>';
+GIFT.trap2 = { name: 'Cage Trap', blurb: 'Now you can set two at once', icon: 'trap', give() { inv.trapsOwned = Math.max(inv.trapsOwned, 2); inv.traps = clamp(inv.traps + 1, 0, inv.trapsOwned - traps.length); return 3; } };
+GIFT.health = { name: 'Health Injection', blurb: 'Maximum health +1', svg: INJECT_ICON, give() { setMaxHealth(2); health = MAX_HEALTH; renderHealth(); return null; } };
+GIFT.tele = { name: 'Teleporter', blurb: 'Hold the button to zap back to the ranch', icon: 'tele', give() { inv.owned.tele = true; teleCool = 0; return 4; } };
+
+/* ---------- the experiments ---------- */
+const hasInParty = sp => party.some(p => p.species === sp);
+function tealOnCatch(species, ambush) {
+  if (tealState.stage === 'ambush' && species === 'bobo' && ambush && !tealState.ambushDone) {
+    tealState.ambushDone = true; saveGame();
+    setTimeout(() => toast('A catch without a single rock! Dr. Tealbottom will want to hear about this.'), 1800);
+  }
+}
+const tealReady = () => (tealState.stage === 'ambush' && tealState.ambushDone) || (tealState.stage === 'beeangy' && hasInParty('beeangy')) || (tealState.stage === 'ufo' && hasInParty('bink'));
+const QUEST_BEEANGY = [
+  { text: 'Now, for my next experiment. I keep hearing whispers of a scrumbly called the “Beeangy”.' },
+  { text: 'But the only bee scrumbly I’ve ever recorded is the Beeappy, and it’s the happiest creature I have ever measured. Off the charts. I had to make a new chart.' },
+  { text: 'So is the Beeangy a separate species? Or am I missing something? Bring me proof it exists: a Beeangy in your party, right here in front of me.' }
+];
+const QUEST_UFO = [
+  { text: 'Right. My final experiment. And I need you to not laugh.' },
+  { text: 'My beacon has picked up... sightings. Of a UFO. A small one. Pinkish. Puttering round the island at roughly walking pace.' },
+  { text: 'I know how it sounds! But the readings are real, I’m sure of it. I just need proof. Bring whatever is flying that thing back here in your party.' }
+];
+const TEAL_IDLE = [
+  'Did you know Bobos burrow at precisely the same angle every time? 37 degrees. I measured. Loveopolis says I need a hobby. This IS my hobby.',
+  'Loveopolis and I were at university together. He studied “scrumbly feelings”. I studied scrumbly everything else.',
+  'I’ve been timing the Weevils. Same loop, to the hundredth of a second. Fascinating. Slightly worrying.',
+  'Has that teleporter been behaving? If you start seeing in colour you can SMELL, do let me know.',
+  'I’m writing a paper on Speshuls. Working title: “Are They, Though?”',
+  'The Professor sings to them at night. I’ve recorded it. The scrumblies sleep 14% better. The data does not lie, however much I wish it would.',
+  'Scrimple Scrumple keeps sending me letters about “scrumbly liberation”. Written on leaves. I’ve started pressing them.',
+  'Mermigglies wave at me every single morning. I’ve never managed to wave first. One day.',
+  'Science tip: if a Duckshark quacks at you, that’s not a greeting. That’s a countdown.',
+  'Bink visits the ranch fence sometimes. Just hovers there, blinking. I think it’s checking on you.'
+];
+function talkToTeal() {
+  teal.wave = 1.6; tealSfx.hello();
+  const s = tealState.stage, done = () => { saveGame(); };
+  if (s === 'unmet') {
+    openDialog([
+      { text: 'Oh! A visitor! Hello, hello. Dr. Tealbottom: scrumbly behaviour scientist, beacon enthusiast, and a colleague of Professor Loveopolis.' },
+      { text: 'Well, I say colleague. He cuddles them. I measure them. We complement each other. Mostly.' },
+      { text: 'He says you’re the first person who’s ever actually CAUGHT a scrumbly. Which makes you exactly who I need for my experiments.' },
+      { text: 'First question. Everyone says you have to bonk a Bobo with a rock to catch it. But I’ve heard there are other ways. Ways without rocks.' },
+      { text: 'Is that true? Show me! Catch a Bobo without stunning it first. No rocks allowed. Then come back and tell me how you did it.' }
+    ], () => { tealState.stage = 'ambush'; done(); }, 'teal');
+  } else if (s === 'ambush') {
+    if (!tealState.ambushDone) return openDialog([{ text: pick1([
+      'Any luck with the rock-free Bobo? Remember: no stunning it first. Think about where a Bobo can’t see you coming...',
+      'Bobos only dive when they spot you on the ground. Hypothesis: approach from a direction they don’t watch.',
+      'No rocks! I’ll know. I have very sensitive instruments. Well, I have a clipboard.'
+    ]) }], null, 'teal');
+    openDialog([
+      { text: 'You did it?! You leapt out of a palm tree and caught it before it could even dig in? That’s... that’s genuinely very impressive.' },
+      { text: 'Also completely unsafe. I’ve made a note. “Subject jumps out of trees. Subject seems fine.”' },
+      { text: 'Here. Take this. It’s far less likely to break your ankles than plummeting out of the canopy.' },
+      { text: 'A second cage trap! Now you can set two at once.', give: 'trap2' },
+      ...QUEST_BEEANGY
+    ], () => { tealState.stage = 'beeangy'; done(); }, 'teal');
+  } else if (s === 'beeangy') {
+    if (!hasInParty('beeangy')) return openDialog([{ text: pick1([
+      'Still no Beeangy? Remember, it has to be in your party. A blurry photo won’t cut it. I’ve seen too many blurry photos.',
+      'My only theory so far: the Beeangy might be what a Beeappy becomes. But what could possibly upset something that happy?',
+      'All my Beeappy readings say “happy”. Every single one. Unless... someone’s been rather rude to it?'
+    ]) }], null, 'teal');
+    const B = party.find(p => p.species === 'beeangy');
+    openDialog([
+      { text: `Is that... ${fullName(B)}? Oh! Oh, look at those eyebrows! It exists!` },
+      { text: 'Hold still... *scribble scribble* ...Wing pattern: Beeappy. Stripes: Beeappy. Temper: absolutely NOT Beeappy.' },
+      { text: 'Mystery solved! It’s the same species after all. A Beeappy just holds a grudge if you’re mean to it. And this one clearly never got over it.' },
+      { text: 'Thank you! For your trouble, roll up your sleeve. This won’t hurt. Much.' },
+      { text: 'A health injection! You can take one more knock now before you need patching up.', give: 'health' },
+      { text: 'You’ll need it, if you’re going to keep going round angering scrumblies. And pop back to the ranch whenever you’re hurt: Loveopolis will always fix you up.' },
+      ...QUEST_UFO
+    ], () => { tealState.stage = 'ufo'; done(); }, 'teal');
+  } else if (s === 'ufo') {
+    if (!hasInParty('bink')) return openDialog([{ text: pick1([
+      'Any sign of the UFO? My beacon says it’s still out there, doing laps. Very slow, very determined laps.',
+      'It never seems to land. Perhaps something could... encourage it to? Persistently?',
+      'I’ve calibrated my instruments seven times. It IS a UFO. A small, pink, sleepy-looking UFO.'
+    ]) }], null, 'teal');
+    openDialog([
+      { text: 'Is that... IS THAT... it IS! A real, live alien! On a flying saucer! In your party! AAAAAH!' },
+      { text: 'Hello, Bink! Hello! Can it understand me? Bink, blink twice if you come in peace! ...It blinked twice! I’m going to faint.' },
+      { text: 'I have to give you something. Anything. Oh! This! It’s the only one in existence. Well. Like Bink.' },
+      { text: 'My teleporter! Equip it and hold down the big red button for a few seconds, and it’ll zap you straight back to the ranch.', give: 'tele' },
+      { text: 'It needs ten minutes to recharge between zaps. And it tingles. That’s normal. Probably.' },
+      { text: 'Right! I simply HAVE to tell Loveopolis about this. He’ll never believe it. I’m off to the ranch! Come and visit me there!' }
+    ], () => { tealState.stage = 'leaving'; done(); toast('Dr. Tealbottom is heading off to find Professor Loveopolis at the ranch.'); }, 'teal');
+  } else {
+    openDialog([{ text: pick1(TEAL_IDLE) }], null, 'teal');
+  }
+}
+
+/* ---------- the teleporter remote ---------- */
+const teleModel = new THREE.Group();
+const teleBtnMat = new THREE.MeshBasicMaterial({ color: 0xff3d5a }), teleLedMat = new THREE.MeshBasicMaterial({ color: 0x5ff07a });
+let teleBtn;
+{
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.14, 0.03), new THREE.MeshLambertMaterial({ color: 0xe8e4f0, emissive: 0x2a2830 })); teleModel.add(body);
+  teleBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.016, 18), teleBtnMat); teleBtn.rotation.x = Math.PI / 2; teleBtn.position.set(0, 0.025, 0.019); teleModel.add(teleBtn);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.004, 6, 18), new THREE.MeshLambertMaterial({ color: 0xa81f37 })); ring.position.set(0, 0.025, 0.016); teleModel.add(ring);
+  [-0.025, -0.045].forEach(y => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.007, 0.004), new THREE.MeshLambertMaterial({ color: 0x9aa6b8 })); s.position.set(0, y, 0.016); teleModel.add(s); });
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 6), teleLedMat); led.position.set(0.024, 0.06, 0.016); teleModel.add(led);
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.07, 6), new THREE.MeshLambertMaterial({ color: 0x4a5060 })); ant.position.set(0.022, 0.1, 0); teleModel.add(ant);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 6), new THREE.MeshBasicMaterial({ color: 0x2fb5a8 })); tip.position.set(0.022, 0.136, 0); teleModel.add(tip);
+}
+teleModel.visible = false; teleModel.scale.setScalar(0.85); viewScene.add(teleModel);
+function poseTeleHand(bx, by, eqDrop, cbk) {
+  const k = teleHold / TELE_HOLD, shake = k > 0 ? (Math.random() - 0.5) * 0.006 * (1 + k * 3) : 0;
+  teleModel.position.set(0.17 + bx + shake, -0.16 + by - eqDrop - cbk * 1.2 + shake, -0.5);
+  teleModel.rotation.set(0.25, -0.35, -0.12);
+  teleModel.visible = climbBlend < 0.5;
+  teleBtn.position.z = teleHold > 0 ? 0.012 : 0.019;
+  teleBtnMat.color.setHex(teleCool > 0 ? 0x7a3a44 : teleHold > 0 && Math.floor(time * (6 + k * 14)) % 2 ? 0xffd0d8 : 0xff3d5a);
+  teleLedMat.color.setHex(teleCool > 0 ? 0xffb03a : 0x5ff07a);
+  handR.g.position.set(0.01, -0.064, 0.017).applyQuaternion(teleModel.quaternion).add(teleModel.position);
+  handR.g.quaternion.copy(teleModel.quaternion); handR.g.rotateX(-0.3);
+}
+const teleEl = document.getElementById('teleHold'), teleFlash = document.getElementById('teleFlash');
+const fmtCool = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function teleUse() {
+  // a click: tell you what's going on (holding is handled every frame)
+  if (teleCool > 0) { sfx.dexNope(); toast(`The teleporter is still recharging: ${fmtCool(teleCool)} to go.`); }
+}
+function teleportHome() {
+  teleZapping = true; teleHold = 0; tealSfx.zap();
+  teleFlash.hidden = false; teleFlash.classList.remove('on'); void teleFlash.offsetWidth; teleFlash.classList.add('on');
+  for (const k in keys) keys[k] = false;
+  setTimeout(() => {
+    const p = prof.root.position, [x, z] = ranchWorld(PROF.u + 1.5, PROF.v + 4);
+    player.x = x; player.z = z; player.y = heightAt(x, z); player.vx = player.vz = player.vy = 0; player.grounded = true; player.climb = null;
+    player.yaw = Math.atan2(x - p.x, z - p.z); player.pitch = 0.05;
+    if (partner) { partner.x = x + 1.2; partner.z = z + 0.6; }
+    for (const d of ducksharks) if (['charge', 'bite', 'retreat', 'sulk'].includes(d.state)) { d.state = 'float'; d.t = 0; d.tx = d.x; d.tz = d.z; }
+    for (const b of beeappies) if (b.state === 'angry') { b.state = 'calm'; b.t = 0; b.tx = b.hx; b.tz = b.hz; }
+    teleCool = TELE_COOLDOWN; teleZapping = false; renderHotbar(); saveGame();
+    teleFlash.classList.remove('on'); setTimeout(() => { teleFlash.hidden = true; }, 700);
+    toast('ZAP! Back at the ranch. The teleporter needs ten minutes to recharge.');
+  }, 650);
+}
+function updateTele(dt) {
+  if (teleCool > 0 && playing && !paused) { const before = Math.ceil(teleCool / 60); teleCool = Math.max(0, teleCool - dt); if (Math.ceil(teleCool / 60) !== before || teleCool === 0) renderHotbar(); if (teleCool === 0 && inv.owned.tele) toast('Your teleporter has recharged!'); }
+  const holding = playing && !paused && !menuOpen() && !knocked && !teleZapping && activeItem() === 'tele' && inv.eq < 0.05 && !player.climb && teleCool <= 0 && (mouseFire || pad.fire);
+  if (holding) {
+    const step = Math.floor(teleHold * 4); teleHold += dt;
+    if (Math.floor(teleHold * 4) !== step) tealSfx.charge(teleHold / TELE_HOLD);
+    if (teleHold >= TELE_HOLD) teleportHome();
+  } else teleHold = Math.max(0, teleHold - dt * 3);
+  const show = teleHold > 0.05 && !teleZapping;
+  teleEl.hidden = !show;
+  if (show) teleEl.style.setProperty('--k', (teleHold / TELE_HOLD * 100).toFixed(1) + '%');
+}
+
+/* ---------- saving ---------- */
+function tealSave() { return { stage: tealState.stage, ambushDone: tealState.ambushDone, teleCool: Math.round(teleCool) }; }
+function tealLoad(o) {
+  o = o && typeof o === 'object' ? o : {};
+  tealState.stage = TEAL_STAGES.includes(o.stage) ? o.stage : 'unmet';
+  if (tealState.stage === 'leaving') tealState.stage = 'ranch';
+  tealState.ambushDone = !!o.ambushDone;
+  teleCool = clamp(+o.teleCool || 0, 0, TELE_COOLDOWN); teleHold = 0;
+  setMaxHealth(tealAt('ufo') ? 2 : 1); health = MAX_HEALTH; renderHealth();
+  teal.greeted = false; placeTeal();
+}
+
+/* ---------- every frame ---------- */
+function updateTeal(dt) {
+  ranchHeal();
+  updateTele(dt);
+  const here = scrimHere();
+  beacon.root.visible = teal.root.visible = here;
+  if (!here) return;
+  // once she's done, she heads off as soon as you're out of sight
+  const d = Math.hypot(player.x - teal.x, player.z - teal.z);
+  if (tealState.stage === 'leaving' && d > 35 && !dialogOpen) { tealState.stage = 'ranch'; placeTeal(); saveGame(); }
+  const want = d < 14 ? Math.atan2(player.x - teal.x, player.z - teal.z) - teal.baseYaw : 0.4;
+  teal.face += angDiff(teal.face, want) * Math.min(1, dt * 3);
+  teal.root.rotation.y = teal.baseYaw + teal.face;
+  teal.head.rotation.z = Math.sin(time * 0.9) * 0.05;
+  teal.head.position.y = 1.98 + Math.sin(time * 1.7) * 0.01;
+  if (!teal.greeted && d < 16 && playing) {
+    teal.greeted = true; teal.wave = 2; tealSfx.hello();
+    toast(tealState.stage === 'unmet' ? 'Someone by a big satellite dish is scribbling notes and peering at you over her goggles...' : 'Dr. Tealbottom: "Ah, my favourite research assistant!"');
+  }
+  if (teal.wave > 0) teal.wave -= dt;
+  const talking = dialogOpen && dlgWho === 'teal';
+  teal.arms[1].rotation.z = teal.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.35 : talking ? 1.2 + Math.sin(time * 6) * 0.35 : 0.2 + Math.sin(time * 1.5) * 0.04;
+  teal.arms[0].rotation.z = -0.5; teal.arms[0].rotation.x = -0.6;
+  teal.blink -= dt; const blinking = teal.blink < 0.12; if (teal.blink < 0) teal.blink = 2.2 + Math.random() * 3;
+  teal.pupils.forEach(p => { p.scale.y = blinking ? 0.15 : 1; });
+  teal.mark.visible = tealState.stage === 'unmet' || tealReady();
+  if (teal.mark.visible) teal.mark.position.y = 3.2 + Math.abs(Math.sin(time * 3)) * 0.25;
+  if (teal.tag) teal.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
+  // the beacon sweeps the sky and blinks
+  beacon.head.rotation.y = time * 0.25;
+  const on = Math.floor(time * 1.5) % 2 === 0;
+  beacon.light.material.color.setHex(on ? 0xff3d5a : 0x5a1a22);
+  const bd = Math.hypot(player.x - TEAL.x, player.z - TEAL.z);
+  if (on !== beacon.on) { beacon.on = on; if (on) tealSfx.beep(clamp(1 - bd / 20, 0, 1)); }
+}
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
   if (dialogOpen && e.button === 0) { dialogAdvance(); return; }
   if (!playing || paused || e.button !== 0) return;
+  mouseFire = true;
   if (document.pointerLockElement === canvas) swingQueued = true;
   downX = e.clientX; downY = e.clientY;
 });
@@ -5990,6 +6348,7 @@ function tick(dt) {
   updateBink(dt);
   updateRanch(dt);
   updateScrim(dt);
+  updateTeal(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
   cullDecor();
@@ -6048,7 +6407,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
