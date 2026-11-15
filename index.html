@@ -1503,7 +1503,7 @@ function makeBoboMesh() {
   return { root, body, eyes, mouth, ex, stars };
 }
 
-const ALERT_R = 6, REAPPEAR_R = 12, STUN_T = 5, BOBO_COUNT = 5;
+const ALERT_R = 6, REAPPEAR_R = 12, STUN_T = 5, BOBO_COUNT = 10;
 const bobos = [];
 let caughtCount = 0;
 const beachPalms = palms.filter(p => inland(p.x, p.z) < INLAND_LIMIT - 4);
@@ -1519,7 +1519,7 @@ function pickHome(awayFrom, minDist) {
     const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
     if (!boboSpotOK(x, z)) continue;
     if (awayFrom && Math.hypot(x - awayFrom.x, z - awayFrom.z) < minDist) continue;
-    if (i < 150 && bobos.some(o => Math.hypot(o.hx - x, o.hz - z) < 22)) continue; // spread them out
+    if (i < 150 && bobos.some(o => Math.hypot(o.hx - x, o.hz - z) < 15)) continue; // spread them out
     return { x, z };
   }
   return { x: spawnX, z: spawnZ };
@@ -1549,7 +1549,12 @@ function setState(b, s) { b.state = s; b.t = 0; }
     if (first) break;
   }
   newBobo(first || pickHome({ x: spawnX, z: spawnZ }, 16));
-  for (let i = 1; i < BOBO_COUNT; i++) newBobo(pickHome({ x: spawnX, z: spawnZ }, 25));
+  // and one more just a short stroll from where you start, so there's always a Bobo to practise on
+  for (let i = 0; i < 300; i++) {
+    const a = Math.random() * 6.28, r = 11 + Math.random() * 7, x = spawnX + Math.cos(a) * r, z = spawnZ + Math.sin(a) * r;
+    if (boboSpotOK(x, z) && !inRanchZone(x, z, 4) && bobos.every(o => Math.hypot(o.hx - x, o.hz - z) > 8)) { newBobo({ x, z }); break; }
+  }
+  while (bobos.length < BOBO_COUNT) newBobo(pickHome({ x: spawnX, z: spawnZ }, 18));
 }
 
 const canStun = b => b.state === 'idle' || b.state === 'alert' || b.state === 'emerge' || b.state === 'stunned' || (b.state === 'burrow' && b.t < 0.25);
@@ -1766,12 +1771,12 @@ function updateBobos(dt) {
         const tx = camera.position.x + _cv.x * 1.2, ty = camera.position.y - 0.6, tz = camera.position.z + _cv.z * 1.2;
         b.x = lerp(b.x, tx, k * 0.35); b.z = lerp(b.z, tz, k * 0.35); b.y = lerp(b.y, ty, k * 0.35);
         sx = sy = 1 - k * 0.85;
-        if (k >= 1) { setState(b, 'gone'); b.root.visible = false; b.respawn = 20 + Math.random() * 25; }
+        if (k >= 1) { setState(b, 'gone'); b.root.visible = false; b.respawn = 10 + Math.random() * 12; }
         break;
       }
       case 'gone': {
         if (b.t > b.respawn) {
-          const h = pickHome(player, 28); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z); applySize(b, rollSize());
+          const h = pickHome(player, 22); b.hx = h.x; b.hz = h.z; setBoboAt(b, h.x, h.z); applySize(b, rollSize());
           setState(b, 'emerge'); b.root.visible = true; sandPuff(b.x, b.z, 22);
         }
         break;
@@ -1890,7 +1895,7 @@ function makeMermMesh() {
   return { root, body, head, tail1, tail2, fin, arms, ex, mad, fur: m.fur };
 }
 
-const MERM_COUNT = 3, MERM_ALERT_R = 9;
+const MERM_COUNT = 5, MERM_ALERT_R = 9;
 const mermigglies = [];
 const depthAt = (x, z) => water.position.y - heightAt(x, z);
 function waterSpot(cx, cz, rMin, rMax, dMin, dMax, awayFrom, awayDist) {
@@ -2016,7 +2021,7 @@ function updateMermigglies(dt) {
       case 'leave': {
         m.face += angDiff(m.face, Math.atan2(m.tx - m.x, m.tz - m.z)) * Math.min(1, dt * 6);
         speed = 4; wantLean = 0.7; tailAmp = 0.6; tailRate = 10;
-        if (m.t > 0.9) { m.under = Math.min(1, m.under + dt * 2); if (m.under >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 45 + Math.random() * 35; } }
+        if (m.t > 0.9) { m.under = Math.min(1, m.under + dt * 2); if (m.under >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 30 + Math.random() * 20; } }
         if (m.t > 0.85 && m.t - dt <= 0.85) mermSplash(m, 18, 1, true);
         break;
       }
@@ -2132,7 +2137,7 @@ function makeSpeshulMesh() {
 }
 function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : makeBoboMesh(); }
 
-const SPESHUL_COUNT = 4;
+const SPESHUL_COUNT = 6;
 const speshuls = [];
 const monkeyTrees = beachPalms.filter(p => p.H * p.scale >= 7.5 && !inRanchZone(p.x, p.z, 4) && inland(p.x, p.z) < 60 && inland(p.x, p.z) > 6);
 const perchY = p => p.y + p.H - 1.6;
@@ -2287,7 +2292,7 @@ function updateSpeshuls(dt) {
         const k = Math.min(1, m.t / 0.45); camera.getWorldDirection(_cv);
         m.x = lerp(m.x, camera.position.x + _cv.x * 1.2, k * 0.35); m.z = lerp(m.z, camera.position.z + _cv.z * 1.2, k * 0.35); m.y = lerp(m.y, camera.position.y - 0.6, k * 0.35);
         m.body.scale.setScalar(1 - k * 0.85);
-        if (k >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 30 + Math.random() * 25; }
+        if (k >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 18 + Math.random() * 15; }
         break;
       }
       case 'gone': {
@@ -2387,7 +2392,7 @@ function makePenginMesh() {
   return { root, body, eyes, flippers, ex };
 }
 
-const PENGIN_COUNT = 4, PENGIN_SEE = 8;
+const PENGIN_COUNT = 6, PENGIN_SEE = 8;
 const pengins = [];
 const nearestNook = (x, z) => nooks.reduce((a, n) => (!a || Math.hypot(n.x - x, n.z - z) < Math.hypot(a.x - x, a.z - z) ? n : a), null);
 function penginSpotOK(x, z) { return boboSpotOK(x, z) && nooks.every(n => Math.hypot(n.x - x, n.z - z) > 2.2); }
@@ -2469,7 +2474,7 @@ function updatePengins(dt) {
         const k = Math.min(1, q.t / 0.45); camera.getWorldDirection(_cv);
         q.x = lerp(q.x, camera.position.x + _cv.x * 1.2, k * 0.35); q.z = lerp(q.z, camera.position.z + _cv.z * 1.2, k * 0.35); q.y = lerp(q.y, camera.position.y - 0.6, k * 0.35);
         q.body.scale.setScalar(1 - k * 0.85);
-        if (k >= 1) { q.state = 'gone'; q.t = 0; q.root.visible = false; q.respawn = 30 + Math.random() * 30; }
+        if (k >= 1) { q.state = 'gone'; q.t = 0; q.root.visible = false; q.respawn = 18 + Math.random() * 15; }
         break;
       }
       case 'gone': {
@@ -2498,10 +2503,16 @@ function updatePengins(dt) {
   }
 }
 // rocks just send a Pengin scurrying for cover
+const penginHittable = q => q.root.visible && ['waddle', 'notice', 'emerge', 'flee'].includes(q.state);
+// an upright capsule round its body, a bit generous since Pengins are small
+const penginHitBy = (q, x, y, z) => Math.hypot(x - q.x, z - q.z) < 0.34 * q.s + 0.22 && y > q.y - 0.1 && y < q.y + 0.62 * q.s + 0.22;
 function rockHitsPengin(r) {
   for (const q of pengins) {
-    if (!q.root.visible || !['waddle', 'notice', 'emerge'].includes(q.state)) continue;
-    if (Math.hypot(r.x - q.x, r.y - (q.y + 0.3 * q.s), r.z - q.z) < 0.32 * q.s + 0.2) { startPenginFlee(q); return q; }
+    if (!penginHittable(q) || !penginHitBy(q, r.x, r.y, r.z)) continue;
+    // bonk! straight back to its hideout, no dithering
+    startPenginFlee(q, true); q.ex.visible = true;
+    if (!penginHints.bonked) { penginHints.bonked = true; toast('Bonk! It’s running straight home to its nook...'); }
+    return q;
   }
   return null;
 }
@@ -2643,6 +2654,7 @@ function updateAim() {
       const base = water.position.y + m.rise - 0.15;
       if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 * m.s && sim.y > base && sim.y < base + 1.05 * m.s) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
     }
+    for (const q of pengins) if (penginHittable(q) && penginHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const m of speshuls) {
       if (!m.root.visible || m.state === 'caught' || m.state === 'gone' || m.state === 'fall' || m.state === 'dazed') continue;
       if (Math.hypot(sim.x - m.x, sim.y - (m.y + 0.4 * m.s), sim.z - m.z) < 0.43 * m.s + 0.22) { hit = m; land = { x: sim.x, y: sim.y, z: sim.z }; }
@@ -3006,6 +3018,7 @@ function startScan() {
 function finishScan() {
   const id = scan.target.id, isNew = !dexState.scanned.has(id), scan_size = scan.target.o.size;
   dexState.scanned.add(id); scan = null; saveGame();
+  tutCheck();
   sfx.dexDone(isNew); showDexCard(id, isNew, scan_size);
 }
 
@@ -4070,18 +4083,42 @@ function talkToProf() {
         { text: 'Do you know, in all my years on this island, I have never once managed to catch a scrumbly. Not a single one! They see my beard coming and simply vanish.' },
         { text: 'You are clearly the catcher this island has been waiting for. Which means you\'ll be needing this:' },
         { text: 'The Scrumblydex! Point it at any scrumbly and click to scan it. You\'ll learn all sorts: cute facts, where they live, and tips on how to catch them.', give: 'dex' },
-        { text: 'While you\'re holding it, press Tab to flick through every entry. Scan everything you can, dear. There are so many I\'ve never even seen properly!' },
-        { text: 'Now, let\'s see how you get on. Catch five scrumblies, and I\'ll have something else to show you!' }
-      ], () => { setStage('catchFive'); tutOnCatch(); });
+        { text: 'While you\'re holding it, press Tab to flick through every entry. There are so many scrumblies I\'ve never even seen properly!' },
+        { text: 'So here\'s a little job for you: scan three different kinds of scrumbly. Your Bobo counts already! Have a look up in the palm trees, out in the shallows and around those little rock nooks.' }
+      ], () => { setStage('scanThree'); tutCheck(); });
+      break;
+    }
+    case 'scanThree': {
+      const n = dexState.scanned.size;
+      openDialog([{ text: pick1([
+        `${n} kind${n === 1 ? '' : 's'} scanned so far. Just ${Math.max(0, 3 - n)} to go, dear!`,
+        'Ever looked up a palm tree? Something green and cheeky likes to hang about near the top.',
+        'I\'ve seen a frog with a fishtail splashing about in the shallows. Or perhaps I need new spectacles.',
+        'Those little rock nooks dotted about the sand? Something very shy lives in them.',
+        'Point your Scrumblydex at a scrumbly and click. Hold it steady while it scans!'
+      ]) }]);
+      break;
+    }
+    case 'trapIntro': {
+      const already = totalCaught() >= 5;
+      openDialog([
+        { text: 'Three different kinds! Aren\'t they marvellous? Every one of them is so wonderfully odd.' },
+        { text: 'You\'ll have noticed some of them are far too clever for a net. For those, you\'ll want one of these:' },
+        { text: 'A cage trap! Set it down wherever a scrumbly is bound to wander, and it\'ll shut tight the moment one steps on the plate.', give: 'trap' },
+        { text: 'Just don\'t leave them waiting too long, or they\'ll rattle their way out! I\'ve only got the one to spare for now, mind.' },
+        already
+          ? { text: 'And goodness me, you\'ve already caught five scrumblies! Then I\'ve one more thing to show you...' }
+          : { text: 'Now, let\'s see what you can do with it. Catch five scrumblies altogether, then come back and see me. I\'ll have something rather special to show you!' }
+      ], () => { setStage('catchFive'); if (totalCaught() >= 5) { setStage('boxIntro'); setTimeout(talkToProf, 200); } });
       break;
     }
     case 'catchFive': {
       const n = totalCaught();
       openDialog([{ text: pick1([
         `${n} caught already! Only ${5 - n} more to go, dear.`,
-        'Have you scanned them all with your Scrumblydex? The catching tips are ever so handy.',
+        'Try that cage trap by one of the rock nooks. I hear the shy ones run straight home when they\'re frightened...',
         `${P ? P.name : 'Your partner'} looks very happy following you about. Scrumblies love an adventure!`,
-        'Some scrumblies live up in the palm trees, you know. And some splash about in the shallows. Keep your eyes peeled!'
+        'Have you read the catching tips in your Scrumblydex? They\'re ever so handy.'
       ]) }]);
       break;
     }
@@ -4099,36 +4136,41 @@ function talkToProf() {
 }
 function tutAfterBox() {
   openDialog([
-    { text: 'Wonderful! Come and see me whenever you want to shuffle your scrumblies about. Oh, and one more thing...' },
-    { text: 'Some scrumblies are far too clever for a net. For those, you\'ll want one of these:' },
-    { text: 'A cage trap! Set it down wherever a scrumbly is bound to wander, and it\'ll shut tight the moment one steps on the plate.', give: 'trap' },
-    { text: 'Just don\'t leave them waiting too long, or they\'ll rattle their way out! I\'ve only got the one to spare for now, mind. Happy catching, dear!' }
-  ], () => { setStage('done'); toast('That\'s everything the Professor has to teach you. Happy catching!'); });
+    { text: 'Wonderful! Come and see me whenever you want to shuffle your scrumblies about. I\'ll always be right here.' },
+    { text: 'And that, dear, is everything I can teach you. The rest is up to you! Off you go and keep exploring. This island is much bigger than it looks.' },
+    { text: 'Oh, and you\'re not the only one about, you know. There are other folk dotted around the island. Do stop and have a natter with them.' },
+    { text: 'Some of them have little problems they could use a hand with, and a clever catcher like you might be just the ticket. Happy catching!' }
+  ], () => { setStage('done'); toast('Tutorial complete! Keep exploring, and look out for other islanders who need a hand.'); });
 }
 function setStage(s) { tut.stage = s; tut.calledOver = false; updateObjective(); saveGame(); }
 function tutBegin() { tut.calledOver = false; updateObjective(); setTimeout(() => { if (tut.stage === 'intro') toast('Someone\'s waving at you from the ranch along the beach...'); }, 4800); }
-function tutOnCatch() {
-  if (tut.stage === 'catchFirst') setStage('returnFirst');
-  else if (tut.stage === 'catchFive' && totalCaught() >= 5) {
-    setStage('boxIntro');
-    // the Professor calls you over
-    setTimeout(() => {
-      bondEl.innerHTML = `<span class="pic prof">${document.querySelector('.prof-pic').innerHTML}</span><p><b>Professor Loveopolis:</b> "Yoo-hoo! Five scrumblies?! Come back to the ranch, dear, I've something to show you!"</p>`;
-      bondEl.hidden = false; bondEl.classList.remove('in'); void bondEl.offsetWidth; bondEl.classList.add('in');
-      clearTimeout(bondHide); bondHide = setTimeout(() => bondEl.classList.remove('in'), 7000);
-      sfx.profHello();
-    }, 2200);
-  }
+// the Professor calls you back to the ranch
+function callOver(msg) {
+  setTimeout(() => {
+    bondEl.innerHTML = `<span class="pic prof">${document.querySelector('.prof-pic').innerHTML}</span><p><b>Professor Loveopolis:</b> "${msg}"</p>`;
+    bondEl.hidden = false; bondEl.classList.remove('in'); void bondEl.offsetWidth; bondEl.classList.add('in');
+    clearTimeout(bondHide); bondHide = setTimeout(() => bondEl.classList.remove('in'), 7000);
+    sfx.profHello();
+  }, 2200);
 }
+function tutCheck() {
+  if (tut.stage === 'catchFirst' && totalCaught() >= 1) setStage('returnFirst');
+  else if (tut.stage === 'scanThree' && dexState.scanned.size >= 3) { setStage('trapIntro'); callOver('Yoo-hoo! Three kinds already?! Come back to the ranch, dear, I\'ve got something for you!'); }
+  else if (tut.stage === 'catchFive' && totalCaught() >= 5) { setStage('boxIntro'); callOver('Five scrumblies?! Come back to the ranch, dear, I\'ve something rather special to show you!'); }
+}
+function tutOnCatch() { tutCheck(); }
 
 /* ---------- objective tracker + a "!" over the Professor when he wants you ---------- */
 const objEl = document.getElementById('objective');
 const profMarker = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); profMarker.scale.setScalar(0.7); profMarker.renderOrder = 7; profMarker.position.y = 3.6; profMarker.visible = false; prof.root.add(profMarker);
+const TALK_STAGES = ['intro', 'returnFirst', 'trapIntro', 'boxIntro'];
 function objectiveText() {
   switch (tut.stage) {
     case 'intro': return 'Talk to Professor Loveopolis at the ranch';
     case 'catchFirst': return 'Catch your first scrumbly';
     case 'returnFirst': return 'Show your new scrumbly to Professor Loveopolis';
+    case 'scanThree': return `Scan three kinds of scrumbly with your Scrumblydex (${Math.min(3, dexState.scanned.size)}/3)`;
+    case 'trapIntro': return 'Professor Loveopolis wants to see you';
     case 'catchFive': return `Catch five scrumblies (${Math.min(5, totalCaught())}/5)`;
     case 'boxIntro': return 'Professor Loveopolis wants to see you';
     case 'boxOpen': return 'Have a look in the Box';
@@ -4137,7 +4179,7 @@ function objectiveText() {
 }
 let objLast = '';
 function updateObjective() {
-  const txt = objectiveText(), talk = ['intro', 'returnFirst', 'boxIntro'].includes(tut.stage);
+  const txt = objectiveText(), talk = TALK_STAGES.includes(tut.stage);
   let html = txt ? `<span class="star">★</span>${txt}` : '';
   if (txt && talk) html += ` <small>${Math.round(profDistance())} m</small>`;
   if (html !== objLast) { objLast = html; objEl.innerHTML = html; }

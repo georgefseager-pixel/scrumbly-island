@@ -28,6 +28,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 
 ## So far
 
+- A New Game tutorial with Professor Loveopolis: he gives you the net and asks for your first catch; is amazed (he's never caught one) and gives you the Scrumblydex; asks you to scan three kinds of scrumbly; gives you a cage trap and asks you to catch five; then shows you the Box and sends you off to explore and help the other islanders. An objective tracker and a "!" over the Professor show what to do next. Saves from before the tutorial skip it
 - Pinksand Shore: a ring of pink-sand beach with shells, starfish, rocks, driftwood and palm trees
 - Shallow water you can wade into, up to about 1 m deep
 - A placeholder jungle in the middle, closed for now
