@@ -298,6 +298,12 @@
   .dtext { margin: 2px 0 0; font-weight: 700; font-size: 1.02rem; line-height: 1.4; }
   .dnext { position: absolute; right: 16px; bottom: 6px; color: #5f9e45; opacity: 0; }
   #dialog.ready .dnext { opacity: 1; animation: bob 1s ease-in-out infinite; }
+  .dchoices { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .dchoices button { border: 0; border-radius: 12px; padding: 7px 16px; font-family: var(--display); font-weight: 700; font-size: 1rem; background: #f1eadf; color: var(--ink); cursor: pointer; box-shadow: 0 3px 0 rgba(44,37,82,.2); }
+  .dchoices button.cur { background: var(--pink); color: #fff; box-shadow: 0 3px 0 var(--pink-deep); }
+  #dialog.hop .dlg-card { border-color: #c8a070; box-shadow: 0 5px 0 #8a5a33, 0 14px 30px rgba(44,37,82,.3); }
+  #dialog.hop .dbody b { color: #8a5a33; }
+  #dialog.hop .prof-pic { background: #e6f4d8; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #8a5a33; }
   #itemGet { order: -1; justify-self: center; display: flex; align-items: center; gap: 12px; background: #fff3a8; border: 4px solid #ffd23f; border-radius: 20px; padding: 8px 18px 8px 10px; box-shadow: 0 5px 0 #e59a2f; }
   #itemGet .pic { width: 60px; height: 60px; background: var(--cream); border-radius: 50%; display: grid; place-items: center; }
   #itemGet .pic svg { width: 78%; height: 78%; }
@@ -405,7 +411,7 @@
       <li><kbd>Space</kbd>jump</li>
       <li><kbd>Mouse</kbd>look</li>
       <li><kbd>Click</kbd>use item</li>
-      <li><kbd>1–5</kbd>swap item</li>
+      <li><kbd>1–6</kbd>swap item</li>
       <li><kbd>E</kbd>pick up rock</li>
       <li><kbd>3</kbd>Scrumblydex: click to scan, <kbd>Tab</kbd>to browse</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
@@ -447,7 +453,7 @@
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–5 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div>
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–6 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div>
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div class="hud" id="prompt" hidden></div>
@@ -487,7 +493,7 @@
 <div id="dialog" hidden>
   <div class="dlg-card">
     <span class="prof-pic small"><svg viewBox="0 0 64 64"><circle cx="16" cy="18" r="9" fill="#8fcf6f"/><circle cx="48" cy="18" r="9" fill="#8fcf6f"/><ellipse cx="32" cy="32" rx="27" ry="19" fill="#8fcf6f"/><circle cx="17" cy="18" r="6.5" fill="none" stroke="#c9a227" stroke-width="2"/><circle cx="47" cy="18" r="6.5" fill="none" stroke="#c9a227" stroke-width="2"/><path d="M23.5 18h17" stroke="#c9a227" stroke-width="1.6"/><circle cx="17" cy="18" r="3" fill="#1d1b22"/><circle cx="47" cy="18" r="3" fill="#1d1b22"/><path d="M12 33 Q32 41 52 33" stroke="#3f6b30" stroke-width="2.4" fill="none" stroke-linecap="round"/><g fill="#f4f1ea" stroke="#ddd6cb" stroke-width="1"><circle cx="32" cy="45" r="9"/><circle cx="22" cy="43" r="7"/><circle cx="42" cy="43" r="7"/><circle cx="27" cy="52" r="7"/><circle cx="37" cy="52" r="7"/><circle cx="32" cy="58" r="5.5"/></g></svg></span>
-    <div class="dbody"><b>Professor Loveopolis</b><p class="dtext"></p></div>
+    <div class="dbody"><b>Professor Loveopolis</b><p class="dtext"></p><div class="dchoices" hidden></div></div>
     <span class="dnext">▼</span>
   </div>
   <div id="itemGet" hidden></div>
@@ -543,7 +549,23 @@ const fbm = (x, y) => vnoise(x, y) * 0.5 + vnoise(x * 2.03 + 17, y * 2.03 + 9) *
    (negative = out at sea). Beach is the band 0..70.
    ========================================================= */
 const MAX_DEPTH = 1.05;      // deepest the player may wade (metres)
-const INLAND_LIMIT = 70;     // where the (closed) jungle begins
+const INLAND_LIMIT = 70;     // where the beach ends and the hedge around Glimmerwood begins
+/* Glimmerwood, the forest ring: a hedge (d 70..74.5) with four gaps, forest floor out to FOREST_OUT,
+   a river winding right round it, then a bramble thicket and the hills of the island's heart (for later) */
+const HEDGE_OUT = 74.5, FOREST_OUT = 112;
+const GAP_TH = [0, 1, 2, 3].map(k => 0.65 + k * Math.PI / 2);
+const RIVER_HALF = 4.4, RIVER_DEPTH = 1.0;
+const riverD = th => 93 + 4 * Math.sin(2 * th + 1) + 2.5 * Math.sin(5 * th + 2);
+const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+// metres along the hedge to the nearest gap
+function gapArc(x, z) { const th = Math.atan2(z, x), r = Math.hypot(x, z); let best = 1e9; for (const g of GAP_TH) best = Math.min(best, angGap(th, g) * r); return best; }
+function forestFloor(x, z, d) {
+  let h = 3.15 + (d - INLAND_LIMIT) * 0.05 + (fbm(x * 0.05 + 3, z * 0.05 + 7) - 0.5) * 1.4 * smooth(70, 80, d);
+  if (d > FOREST_OUT) h += 16 * (1 - Math.exp(-(d - FOREST_OUT) / 10)) + (fbm(x * 0.03, z * 0.03) - 0.5) * 6 * smooth(FOREST_OUT, FOREST_OUT + 20, d);
+  return h;
+}
+const riverOff = (x, z, d) => d - riverD(Math.atan2(z, x));      // signed distance across the river (roughly metres)
+const riverCut = (x, z, d) => { const o = Math.abs(riverOff(x, z, d)); return o > RIVER_HALF ? 0 : RIVER_DEPTH * (1 - smooth(RIVER_HALF * 0.45, RIVER_HALF, o)); };
 function shoreR(theta) {
   const c = Math.cos(theta), s = Math.sin(theta);
   return 150 + 10 * Math.sin(3 * theta + 0.7) + 6 * Math.sin(5 * theta + 2.1) + 2.5 * Math.sin(9 * theta + 0.3) + (vnoise(c * 2.5 + 10, s * 2.5 + 10) - 0.5) * 10;
@@ -560,7 +582,7 @@ function heightAt(x, z) {
   } else if (d < INLAND_LIMIT) {
     h = d * 0.045;
   } else {
-    h = 3.15 + 14 * (1 - Math.exp(-(d - INLAND_LIMIT) / 18)) + (fbm(x * 0.03, z * 0.03) - 0.5) * 6 * smooth(70, 95, d);
+    h = forestFloor(x, z, d) - (d > HEDGE_OUT ? riverCut(x, z, d) : 0);
   }
   return h + dune;
 }
@@ -663,7 +685,17 @@ const TERRAIN_SIZE = 460, TERRAIN_SEG = 230;
       c = dep < 4 ? wet.map((v, k) => lerp(v, sea[k], dep / 4)) : sea.map((v, k) => lerp(v, deepSea[k], smooth(4, 10, dep)));
     } else {
       c = wet.map((v, k) => lerp(v, dry[k], smooth(0.3, 4.5, d)));
-      if (d > 64) { const t = smooth(66, 74, d); c = c.map((v, k) => lerp(v, lerp(grass[k], jungle[k], smooth(74, 100, d)), t)); }
+      if (d > 64) { const t = smooth(66, 74, d); c = c.map((v, k) => lerp(v, grass[k], t)); }
+      if (d > HEDGE_OUT - 2) {
+        // Glimmerwood: lush green with patches of teal moss and lilac clover, a pebbly river bed, darker woods beyond
+        const m = fbm(x * 0.07 + 11, z * 0.07 - 4), forest = [0.40, 0.74, 0.47], moss = [0.36, 0.72, 0.64], lilac = [0.66, 0.6, 0.84];
+        let f = forest.map((v, k) => lerp(v, moss[k], smooth(0.5, 0.7, m)));
+        f = f.map((v, k) => lerp(v, lilac[k], smooth(0.62, 0.78, fbm(x * 0.05 - 9, z * 0.05 + 2)) * 0.8));
+        if (d > FOREST_OUT - 2) f = f.map((v, k) => lerp(v, jungle[k], smooth(FOREST_OUT - 2, FOREST_OUT + 8, d)));
+        const rc = riverCut(x, z, d) / RIVER_DEPTH;
+        if (rc > 0) f = f.map((v, k) => lerp(v, [0.62, 0.66, 0.74][k], smooth(0.05, 0.4, rc)));
+        c = c.map((v, k) => lerp(v, f[k], smooth(HEDGE_OUT - 2, HEDGE_OUT + 2, d)));
+      }
     }
     const sparkle = hash2(i, 7) > 0.985 && d > 2 && d < 66 ? 0.06 : 0;
     colors[i * 3] = c[0] + n * 0.06 + sparkle; colors[i * 3 + 1] = c[1] + n * 0.05 + sparkle; colors[i * 3 + 2] = c[2] + n * 0.05 + sparkle;
@@ -848,8 +880,6 @@ function trunkAt(p, wy, out) {
     spots.push([x, z, theta]);
   }
   spots.forEach(([x, z, th]) => makePalm(x, z, [Math.cos(th), Math.sin(th)]));
-  // palms poking out of the jungle edge
-  for (let i = 0; i < 40; i++) { const th = rr(0, Math.PI * 2), [x, z] = polar(th, rr(78, 110)); makePalm(x, z, [Math.cos(th), Math.sin(th)], rr(1.0, 1.3)); }
 }
 trunkParts.forEach(list => { if (!list) return; const m = new THREE.Mesh(merge(list), trunkMat); m.geometry.computeBoundingSphere(); m.castShadow = m.receiveShadow = true; scene.add(m); });
 
@@ -965,40 +995,268 @@ instanced(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), shellMat,   // sand 
   }
   instanced(new THREE.ConeGeometry(0.05, 0.7, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), blades);
 }
-// bush wall + hibiscus marking the closed jungle
+// the hedge around Glimmerwood: tall, clipped and flowering, with four gaps (one flower arch over each)
 const blobGeo = new THREE.IcosahedronGeometry(1, 1);
 const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 });
 {
   const bushes = [], flowers = [];
-  const steps = 260;
+  const steps = 270;
   for (let i = 0; i < steps; i++) {
     for (let row = 0; row < 2; row++) {
-      const th = (i / steps) * Math.PI * 2 + rr(-0.008, 0.008) + row * 0.012, d = INLAND_LIMIT + 1.5 + row * 3 + rr(-0.8, 0.8), [x, z] = polar(th, d), s = rr(1.4, 2.3);
-      const y = heightAt(x, z) + s * 0.45;
-      bushes.push({ x, z, y, ry: rr(0, 6), s: [s * 1.2, s, s * 1.2], c: pick([0x4fb56a, 0x5cc277, 0x3fa060, 0x6fcf7a]) });
-      if (rand() < 0.7) for (let f = 0; f < 3; f++) {
-        const a = rr(0, 6.28), e = rr(0.2, 1.0);
-        flowers.push({ x: x + Math.cos(a) * s * 1.15 * Math.cos(e), z: z + Math.sin(a) * s * 1.15 * Math.cos(e), y: y + Math.sin(e) * s * 0.9, s: rr(0.14, 0.24), c: pick([0xff4f8b, 0xff7fb0, 0xffd23f, 0xff6a3d, 0xffffff]) });
+      const th = (i / steps) * Math.PI * 2 + rr(-0.006, 0.006) + row * 0.012, d = INLAND_LIMIT + 1.6 + row * 2.0 + rr(-0.3, 0.3), [x, z] = polar(th, d);
+      if (gapArc(x, z) < 2.9) continue;
+      const s = rr(1.7, 2.2);
+      const y = heightAt(x, z) + s * (0.8 + row * 0.3);
+      bushes.push({ x, z, y, ry: rr(0, 6), s: [s * 1.2, s * 1.35, s * 1.2], c: pick([0x4fb56a, 0x5cc277, 0x45a862, 0x63c879]) });
+      if (rand() < 0.75) for (let f = 0; f < 3; f++) {
+        const a = rr(0, 6.28), e = rr(-0.2, 1.0);
+        flowers.push({ x: x + Math.cos(a) * s * 1.1 * Math.cos(e), z: z + Math.sin(a) * s * 1.1 * Math.cos(e), y: y + Math.sin(e) * s * 1.2, s: rr(0.14, 0.24), c: pick([0xff4f8b, 0xff7fb0, 0xffd23f, 0xb48cff, 0xffffff, 0x7fd8ff]) });
       }
     }
   }
-  instanced(blobGeo, flatMat, bushes, { cast: true, receive: true, far: 1000, slices: 4 });
-  instanced(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x331122 }), flowers, { far: 300 });
+  instanced(blobGeo, flatMat, bushes, { cast: true, receive: true, far: 1000, slices: 8 });
+  instanced(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x331122 }), flowers, { far: 260 });
 }
-// placeholder jungle canopy (the rest of the island, for later)
+// a flower-covered arch over each gap
 {
-  const trunks = [], tops = [];
-  for (let i = 0; i < 380; i++) {
-    const th = rr(0, Math.PI * 2), d = rr(INLAND_LIMIT + 6, 150), [x, z] = polar(th, d);
-    if (Math.hypot(x, z) > shoreR(th) - INLAND_LIMIT - 4) { /* keep inside */ }
-    const y = heightAt(x, z), h = rr(4, 8), s = rr(2.8, 5);
-    trunks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x8d6a52 });
-    tops.push({ x, z, y: y + h + s * 0.5, ry: rr(0, 6), s: [s, s * rr(0.7, 1), s], c: pick([0x2f9a58, 0x3aad5e, 0x268a52, 0x4cbf63, 0x1f7d4f]) });
+  const parts = [], vine = 0x4fa060;
+  for (const g of GAP_TH) {
+    const d = INLAND_LIMIT + 2.8, [cx, cz] = polar(g, d), y = heightAt(cx, cz) - 0.1, tx = -Math.sin(g), tz = Math.cos(g);
+    const arch = new THREE.TorusGeometry(2.6, 0.2, 8, 28, Math.PI);
+    const m = new THREE.Matrix4().makeRotationY(Math.atan2(-tz, tx)).setPosition(cx, y + 1.3, cz);
+    parts.push(bake(arch.clone(), vine).applyMatrix4(m));
+    [-1, 1].forEach(s => parts.push(bake(new THREE.CylinderGeometry(0.2, 0.24, 1.4, 8), vine).translate(cx + tx * s * 2.6, y + 0.65, cz + tz * s * 2.6)));
+    for (let k = 0; k <= 22; k++) {
+      const a = k / 22 * Math.PI, fx = Math.cos(a) * 2.6, fy = Math.sin(a) * 2.6 + 1.3, col = pick([0xff7fb0, 0xffd23f, 0xffffff, 0xb48cff, 0xff4f8b]);
+      const fl = bake(new THREE.SphereGeometry(rr(0.16, 0.26), 7, 5), col).translate(cx + tx * fx + rr(-0.15, 0.15) * Math.cos(g), y + fy + rr(-0.1, 0.15), cz + tz * fx + rr(-0.15, 0.15) * Math.sin(g));
+      parts.push(fl);
+      if (k % 2) parts.push(bake(new THREE.IcosahedronGeometry(0.28, 0), 0x5cc277).translate(cx + tx * fx * 0.98, y + fy - 0.1, cz + tz * fx * 0.98));
+    }
   }
-  instanced(new THREE.CylinderGeometry(0.35, 0.5, 1, 6), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true, far: 1000, slices: 4 });
-  instanced(blobGeo, flatMat, tops, { cast: true, receive: true, far: 1000, slices: 4 });
+  const arches = new THREE.Mesh(merge(parts), vcLambert()); arches.castShadow = true; scene.add(arches);
 }
-// "coming soon" signs at the jungle edge
+
+/* ---------- Glimmerwood: a magical fairy forest ---------- */
+const forestColliders = [];                 // tree trunks and stumps you walk into
+const forestFree = (x, z, d, gap = 1.5) => d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 2 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + gap && !(gapArc(x, z) < 5 && d < 82)
+  && !appleTrees.some(t => Math.abs(t.x - x) < 2.6 && Math.abs(t.z - z) < 2.6 && Math.hypot(t.x - x, t.z - z) < 2.4);   // keep apple trunks clear to climb
+const BRIDGE_TH = GAP_TH.flatMap(g => [g + 0.07, g + Math.PI / 4]);
+const bridges = [];
+function forestSpot(minGap, list, tries = 60) {
+  for (let i = 0; i < tries; i++) {
+    const th = rr(0, Math.PI * 2), d = rr(HEDGE_OUT + 2, FOREST_OUT - 3), [x, z] = polar(th, d);
+    if (!forestFree(x, z, d)) continue;
+    if (bridges.some(b => Math.hypot(b.cx - x, b.cz - z) < 8)) continue;
+    if (list.some(o => Math.hypot(o.x - x, o.z - z) < minGap)) continue;
+    return { x, z, d, th };
+  }
+  return null;
+}
+// the river: a ribbon of water winding right round the forest, flowing gently
+const riverTex = (() => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 64); grd.addColorStop(0, '#9fe6ff'); grd.addColorStop(0.5, '#6fd0f0'); grd.addColorStop(1, '#9fe6ff');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 64);
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineCap = 'round';
+  for (let i = 0; i < 26; i++) { const x = rand() * 256, y = 6 + rand() * 52, l = 10 + rand() * 30; g.lineWidth = 1.5 + rand() * 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y + rr(-2, 2)); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+})();
+{
+  const N = 900, W = RIVER_HALF * 0.82, pos = [], uv = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const th = i / N * Math.PI * 2, d = riverD(th), r = shoreR(th) - d, c = Math.cos(th), s = Math.sin(th);
+    const [ax, az] = polar(th, d - RIVER_HALF - 0.4), [bx, bz] = polar(th, d + RIVER_HALF + 0.4);
+    const y = Math.min(heightAt(ax, az), heightAt(bx, bz)) - 0.38;
+    pos.push(c * (r + W), y, s * (r + W), c * (r - W), y, s * (r - W));
+    uv.push(i / N * 90, 0, i / N * 90, 1);
+    if (i < N) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const river = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color: 0xffffff, map: riverTex, transparent: true, opacity: 0.86, shininess: 90, specular: 0xffffff, emissive: 0x123848, side: THREE.DoubleSide }));
+  river.receiveShadow = true; scene.add(river);
+}
+// little arched wooden bridges over the river (you can walk on these)
+{
+  for (const th of BRIDGE_TH) {
+    const d = riverD(th), [cx, cz] = polar(th, d), ox = Math.cos(th), oz = Math.sin(th), L = 5.4;
+    const y0 = Math.max(heightAt(cx + ox * L, cz + oz * L), heightAt(cx - ox * L, cz - oz * L)) + 0.02;
+    const parts = [], arch = s => 0.55 * (1 - (s / L) * (s / L));
+    for (let s = -L + 0.25; s < L; s += 0.5) parts.push(bake(new THREE.BoxGeometry(0.44, 0.1, 2.5), pick([0xc89060, 0xb98352, 0xd59e6a])).translate(s, arch(s) + 0.03, 0));
+    [-1, 1].forEach(side => {
+      for (let s = -L + 0.3, k = 0; s <= L; s += (2 * L - 0.6) / 6, k++) parts.push(bake(new THREE.CylinderGeometry(0.07, 0.08, 0.85, 6), 0x8a5a33).translate(s, arch(s) + 0.45, side * 1.2));
+      for (let s = -L + 0.3; s < L - 0.3; s += 0.5) parts.push(bake(new THREE.BoxGeometry(0.52, 0.07, 0.08), 0x9a6a40).translate(s + 0.25, arch(s + 0.25) + 0.85, side * 1.2));
+      // lanterns on the middle posts
+      parts.push(bake(new THREE.SphereGeometry(0.12, 8, 6), 0xfff1a8).translate(0, arch(0) + 1.0, side * 1.2));
+    });
+    const m = new THREE.Mesh(merge(parts), vcLambert({ emissive: 0x150c04 }));
+    m.position.set(cx, y0, cz); m.rotation.y = -th; m.castShadow = m.receiveShadow = true; scene.add(m);
+    bridges.push({ cx, cz, ox, oz, y0, L, arch });
+  }
+}
+// walking height: the ground, or a bridge deck if you're on one
+function groundAt(x, z) {
+  const h = heightAt(x, z);
+  for (const b of bridges) {
+    const dx = x - b.cx, dz = z - b.cz; if (Math.abs(dx) > 7 || Math.abs(dz) > 7) continue;
+    const along = dx * b.ox + dz * b.oz, lat = -dx * b.oz + dz * b.ox;
+    if (Math.abs(along) < b.L && Math.abs(lat) < 1.3) return Math.max(h, b.y0 + b.arch(along) + 0.08);
+  }
+  return h;
+}
+// apple trees: climbable (they join the palms for climbing and bumping into), with apples in the canopy
+const APPLE_TREES = 22, appleTrees = [];
+const appleMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 10, 8), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x220606 }), APPLE_TREES * 5);
+{
+  const crownMat = vcLambert({ flatShading: true }), canopies = [0, 1, 2].map(v => {
+    const parts = [];
+    [[0, 1.1, 0, 1.9], [1.2, 0.8, 0.3, 1.3], [-1.1, 0.85, -0.4, 1.35], [0.2, 0.8, 1.2, 1.25], [-0.3, 0.9, -1.2, 1.3], [0, 2.0, 0, 1.3]].forEach(([x, y, z, r], k) => parts.push(bake(new THREE.IcosahedronGeometry(r, 1), [0x4fb56a, 0x5cc277, 0x63c879, 0x45a862][(k + v) % 4]).translate(x, y, z)));
+    [[0.6, 0.2, 0], [-0.5, 0.25, 0.3], [0, 0.3, -0.6]].forEach(([x, y, z]) => parts.push(bake(new THREE.CylinderGeometry(0.06, 0.12, 1.3, 5), 0x7d5a3c).rotateZ(x * 1.2).rotateX(z * 1.2).translate(x * 0.7, y + 0.4, z * 0.7)));
+    // little white blossoms
+    for (let k = 0; k < 14; k++) { const a = k * 2.39 + v, e = (k % 5) / 5; parts.push(bake(new THREE.SphereGeometry(0.11, 6, 4), k % 3 ? 0xffffff : 0xffc6e0).translate(Math.cos(a) * 1.9 * (1 - e * 0.4), 1.0 + e * 1.4, Math.sin(a) * 1.9 * (1 - e * 0.4))); }
+    return merge(parts);
+  });
+  const trunkGeos = [], placed = [];
+  let ai = 0;
+  for (let i = 0; i < APPLE_TREES; i++) {
+    const sp = forestSpot(10, placed, 200); if (!sp) continue;
+    placed.push(sp);
+    const { x, z } = sp, H = rr(6.2, 7.2), scale = 1.4, lean = rr(0.2, 0.6), la = rr(0, 6.28), ux = Math.cos(la), uz = Math.sin(la), y = heightAt(x, z) - 0.25;
+    const N = 6, P = t => new THREE.Vector3(ux * lean * t * t, H * t, uz * lean * t * t), up = new THREE.Vector3(0, 1, 0);
+    for (let k = 0; k < N; k++) {
+      const a = P(k / N), b = P((k + 1) / N), dir = b.clone().sub(a), len = dir.length(); dir.normalize();
+      const g = bake(new THREE.CylinderGeometry(lerp(0.36, 0.2, (k + 1) / N) * scale, lerp(0.36, 0.2, k / N) * scale, len * 1.02, 9), k % 2 ? 0x8a6448 : 0x7d5a3c);
+      g.translate(0, len / 2, 0); g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(up, dir))); g.translate(x + a.x, y + a.y, z + a.z);
+      trunkGeos.push(g);
+    }
+    const top = P(1), crown = new THREE.Mesh(canopies[i % 3], crownMat);
+    crown.position.set(x + top.x, y + top.y, z + top.z); crown.rotation.y = rr(0, 6.28); crown.castShadow = true; scene.add(crown);
+    // apples hang round the underside of the canopy, where you can reach them from the top of the trunk
+    const apples = [];
+    for (let k = 0; k < 5; k++) {
+      const a = k / 5 * Math.PI * 2 + rr(-0.3, 0.3), rad = rr(1.2, 1.7);
+      const ap = { idx: ai++, x: crown.position.x + Math.cos(a) * rad, y: crown.position.y + rr(0.05, 0.45), z: crown.position.z + Math.sin(a) * rad, on: true, t: 0 };
+      apples.push(ap);
+    }
+    const tree = { x, y, z, H, lean, ux, uz, scale, crown, phase: rand() * 10, baseRot: crown.rotation.y, apple: true, apples };
+    palms.push(tree); appleTrees.push(tree);
+  }
+  const tm = new THREE.Mesh(merge(trunkGeos), trunkMat); tm.castShadow = tm.receiveShadow = true; scene.add(tm);
+  appleMesh.count = ai;
+  const col = new THREE.Color();
+  appleTrees.forEach(t => t.apples.forEach(ap => { dummy.position.set(ap.x, ap.y, ap.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); appleMesh.setMatrixAt(ap.idx, dummy.matrix); appleMesh.setColorAt(ap.idx, col.set(rand() < 0.8 ? 0xe8283c : 0x9fd83a)); }));
+  appleMesh.instanceMatrix.needsUpdate = true; if (appleMesh.instanceColor) appleMesh.instanceColor.needsUpdate = true;
+  appleMesh.castShadow = true; scene.add(appleMesh);
+}
+function showApple(ap, on) {
+  ap.on = on; dummy.position.set(ap.x, ap.y, ap.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(on ? 1 : 0); dummy.updateMatrix();
+  appleMesh.setMatrixAt(ap.idx, dummy.matrix); appleMesh.instanceMatrix.needsUpdate = true;
+}
+// big fairy trees with pastel canopies, some strung with glowing fairy lights
+{
+  const trunks = [], tops = [], lights = [], placed = [];
+  for (let i = 0; i < 100; i++) {
+    const sp = forestSpot(6.5, placed.concat(appleTrees)); if (!sp) continue;
+    placed.push(sp);
+    const { x, z } = sp, y = heightAt(x, z), h = rr(4.5, 8), r = rr(0.45, 0.7), s = rr(2.6, 4);
+    trunks.push({ x, z, y: y + h / 2 - 0.2, ry: rr(0, 6), s: [r / 0.5, h, r / 0.5], c: pick([0x8d6a52, 0x9a7a66, 0x7d5f50, 0xa08470]) });
+    const col = pick([0xffa6d1, 0xc9a6ff, 0x8fe3c0, 0x9fd8ff, 0xffc9a0, 0x5cc277, 0x4fb56a, 0xf7b8e8, 0x6fcf7a]);
+    for (let k = 0; k < 3; k++) {
+      const a = rr(0, 6.28), o = k ? s * 0.55 : 0;
+      tops.push({ x: x + Math.cos(a) * o, z: z + Math.sin(a) * o, y: y + h + s * (k ? 0.1 : 0.45), ry: rr(0, 6), s: [s * (k ? 0.7 : 1), s * (k ? 0.6 : 0.85), s * (k ? 0.7 : 1)], c: col });
+    }
+    if (rand() < 0.55) for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + rr(-0.2, 0.2); lights.push({ x: x + Math.cos(a) * s * 0.95, z: z + Math.sin(a) * s * 0.95, y: y + h - s * 0.15 + rr(-0.2, 0.2), s: 0.11, c: pick([0xfff1a8, 0xffc6f0, 0xb8f4ff]) }); }
+    forestColliders.push({ x, z, r: r + 0.05 });
+  }
+  instanced(new THREE.CylinderGeometry(0.4, 0.55, 1, 7), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true, far: 400, slices: 8 });
+  instanced(blobGeo, flatMat, tops, { cast: true, receive: true, far: 600, slices: 8 });
+  instanced(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), lights, { far: 200, slices: 8 });
+}
+// tree stumps (some with toadstools growing on them), toadstools, glowing mushrooms, mossy rocks
+{
+  const stumps = [], tops = [], caps = [], stems = [], dots = [], glows = [], mossy = [], placed = [];
+  const toadstool = (x, z, y, s, c) => {
+    stems.push({ x, z, y: y + 0.25 * s, s: [s, s, s], c: 0xfff6e8 });
+    caps.push({ x, z, y: y + 0.45 * s, ry: rr(0, 6), s: [s, s * 0.8, s], c });
+    for (let k = 0; k < 5; k++) { const a = k * 1.3 + rr(0, 0.5), e = rr(0.3, 1.1); dots.push({ x: x + Math.cos(a) * Math.cos(e) * 0.28 * s, z: z + Math.sin(a) * Math.cos(e) * 0.28 * s, y: y + 0.45 * s + Math.sin(e) * 0.22 * s, s: 0.045 * s, c: 0xffffff }); }
+  };
+  for (let i = 0; i < 45; i++) {
+    const sp = forestSpot(5, placed.concat(forestColliders)); if (!sp) continue;
+    placed.push(sp);
+    const { x, z } = sp, y = heightAt(x, z), r = rr(0.5, 0.9), h = rr(0.5, 1.1);
+    stumps.push({ x, z, y: y + h / 2 - 0.1, ry: rr(0, 6), s: [r, h, r], c: pick([0x8d6a52, 0x7d5f50, 0x9a7a66]) });
+    tops.push({ x, z, y: y + h - 0.08, s: [r * 0.92, 1, r * 0.92], c: 0xe8c99a });
+    forestColliders.push({ x, z, r: r + 0.05 });
+    if (rand() < 0.6) toadstool(x + r * 0.3, z, y + h - 0.1, rr(0.35, 0.55), pick([0xe8283c, 0xff6a3d, 0xc94cff]));
+  }
+  for (let i = 0; i < 200; i++) {
+    const sp = forestSpot(0.8, []); if (!sp) continue;
+    const big = rand() < 0.08, s = big ? rr(1.8, 2.8) : rr(0.4, 0.9);
+    toadstool(sp.x, sp.z, heightAt(sp.x, sp.z) - 0.02, s, pick([0xe8283c, 0xe8283c, 0xff6a3d, 0xff7fb0, 0xc94cff]));
+    if (big) forestColliders.push({ x: sp.x, z: sp.z, r: 0.2 * s });
+  }
+  // clusters of softly glowing mushrooms
+  for (let i = 0; i < 110; i++) {
+    const sp = forestSpot(0.5, []); if (!sp) continue;
+    const c = pick([0x7ff7ff, 0xd38cff, 0x9fffc0, 0xff9ce6]), y = heightAt(sp.x, sp.z);
+    for (let k = 0; k < 4; k++) { const a = rr(0, 6.28), o = rr(0, 0.5), s = rr(0.12, 0.26); glows.push({ x: sp.x + Math.cos(a) * o, z: sp.z + Math.sin(a) * o, y: y + s * 0.9, s: [s, s * 0.6, s], c }); stems.push({ x: sp.x + Math.cos(a) * o, z: sp.z + Math.sin(a) * o, y: y + s * 0.4, s: [s * 0.5, s * 1.2, s * 0.5], c: 0xf4f0ff }); }
+  }
+  for (let i = 0; i < 40; i++) {
+    const sp = forestSpot(3, placed); if (!sp) continue;
+    const s = rr(0.5, 1.3); mossy.push({ x: sp.x, z: sp.z, y: heightAt(sp.x, sp.z) + s * 0.2, rx: rr(0, 3), ry: rr(0, 3), s: [s * 1.3, s * 0.8, s], c: pick([0x9fb8a6, 0x8fb39a, 0xa6b4c8]) });
+    if (s > 1) forestColliders.push({ x: sp.x, z: sp.z, r: s * 0.9 });
+  }
+  instanced(new THREE.CylinderGeometry(1, 1.15, 1, 10), new THREE.MeshLambertMaterial({ color: 0xffffff }), stumps, { far: 220, slices: 8 });
+  instanced(new THREE.CylinderGeometry(1, 1, 0.04, 14), new THREE.MeshLambertMaterial({ color: 0xffffff }), tops, { far: 160, slices: 8 });
+  instanced(new THREE.CylinderGeometry(0.1, 0.13, 0.5, 6, 1, true), new THREE.MeshLambertMaterial({ color: 0xffffff }), stems, { far: 140, slices: 8 });
+  instanced(new THREE.SphereGeometry(0.32, 9, 4, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x220a0a }), caps, { far: 200, slices: 8 });
+  instanced(new THREE.OctahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), dots, { far: 45, slices: 8 });
+  instanced(new THREE.SphereGeometry(1, 7, 3, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }), glows, { far: 160, slices: 8 });
+  instanced(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 }), mossy, { receive: true, far: 220, slices: 8 });
+}
+// colourful flowers and ferns all over the forest floor
+{
+  const heads = [], stalks = [], ferns = [];
+  for (let c = 0; c < 420; c++) {
+    const sp = forestSpot(0, [], 20); if (!sp) continue;
+    const col = pick([0xff4f8b, 0xff7fb0, 0xffd23f, 0xb48cff, 0x7fd8ff, 0xffffff, 0xff8a3d, 0xd38cff]);
+    for (let k = 0; k < 6; k++) {
+      const a = rr(0, 6.28), o = rr(0, 1.6), x = sp.x + Math.cos(a) * o, z = sp.z + Math.sin(a) * o, y = heightAt(x, z), h = rr(0.25, 0.55);
+      stalks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x4fa060 });
+      heads.push({ x, z, y: y + h, s: rr(0.07, 0.12), c: col });
+    }
+  }
+  for (let c = 0; c < 260; c++) {
+    const sp = forestSpot(0, [], 20); if (!sp) continue;
+    for (let k = 0; k < 6; k++) { const a = rr(0, 6.28), x = sp.x + Math.cos(a) * rr(0, 0.6), z = sp.z + Math.sin(a) * rr(0, 0.6); ferns.push({ x, z, y: heightAt(x, z) + 0.3, rx: rr(-0.5, 0.5), rz: rr(-0.5, 0.5), ry: rr(0, 6), s: [1, rr(0.8, 1.5), 1], c: pick([0x4fb56a, 0x63c879, 0x3fa060, 0x7fd08a]) }); }
+  }
+  instanced(new THREE.CylinderGeometry(0.012, 0.016, 1, 3, 1, true), new THREE.MeshLambertMaterial({ color: 0xffffff }), stalks, { far: 80, slices: 8 });
+  instanced(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x221122 }), heads, { far: 110, slices: 8 });
+  instanced(new THREE.ConeGeometry(0.09, 0.8, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), ferns, { far: 90, slices: 8 });
+}
+// the bramble thicket around the island's heart (somewhere to explore another day), and the deep woods beyond
+{
+  const bushes = [], berries = [], trunks = [], tops = [];
+  const steps = 200;
+  for (let i = 0; i < steps; i++) for (let row = 0; row < 2; row++) {
+    const th = i / steps * Math.PI * 2 + rr(-0.01, 0.01) + row * 0.015, d = FOREST_OUT + 0.8 + row * 2.2 + rr(-0.4, 0.4), [x, z] = polar(th, d), s = rr(1.8, 2.7);
+    const y = heightAt(x, z) + s * 0.55;
+    bushes.push({ x, z, y, ry: rr(0, 6), s: [s * 1.1, s * 1.2, s * 1.1], c: pick([0x2f6a52, 0x35604f, 0x3e5a6e, 0x4a4a72]) });
+    if (rand() < 0.5) for (let k = 0; k < 3; k++) { const a = rr(0, 6.28), e = rr(0, 1); berries.push({ x: x + Math.cos(a) * s * Math.cos(e), z: z + Math.sin(a) * s * Math.cos(e), y: y + Math.sin(e) * s, s: 0.12, c: pick([0xd38cff, 0xff4f8b, 0x7f8cff]) }); }
+  }
+  for (let i = 0; i < 170; i++) {
+    const th = rr(0, Math.PI * 2), d = rr(FOREST_OUT + 6, 150), [x, z] = polar(th, d);
+    if (Math.hypot(x, z) < 3) continue;
+    const y = heightAt(x, z), h = rr(5, 9), s = rr(3, 5);
+    trunks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x6d5a52 });
+    tops.push({ x, z, y: y + h + s * 0.5, ry: rr(0, 6), s: [s, s * rr(0.7, 1), s], c: pick([0x2f7a58, 0x2a6e5a, 0x3a6a72, 0x46607e, 0x26685a]) });
+  }
+  instanced(blobGeo, flatMat, bushes, { receive: true, far: 1000, slices: 8 });
+  instanced(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), berries, { far: 200, slices: 4 });
+  instanced(new THREE.CylinderGeometry(0.35, 0.5, 1, 6), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { far: 1000, slices: 4 });
+  instanced(new THREE.IcosahedronGeometry(1, 0), flatMat, tops, { far: 1000, slices: 4 });
+}
+// signs beside each gap in the hedge
 function signTexture() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 256;
   const g = c.getContext('2d');
@@ -1006,15 +1264,15 @@ function signTexture() {
   g.fillStyle = '#c38d58'; for (let y = 0; y < 256; y += 32) g.fillRect(0, y, 512, 4);
   g.strokeStyle = '#8a5a33'; g.lineWidth = 14; g.strokeRect(7, 7, 498, 242);
   g.textAlign = 'center'; g.fillStyle = '#5b3418';
-  g.font = '700 60px Fredoka, "Trebuchet MS", sans-serif'; g.fillText('SCRUMBLY JUNGLE', 256, 108);
-  g.fillStyle = '#e2487f'; g.font = '700 44px Fredoka, "Trebuchet MS", sans-serif'; g.fillText('opening soon!', 256, 180);
+  g.font = '700 64px Fredoka, "Trebuchet MS", sans-serif'; g.fillText('GLIMMERWOOD', 256, 108);
+  g.fillStyle = '#7a4cc0'; g.font = '700 36px Fredoka, "Trebuchet MS", sans-serif'; g.fillText('guarded by Sir Hopsalot', 256, 180);
   const t = new THREE.CanvasTexture(c); return t;
 }
 const signMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 const signs = [];
 function placeSigns() {
   signMat.map = signTexture(); signMat.needsUpdate = true;
-  [0.75, 2.2, 3.6, 5.0].forEach(th => {
+  GAP_TH.map(g => g + 4.6 / (shoreR(g) - INLAND_LIMIT)).forEach(th => {
     const [x, z] = polar(th, INLAND_LIMIT - 2.5), y = heightAt(x, z), grp = new THREE.Group();
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.2, 0.18), new THREE.MeshLambertMaterial({ color: 0x8a5a33 }));
     post.position.y = 1.1; post.castShadow = true;
@@ -1317,7 +1575,7 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 function blockedMessage(x, z) {
-  if (inland(x, z) > INLAND_LIMIT) toast("The jungle's still growing. Stick to the beach for now!");
+  if (inland(x, z) > INLAND_LIMIT) toast(forestBlocked(x, z));
   else toast("Whoa, too deep! You're a catcher, not a swimmer.");
 }
 
@@ -1348,7 +1606,7 @@ function pollPad() {
     }
     pad.prev = now; return;
   }
-  if (playing && dialogOpen) { if (tap(0) || tap(1) || tap(2) || tap(7)) dialogAdvance(); pad.prev = now; return; }
+  if (playing && dialogOpen) { if (tap(12) || tap(14)) moveChoice(-1); if (tap(13) || tap(15)) moveChoice(1); if (tap(0) || tap(1) || tap(2) || tap(7)) dialogAdvance(); pad.prev = now; return; }
   if (playing && boxOpen) {                           // shuffling scrumblies in the Box
     if (tap(1) || tap(9)) closeBox();
     if (tap(0)) boxActivate();
@@ -1482,6 +1740,7 @@ function updatePlayer(dt) {
   { const rp = collideRanch(nx, nz); nx = rp[0]; nz = rp[1]; }
   { const sp = collideScrim(nx, nz); nx = sp[0]; nz = sp[1]; }
   { const tp = collideTeal(nx, nz); nx = tp[0]; nz = tp[1]; }
+  { const fp = collideForest(nx, nz); nx = fp[0]; nz = fp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
     // cancel velocity into the trunk
@@ -1495,20 +1754,22 @@ function updatePlayer(dt) {
       if (!player.grounded || into > 0.6 || grabTimer > 0.1) { grabTimer = 0; player.x = nx; player.z = nz; startClimb(hit.p); return; }
     } else grabTimer = 0;
   } else grabTimer = 0;
-  if (walkable(nx, nz)) { player.x = nx; player.z = nz; }
+  if (canWalk(nx, nz)) { player.x = nx; player.z = nz; }
   else {
-    if (walkable(nx, player.z)) { player.x = nx; player.vz *= 0.5; }
-    else if (walkable(player.x, nz)) { player.z = nz; player.vx *= 0.5; }
+    if (canWalk(nx, player.z)) { player.x = nx; player.vz *= 0.5; }
+    else if (canWalk(player.x, nz)) { player.z = nz; player.vx *= 0.5; }
     else { player.vx = player.vz = 0; }
     if (il > 0.1) blockedMessage(nx, nz);
   }
 
   nearProf = profInReach();
   nearScrim = !nearProf && scrimInReach(); nearBoard = !nearProf && !nearScrim && boardInReach(); nearTeal = !nearProf && !nearScrim && !nearBoard && tealInReach();
-  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && partnerInReach();
-  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal ? null : findNearTrap();
-  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal ? null : findTargetRock();
-  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
+  nearHop = nearProf || nearScrim || nearBoard || nearTeal ? null : hopInReach();
+  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && partnerInReach();
+  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal || nearHop ? null : findNearTrap();
+  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop ? null : findTargetRock();
+  targetApple = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || targetRock ? null : findTargetApple();
+  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearHop) talkToHop(nearHop); else if (targetApple) pickUpApple(targetApple); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1518,7 +1779,7 @@ function updatePlayer(dt) {
   if (player.ambushT !== undefined) { player.ambushT += dt; if (player.grounded && player.ambushT > 0.2) player.ambushT = Math.max(player.ambushT, AMBUSH_T - 0.45); }
   player.y += player.vy * dt;
   boboPlayerContact();
-  const g = heightAt(player.x, player.z), depthNow = Math.max(0, wy - g);
+  const g = groundAt(player.x, player.z), depthNow = Math.max(0, wy - g);
   if (player.y <= g) {
     if (!player.grounded && player.vy < -5) { sfxLand(depthNow > 0.1); if (depthNow > 0.1) { splash(player.x, player.z, 26, 1.1); spawnRipple(player.x, player.z, 1.6); } }
     player.y = g; player.vy = 0; player.grounded = true;
@@ -1565,7 +1826,7 @@ window.addEventListener('keydown', e => {
   if (paused) { if (e.code === 'Escape' && savesEl.hidden && performance.now() - pausedAt > 400) resumeGame(); return; }
   if (e.code === 'Escape' && dragLook && !menuOpen()) { openPause(); return; }
   if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (scrimOpen) closeScrim(); else if (!e.repeat) dexToggleQueued = true; return; }
-  if (dialogOpen) { if (!e.repeat && ['KeyE', 'Space', 'Enter', 'KeyF'].includes(e.code)) { e.preventDefault(); dialogAdvance(); } e.stopImmediatePropagation(); return; }
+  if (dialogOpen) { if (['ArrowUp', 'ArrowLeft', 'KeyW', 'KeyA'].includes(e.code) && moveChoice(-1)) e.preventDefault(); if (['ArrowDown', 'ArrowRight', 'KeyS', 'KeyD'].includes(e.code) && moveChoice(1)) e.preventDefault(); if (!e.repeat && ['KeyE', 'Space', 'Enter', 'KeyF'].includes(e.code)) { e.preventDefault(); dialogAdvance(); } e.stopImmediatePropagation(); return; }
   if (dexOpen) { dexKey(e); e.stopImmediatePropagation(); return; }
   if (boxOpen) { boxKey(e); e.stopImmediatePropagation(); return; }
   if (scrimOpen) { scrimKey(e); e.stopImmediatePropagation(); return; }
@@ -1591,7 +1852,7 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  document.getElementById('hint').textContent = 'Drag to look · Click use item · 1–5 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
+  document.getElementById('hint').textContent = 'Drag to look · Click use item · 1–6 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
@@ -3562,8 +3823,9 @@ const ITEM_DEFS = {
   , dex: { name: 'Scrumblydex', icon: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="37" rx="6" fill="#e8384f" stroke="#a81f37" stroke-width="2.5"/><rect x="15" y="17" width="18" height="13" rx="2.5" fill="#8ef0e8" stroke="#5a2236" stroke-width="1.8"/><circle cx="18" cy="11.5" r="3.4" fill="#ffd23f" stroke="#a81f37" stroke-width="1.5"/><circle cx="25" cy="11" r="1.4" fill="#fff"/><circle cx="29.5" cy="11" r="1.4" fill="#7ee08a"/><path d="M18 36h6M21 33v6" stroke="#5a2236" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="36" r="2.3" fill="#5a2236"/></svg>' }
   , trap: { name: 'Cage traps', icon: '<svg viewBox="0 0 48 48"><rect x="7" y="35" width="34" height="5" rx="1.5" fill="#b98352"/><rect x="7" y="9" width="34" height="4" rx="1.5" fill="#b98352"/><path d="M10 13v22M16 13v22M22 13v22M28 13v22M34 13v22M39 13v22" stroke="#9aa6b8" stroke-width="2.4"/><circle cx="24" cy="33.5" r="3.5" fill="#ff6fa5"/></svg>' }
   , tele: { name: 'Teleporter', icon: '<svg viewBox="0 0 48 48"><path d="M30 4 L30 12" stroke="#4a5060" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="4" r="2.6" fill="#2fb5a8"/><rect x="14" y="11" width="20" height="32" rx="5" fill="#e8e4f0" stroke="#4a5060" stroke-width="2.5"/><circle cx="24" cy="22" r="6" fill="#ff3d5a" stroke="#a81f37" stroke-width="2"/><circle cx="22.3" cy="20.3" r="1.6" fill="#fff" opacity=".7"/><rect x="18" y="32" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><rect x="18" y="37" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><circle cx="31" cy="15.5" r="1.4" fill="#5ff07a"/></svg>' }
+  , apple: { name: 'Apples', icon: '<svg viewBox="0 0 48 48"><path d="M24 14 C21 10 13 10 10 17 C6 26 11 40 18 42 C21 43 22 41 24 41 C26 41 27 43 30 42 C37 40 42 26 38 17 C35 10 27 10 24 14 Z" fill="#e8283c" stroke="#a81020" stroke-width="2"/><path d="M24 14 C24 10 25 7 27 5" stroke="#6b4226" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M26 9 C30 4 36 5 37 8 C33 10 29 10 26 9 Z" fill="#5cc277"/><ellipse cx="16" cy="22" rx="3" ry="5" fill="#fff" opacity=".45" transform="rotate(20 16 22)"/></svg>' }
 };
-const inv = { slots: ['net', 'rock', 'dex', 'trap', 'tele'], active: 0, shown: 0, eq: 0, rocks: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
+const inv = { slots: ['net', 'rock', 'dex', 'trap', 'tele', 'apple'], active: 0, shown: 0, eq: 0, rocks: 0, apples: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
 const owns = id => id === 'rock' || (id === 'trap' ? inv.trapsOwned > 0 : !!(id && inv.owned[id]));
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
@@ -3574,7 +3836,7 @@ inv.slots.forEach((id, i) => {
   b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
-function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0) || (id === 'tele' && owns('tele')); }
+function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0) || (id === 'tele' && owns('tele')) || (id === 'apple' && inv.apples > 0); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
   if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
@@ -3590,6 +3852,7 @@ function renderHotbar() {
     el.classList.toggle('dim', !!inv.slots[i] && !slotUsable(i));
     if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
     if (inv.slots[i] === 'trap') el.querySelector('.count').textContent = inv.traps ? inv.traps : '';
+    if (inv.slots[i] === 'apple') el.querySelector('.count').textContent = inv.apples ? inv.apples : '';
     if (inv.slots[i] === 'tele') { el.querySelector('.count').textContent = teleCool > 0 ? Math.ceil(teleCool / 60) + 'm' : ''; el.classList.toggle('cooling', teleCool > 0); }
   });
 }
@@ -3602,6 +3865,7 @@ function useItem() {
   else if (activeItem() === 'dex') startScan();
   else if (activeItem() === 'trap' && throwAnim < 0 && inv.traps > 0) placeTrap();
   else if (activeItem() === 'tele') teleUse();
+  else if (activeItem() === 'apple' && throwAnim < 0) throwApple();
 }
 
 let targetRock = null, throwAnim = -1, pickQueued = false;
@@ -3658,7 +3922,7 @@ aimRing.add(aimDot); aimRing.renderOrder = 3; scene.add(aimRing);
 const aimTarget = document.getElementById('aimTarget');
 const sim = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 }, _sp = new THREE.Vector3();
 function updateAim() {
-  const show = playing && !paused && !menuOpen() && activeItem() === 'rock' && inv.eq < 0.05 && inv.rocks > 0 && !player.climb && throwAnim < 0;
+  const show = playing && !paused && !menuOpen() && ((activeItem() === 'rock' && inv.rocks > 0) || (activeItem() === 'apple' && inv.apples > 0)) && inv.eq < 0.05 && !player.climb && throwAnim < 0;
   aimDots.visible = aimRing.visible = show;
   if (!show) { aimTarget.hidden = true; return; }
   rockLaunch(sim);
@@ -3847,7 +4111,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
+  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -3893,6 +4157,7 @@ function updateViewmodel(dt) {
     heldTrapMesh.visible = false;
     dexModel.visible = false;
     teleModel.visible = false;
+    heldAppleMesh.visible = false;
     if (!item) { heldRockMesh.visible = heldTrapMesh.visible = false; }
     else if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
     else if (item === 'tele') { heldRockMesh.visible = false; poseTeleHand(bx, by, eqDrop, cbk); }
@@ -3908,13 +4173,13 @@ function updateViewmodel(dt) {
       let k = 0, fwdK = 0;
       if (throwAnim >= 0) {
         throwAnim += dt / 0.45; k = Math.min(1, throwAnim); fwdK = Math.sin(Math.min(1, k * 1.6) * Math.PI);
-        if (throwAnim >= 1) { throwAnim = -1; if ((item === 'trap' ? inv.traps : inv.rocks) === 0) selectSlot(0, true); }
+        if (throwAnim >= 1) { throwAnim = -1; if ((item === 'trap' ? inv.traps : item === 'apple' ? inv.apples : inv.rocks) === 0) selectSlot(0, true); }
       }
       const reload = throwAnim >= 0 && k > 0.45 ? Math.sin((k - 0.45) / 0.55 * Math.PI) * 0.35 : 0;
       handR.g.position.set(0.27 - fwdK * 0.1 + bx, -0.27 + fwdK * 0.12 + by - eqDrop - cbk * 1.2 - reload, -0.6 - fwdK * 0.28);
       handR.g.rotation.set(-0.35 - fwdK * 0.7, -0.35, -0.25);
-      const heldMesh = item === 'trap' ? heldTrapMesh : heldRockMesh, heldN = item === 'trap' ? inv.traps : inv.rocks;
-      (item === 'trap' ? heldRockMesh : heldTrapMesh).visible = false;
+      const heldMesh = item === 'trap' ? heldTrapMesh : item === 'apple' ? heldAppleMesh : heldRockMesh, heldN = item === 'trap' ? inv.traps : item === 'apple' ? inv.apples : inv.rocks;
+      [heldRockMesh, heldTrapMesh, heldAppleMesh].forEach(m => { if (m !== heldMesh) m.visible = false; });
       heldMesh.visible = heldN > 0 && (throwAnim < 0 || k > 0.6);
       heldMesh.position.set(0, item === 'trap' ? 0.03 : 0.075, -0.06).applyQuaternion(handR.g.quaternion).add(handR.g.position);
       if (item === 'trap') heldMesh.quaternion.copy(handR.g.quaternion);
@@ -3923,7 +4188,7 @@ function updateViewmodel(dt) {
     handR.g.visible = handR.arm.visible = !!item && climbBlend < 0.99;
   } else {
     // climbing: hands reach up the trunk one after another (any held rock is pocketed)
-    throwAnim = -1; heldRockMesh.visible = false; dexModel.visible = false; teleModel.visible = false;
+    throwAnim = -1; heldRockMesh.visible = false; dexModel.visible = false; teleModel.visible = false; heldAppleMesh.visible = false;
     const ph = player.climb ? player.climb.phase : 0, lift = (1 - cbk) * 0.9;
     [[handL, -1, 0], [handR, 1, Math.PI]].forEach(([h, s, off]) => {
       const c = Math.sin(ph + off);
@@ -4686,7 +4951,7 @@ function updatePartner(dt) {
   let tx, tz;
   if (player.climb) { const tp = player.climb.p; tx = tp.x + (player.x - tp.x) * 1.8; tz = tp.z + (player.z - tp.z) * 1.8; }
   else { tx = player.x - fwd.x * (1.8 + s * 0.4) + right.x * 0.7; tz = player.z - fwd.z * (1.8 + s * 0.4) + right.z * 0.7; }
-  if (!walkable(tx, tz)) { tx = player.x; tz = player.z; }
+  if (!canWalk(tx, tz)) { tx = player.x; tz = player.z; }
   const dx = tx - P.x, dz = tz - P.z, d = Math.hypot(dx, dz), far = Math.hypot(player.x - P.x, player.z - P.z);
   if (far > 30) { P.x = player.x - fwd.x * 2; P.z = player.z - fwd.z * 2; sandPuff(P.x, P.z, 10); }
   let hopY = 0, sy = 1, sx = 1;
@@ -4886,7 +5151,7 @@ function netTrapped() {
 }
 function updateTraps(dt) {
   // placement preview
-  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal;
+  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal && !nearHop;
   if (!holding) trapSpot = null;
   trapGhost.visible = holding;
   if (holding) { trapSpot = trapPlacement(); trapGhost.position.set(trapSpot.x, trapSpot.y, trapSpot.z); trapGhost.rotation.y = trapSpot.yaw; ghostMat.color.setHex(trapSpot.ok ? 0x7ee08a : 0xff6f7f); ghostMat.opacity = 0.35 + Math.sin(time * 5) * 0.1; }
@@ -4918,8 +5183,8 @@ function snapshot() {
     party: party.map(packP), box: boxSlots.map(packP),
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
-    inv: { rocks: inv.rocks, traps: inv.traps }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
-    gold, scrim: scrimSave(), teal: tealSave(),
+    inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
+    gold, scrim: scrimSave(), teal: tealSave(), forest: forestSave(),
     music: musicOn
   };
 }
@@ -4945,16 +5210,17 @@ function applySnapshot(s) {
   (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
+  forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
   const fresh = typeof s.tutorial === 'string';
   tut.stage = fresh ? s.tutorial : 'done';
-  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex, tele: !!s.owned.tele } : { net: true, dex: true, tele: !!(s.owned && s.owned.tele) };
+  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex, tele: !!s.owned.tele, apple: !!s.owned.apple } : { net: true, dex: true, tele: !!(s.owned && s.owned.tele), apple: !!(s.owned && s.owned.apple) };
   inv.trapsOwned = fresh ? clamp(+s.trapsOwned || 0, 0, 3) : 3;
   prof.greeted = false; closeDialog(true); updateObjective();
   // where you were standing
   const P = s.player;
-  if (P && isFinite(P.x) && isFinite(P.z) && walkable(P.x, P.z)) { player.x = P.x; player.z = P.z; player.yaw = isFinite(P.yaw) ? P.yaw : player.yaw; player.pitch = clamp(isFinite(P.pitch) ? P.pitch : 0, -1.2, 1.2); }
+  if (P && isFinite(P.x) && isFinite(P.z) && canWalk(P.x, P.z)) { player.x = P.x; player.z = P.z; player.yaw = isFinite(P.yaw) ? P.yaw : player.yaw; player.pitch = clamp(isFinite(P.pitch) ? P.pitch : 0, -1.2, 1.2); }
   else { player.x = spawnX; player.z = spawnZ; const fx = Math.cos(spawnTheta + 0.55), fz = Math.sin(spawnTheta + 0.55); player.yaw = Math.atan2(-fx, -fz); player.pitch = -0.05; }
   player.y = heightAt(player.x, player.z); player.vx = player.vz = player.vy = 0; player.climb = null; player.grounded = true;
   // what's in your pockets, and traps left out on the sand
@@ -4963,6 +5229,7 @@ function applySnapshot(s) {
   (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, inv.trapsOwned).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0); });
   inv.traps = clamp(s.inv && isFinite(s.inv.traps) ? s.inv.traps : inv.trapsOwned - traps.length, 0, Math.max(0, inv.trapsOwned - traps.length));
   setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
+  inv.apples = clamp(s.inv && isFinite(s.inv.apples) ? Math.floor(s.inv.apples) : 0, 0, MAX_APPLES);
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
   gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); tealLoad(s.teal);
@@ -5246,11 +5513,20 @@ function showLine() {
   dlgItem.hidden = true;
   if (L.give) giveItem(L.give);
   if (L.act) L.act();
-  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else sfx.profTalk(); }
+  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else sfx.profTalk(); }
+  dlgChoicesEl.hidden = true; dlgChoicesEl.innerHTML = ''; dlgChoice = 0;
+  if (L.choices) L.choices.forEach((c, i) => { const b = document.createElement('button'); b.textContent = c.label; b.addEventListener('click', e => { e.stopPropagation(); dlgChoice = i; pickChoice(); }); b.addEventListener('mouseenter', () => { dlgChoice = i; renderChoices(); }); dlgChoicesEl.appendChild(b); });
+  renderChoices();
 }
+const dlgChoicesEl = dlgEl.querySelector('.dchoices');
+let dlgChoice = 0;
+function renderChoices() { [...dlgChoicesEl.children].forEach((b, i) => b.classList.toggle('cur', i === dlgChoice)); }
+function moveChoice(d) { const L = dlgLines[dlgIdx]; if (!dialogOpen || !L || !L.choices || dlgTyping) return false; dlgChoice = (dlgChoice + d + L.choices.length) % L.choices.length; sfx.dexTick(); renderChoices(); return true; }
+function pickChoice() { const L = dlgLines[dlgIdx], c = L && L.choices && L.choices[dlgChoice]; if (!c) return; closeDialog(true); sfx.dexTick(); if (c.act) c.act(); }
 function dialogAdvance() {
   if (!dialogOpen) return;
   if (dlgTyping) { dlgShown = dlgLines[dlgIdx].text.length; return; }
+  if (dlgLines[dlgIdx].choices) { pickChoice(); return; }
   dlgIdx++;
   if (dlgIdx >= dlgLines.length) { closeDialog(); return; }
   sfx.dexTick(); showLine();
@@ -5266,7 +5542,7 @@ function updateDialog(dt) {
   const full = dlgLines[dlgIdx].text;
   dlgShown = Math.min(full.length, dlgShown + dt * 55);
   dlgText.textContent = full.slice(0, Math.floor(dlgShown));
-  if (dlgShown >= full.length) { dlgTyping = false; dlgEl.classList.add('ready'); }
+  if (dlgShown >= full.length) { dlgTyping = false; dlgEl.classList.add('ready'); if (dlgLines[dlgIdx].choices) dlgChoicesEl.hidden = false; }
 }
 dlgEl.addEventListener('click', () => dialogAdvance());
 
@@ -5881,9 +6157,9 @@ function setDialogSpeaker(who) {
   dlgWho = who;
   const pic = dlgEl.querySelector('.prof-pic'), name = dlgEl.querySelector('.dbody b');
   if (profDlgPic === null) profDlgPic = pic.innerHTML;
-  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : profDlgPic;
-  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : 'Professor Loveopolis';
-  dlgEl.classList.toggle('scrim', who === 'scrim'); dlgEl.classList.toggle('teal', who === 'teal');
+  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : profDlgPic;
+  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : 'Professor Loveopolis';
+  ['scrim', 'teal', 'hop'].forEach(k => dlgEl.classList.toggle(k, who === k));
 }
 
 /* ---------- saving ---------- */
@@ -6263,6 +6539,346 @@ function updateTeal(dt) {
   if (on !== beacon.on) { beacon.on = on; if (on) tealSfx.beep(clamp(1 - bd / 20, 0, 1)); }
 }
 
+/* =========================================================
+   Glimmerwood: Sir Hopsalot at the gaps in the hedge, walking in the
+   forest, apples to gather and throw, fireflies, the river's flow,
+   and an enormous Beeappy drifting high over the island
+   ========================================================= */
+const forestState = { open: false, hopMet: false };
+const FOREST_TOLL = 300;
+// where you can walk: the beach always; past the hedge (through a gap) once Sir Hopsalot lets you
+function canWalk(x, z) {
+  if (heightAt(x, z) < -MAX_DEPTH) return false;
+  const d = inland(x, z);
+  if (d <= INLAND_LIMIT) return true;
+  if (!forestState.open || d > FOREST_OUT - 0.5) return false;
+  if (d < HEDGE_OUT + 0.5) return gapArc(x, z) < 1.9;
+  return true;
+}
+function collideForest(x, z) {
+  if (!forestState.open) return [x, z];
+  for (const c of forestColliders) {
+    const dx = x - c.x, dz = z - c.z; if (Math.abs(dx) > 3 || Math.abs(dz) > 3) continue;
+    const d = Math.hypot(dx, dz), rr2 = c.r + PLAYER_R;
+    if (d < rr2) { const k = (rr2 - d) / Math.max(d, 1e-3); x += dx * k; z += dz * k; }
+  }
+  return [x, z];
+}
+
+/* ---------- Sir Hopsalot: a brown rabbit knight, one at each gap ---------- */
+function makeHopMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const fur = new THREE.MeshLambertMaterial({ color: 0x9a6a44, emissive: 0x2a1a0e }), cream = lam(0xf3e2c8), pinkM = lam(0xffa6c0);
+  const steel = new THREE.MeshLambertMaterial({ color: 0xd8dde6, emissive: 0x30343c }), gold = lam(0xe0b030), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.1, 0.12, 0.5, 10), fur, s * 0.18, 0.28, 0); add(new THREE.SphereGeometry(0.17, 12, 8), fur, s * 0.2, 0.06, 0.16, 0.9, 0.45, 2.0); });
+  add(new THREE.SphereGeometry(0.4, 20, 14), fur, 0, 0.95, 0, 1, 1.2, 0.85);
+  add(new THREE.SphereGeometry(0.28, 14, 10), cream, 0, 0.82, 0.18, 0.9, 1.1, 0.6);
+  // a shiny breastplate with gold trim, and a fluffy tail
+  add(new THREE.CylinderGeometry(0.4, 0.43, 0.55, 22), steel, 0, 1.1, 0.02, 1, 1, 0.86);
+  add(new THREE.TorusGeometry(0.405, 0.025, 6, 26), gold, 0, 1.37, 0.02, 1, 1, 0.86).rotation.x = Math.PI / 2;
+  add(new THREE.SphereGeometry(0.08, 10, 8), gold, 0, 1.15, 0.38);
+  add(new THREE.SphereGeometry(0.16, 10, 8), lam(0xfff6e8), 0, 0.75, -0.38);
+  const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.15), new THREE.MeshLambertMaterial({ color: 0xc8283c, emissive: 0x2a0408, side: THREE.DoubleSide }));
+  cape.position.set(0, 0.92, -0.38); cape.rotation.x = 0.12; body.add(cape);
+  const head = new THREE.Group(); head.position.y = 1.72; body.add(head);
+  add(new THREE.SphereGeometry(0.3, 18, 14), fur, 0, 0, 0, 1, 0.95, 0.95, head);
+  add(new THREE.SphereGeometry(0.15, 12, 10), cream, 0, -0.07, 0.22, 1.2, 0.85, 0.8, head);
+  add(new THREE.SphereGeometry(0.045, 8, 6), pinkM, 0, -0.01, 0.34, 1.2, 0.9, 1, head);
+  add(new THREE.BoxGeometry(0.08, 0.06, 0.02), lam(0xffffff), 0, -0.14, 0.32, 1, 1, 1, head);
+  [-1, 1].forEach(s => {
+    const e = add(new THREE.SphereGeometry(0.055, 10, 8), dark, s * 0.13, 0.06, 0.24, 1, 1.15, 0.6, head); e.name = 'pupil';
+    add(new THREE.SphereGeometry(0.016, 6, 4), lam(0xffffff), s * 0.13 - 0.015, 0.085, 0.27, 1, 1, 1, head);
+    for (let k = 0; k < 2; k++) add(new THREE.BoxGeometry(0.2, 0.008, 0.008), dark, s * 0.2, -0.06 - k * 0.04, 0.27, 1, 1, 1, head).rotation.z = s * (k ? -0.15 : 0.12);
+  });
+  // a steel helmet with a red plume, long ears poking out through it
+  add(new THREE.SphereGeometry(0.315, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), steel, 0, 0.02, -0.01, 1, 1, 1, head);
+  add(new THREE.BoxGeometry(0.05, 0.12, 0.62), steel, 0, 0.28, -0.01, 1, 1, 1, head);
+  [[0, 0.38, -0.05, 0.1], [0, 0.45, -0.18, 0.09], [0, 0.42, -0.3, 0.08]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 10, 8), lam(0xe8384f), x, y, z, 0.7, 1, 1.2, head));
+  const ears = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.15, 0.22, -0.02); piv.rotation.z = -s * 0.22; head.add(piv);
+    add(new THREE.SphereGeometry(0.09, 12, 10), fur, 0, 0.36, 0, 1, 4.2, 0.55, piv);
+    add(new THREE.SphereGeometry(0.06, 10, 8), pinkM, 0, 0.36, 0.03, 1, 3.8, 0.4, piv);
+    return piv;
+  });
+  // arms: the right holds a lance with a pennant
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.42, 1.35, 0); body.add(piv);
+    add(new THREE.CylinderGeometry(0.075, 0.085, 0.55, 10), fur, 0, -0.27, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.1, 12, 10), cream, 0, -0.58, 0.02, 1, 1, 1, piv);
+    piv.rotation.z = s * 0.25; return piv;
+  });
+  const lance = new THREE.Group(); lance.position.set(0, -0.58, 0.05); arms[1].add(lance);
+  add(new THREE.CylinderGeometry(0.03, 0.035, 2.6, 8), lam(0x8a5a33), 0, 0.6, 0, 1, 1, 1, lance);
+  add(new THREE.ConeGeometry(0.07, 0.3, 8), steel, 0, 2.05, 0, 1, 1, 1, lance);
+  const pen = new THREE.Shape(); pen.moveTo(0, 0); pen.lineTo(0.5, -0.1); pen.lineTo(0, -0.22); pen.lineTo(0, 0);
+  const pennant = new THREE.Mesh(new THREE.ShapeGeometry(pen), new THREE.MeshLambertMaterial({ color: 0xffd23f, side: THREE.DoubleSide })); pennant.position.set(0.02, 1.85, 0); lance.add(pennant);
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.65); mark.renderOrder = 7; mark.position.y = 3.0; root.add(mark);
+  scene.add(root);
+  const pupils = []; head.traverse(o => { if (o.name === 'pupil') pupils.push(o); });
+  return compactCreature({ root, body, head, arms, ears, lance, pennant, mark, pupils, cape });
+}
+const hops = GAP_TH.map(g => {
+  const c = makeHopMesh();
+  c.gap = g; c.face = 0; c.wave = 0; c.blink = 1 + Math.random() * 2; c.side = 0; c.greeted = false;
+  c.tag = nameTag('Sir Hopsalot'); c.tag.position.y = 2.75; c.root.add(c.tag);
+  return c;
+});
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => hops.forEach(h => { h.root.remove(h.tag); h.tag = nameTag('Sir Hopsalot'); h.tag.position.y = 2.75; h.root.add(h.tag); }));
+// stand in the gap, or (once you've paid) step aside to the edge of it
+function placeHops() {
+  for (const h of hops) {
+    const g = h.gap, aside = forestState.open, d = INLAND_LIMIT + (aside ? 2.3 : 1.2);
+    const r = shoreR(g) - d, th = g + (aside ? 2.75 / r : 0), [x, z] = polar(th, d);
+    h.x = x; h.z = z; h.baseYaw = Math.atan2(Math.cos(th), Math.sin(th));            // facing out to sea
+    h.root.position.set(x, heightAt(x, z), z);
+  }
+}
+placeHops();
+let nearHop = null;
+function hopInReach() {
+  if (!scrimHere() || player.climb) return null;
+  for (const h of hops) if (facingPoint(h.x, h.z, 4.2)) return h;
+  return null;
+}
+const HOP_PIC = '<svg viewBox="0 0 64 64"><ellipse cx="22" cy="14" rx="5.5" ry="14" fill="#9a6a44" transform="rotate(-12 22 14)"/><ellipse cx="42" cy="14" rx="5.5" ry="14" fill="#9a6a44" transform="rotate(12 42 14)"/><ellipse cx="22" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(-12 22 15)"/><ellipse cx="42" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(12 42 15)"/><circle cx="32" cy="38" r="18" fill="#9a6a44"/><path d="M13 34 A19 19 0 0 1 51 34 L51 30 A19 17 0 0 0 13 30 Z" fill="#d8dde6" stroke="#9aa6b8" stroke-width="1.5"/><path d="M14 33 A18 17 0 0 1 50 33" fill="none" stroke="#d8dde6" stroke-width="6"/><ellipse cx="32" cy="17" rx="4" ry="6" fill="#e8384f"/><circle cx="25" cy="38" r="2.8" fill="#1d1b22"/><circle cx="39" cy="38" r="2.8" fill="#1d1b22"/><circle cx="24" cy="37" r=".9" fill="#fff"/><circle cx="38" cy="37" r=".9" fill="#fff"/><ellipse cx="32" cy="46" rx="7.5" ry="5.5" fill="#f3e2c8"/><ellipse cx="32" cy="43.5" rx="2.4" ry="1.7" fill="#ffa6c0"/><rect x="30" y="47.5" width="4" height="3" rx=".6" fill="#fff"/><path d="M18 45 h-8 M18 48 h-7 M46 45 h8 M46 48 h7" stroke="#1d1b22" stroke-width=".9"/><path d="M16 64 L20 56 L44 56 L48 64 Z" fill="#d8dde6"/></svg>';
+const hopSfx = {
+  talk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 3; i++) { const f = 330 + Math.random() * 160; tone(t + i * 0.085, f * 1.2, f, 0.07, 0.06, 'triangle'); } },
+  hello() { if (!actx) return; const t = actx.currentTime; [67, 72, 76, 79].forEach((m, i) => tone(t + i * 0.09, mtof(m), mtof(m), 0.25, 0.05, 'square')); },
+  coins() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 6; i++) { tone(t + i * 0.07, 1976 + i * 60, 1976 + i * 60, 0.06, 0.04, 'square'); } tone(t + 0.45, 2637, 2637, 0.4, 0.05, 'square'); }
+};
+const HOP_IDLE = [
+  'Ah, the brave catcher returns! Glimmerwood welcomes you. I welcome you. The gold mostly welcomed you.',
+  'Mind the toadstools in there. Some of them are ticklish.',
+  'Yes, I am also guarding the other three gaps. No, I will not be explaining how.',
+  'Apples grow in the tall trees with white blossom. Climb up and help yourself! Just don’t throw them at me.',
+  'The river is perfectly safe. Mostly wet.',
+  'Tally-ho! Hop to it!',
+  'One day the brambles at the heart of the forest may part. Not today, though. Today is a nap day.',
+  'I polished my armour with your gold. Well, with the polish your gold bought. Look at it gleam!',
+  'A knight must always stand tall. And I am standing VERY tall. These ears count.'
+];
+function hopPayChoice() {
+  return { text: `For, say, ${FOREST_TOLL} gold, a knight might be persuaded to step aside. Permanently. What say you?`, choices: [
+    { label: `Pay ${FOREST_TOLL} gold (you have ${gold})`, act: () => hopPay() },
+    { label: 'Not right now', act: () => openDialog([{ text: 'Very well! Glimmerwood shall remain guarded. By me. With the utmost vigilance. ...Zzz.' }], null, 'hop') }
+  ] };
+}
+function hopPay() {
+  if (gold < FOREST_TOLL) {
+    sfx.dexNope();
+    openDialog([{ text: `Hmm. By my count that’s ${gold} gold. A knight’s toll is ${FOREST_TOLL}. Come back when your purse is heavier! Perhaps that fellow in the tie-dye buys scrumblies...` }], null, 'hop');
+    return;
+  }
+  gold -= FOREST_TOLL; renderGold(); hopSfx.coins();
+  openDialog([
+    { text: `${FOREST_TOLL} gold! *bites a coin* Splendid. Ahem. I mean: you have proven yourself WORTHY!` },
+    { text: 'Glimmerwood is open to you, now and forever. Through any gap, any time. Enter, brave catcher, and mind the toadstools!' }
+  ], () => { forestState.open = true; placeHops(); saveGame(); sfx.caught(); toast('Glimmerwood is open! Walk through any gap in the hedge.'); }, 'hop');
+}
+function talkToHop(h) {
+  h.wave = 1.6; hopSfx.hello();
+  if (forestState.open) { openDialog([{ text: pick1(HOP_IDLE) }], null, 'hop'); return; }
+  if (!forestState.hopMet) {
+    forestState.hopMet = true; saveGame();
+    openDialog([
+      { text: 'HALT! Who goes there?! ...Oh. Hello. Terribly sorry. I don’t get many visitors.' },
+      { text: 'I am Sir Hopsalot, Knight of the Hedge and sworn guardian of Glimmerwood! None may pass!' },
+      { text: 'Beyond this hedge lies an enchanted forest: babbling brooks, glittering toadstools and the finest apples on the island. Far too precious for just anyone to go trampling about.' },
+      { text: '...Although. The upkeep on this armour is frightful. Polish isn’t cheap, you know. And my lance needs re-pointing.' },
+      hopPayChoice()
+    ], null, 'hop');
+    return;
+  }
+  openDialog([{ text: `Back again, traveller? The toll for Glimmerwood remains ${FOREST_TOLL} gold.` }, hopPayChoice()], null, 'hop');
+}
+function forestBlocked(x, z) {
+  const d = inland(x, z);
+  if (d > FOREST_OUT - 1) return 'The brambles are far too thick here. Whatever lies at the heart of the island will have to wait...';
+  if (!forestState.open && gapArc(x, z) < 2.5) return scrimHere() ? 'Sir Hopsalot is standing right in the way. Perhaps have a word with him?' : 'Something rustles behind the hedge... Best help the Professor first.';
+  return 'The hedge is far too thick to push through. There must be a way in somewhere...';
+}
+
+/* ---------- apples: picked from the trees, thrown like rocks, gobbled up by scrumblies ---------- */
+const MAX_APPLES = 10, APPLE_REGROW = [90, 150];
+const appleGeo = (() => { const parts = [bake(new THREE.SphereGeometry(0.11, 12, 10), 0xffffff).scale(1, 0.92, 1), bake(new THREE.CylinderGeometry(0.008, 0.01, 0.06, 5), 0x6b4226).translate(0, 0.12, 0), bake(new THREE.SphereGeometry(0.03, 6, 4), 0x5cc277).scale(1.6, 0.4, 0.8).translate(0.03, 0.12, 0)]; return merge(parts); })();
+const appleMat = vcLambert({ emissive: 0x200404 });
+const heldAppleMesh = new THREE.Mesh(appleGeo, new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xe8283c, emissive: 0x300606 }));
+heldAppleMesh.visible = false; heldAppleMesh.scale.setScalar(0.9); viewScene.add(heldAppleMesh);
+const appleShots = Array.from({ length: 16 }, () => { const m = new THREE.Mesh(appleGeo, new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xe8283c, emissive: 0x300606 })); m.visible = false; m.castShadow = true; scene.add(m); return { mesh: m, state: 'gone', x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, bounces: 0, t: 0 }; });
+let targetApple = null, appleHints = {};
+function gatherApples(dt) {
+  const c = player.climb;
+  if (!c || !c.p.apple) return;
+  const p = c.p;
+  if (player.y < p.y + p.H - 1.75 - 0.5) return;
+  const ready = p.apples.filter(a => a.on);
+  if (!ready.length) { if (!p.emptyHint) { p.emptyHint = true; toast('No apples left on this tree. They’ll grow back in a while.'); } return; }
+  const room = MAX_APPLES - inv.apples;
+  if (room <= 0) { if (!appleHints.full) { appleHints.full = true; toast(`Your pockets are full of apples! (${MAX_APPLES} max)`); } return; }
+  const got = ready.slice(0, room);
+  got.forEach(a => { showApple(a, false); a.t = rr(...APPLE_REGROW); });
+  inv.apples += got.length; inv.owned.apple = true; p.emptyHint = false; renderHotbar(); sfx.pickup();
+  const el = hotbarEl.children[inv.slots.indexOf('apple')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  toast(appleHints.first ? `+${got.length} apple${got.length === 1 ? '' : 's'}!` : `You picked ${got.length} apple${got.length === 1 ? '' : 's'}! Press 6 to get them out and throw them like rocks. Scrumblies might like them...`);
+  appleHints.first = true; saveGame();
+}
+function throwApple() {
+  if (player.climb || inv.apples <= 0) return;
+  let s = appleShots.find(a => a.state === 'gone') || appleShots.filter(a => a.state === 'ground').sort((a, b) => b.t - a.t)[0];
+  if (!s) return;
+  inv.apples--; renderHotbar();
+  rockLaunch(s); s.state = 'flying'; s.bounces = 0; s.t = 0; s.mesh.visible = true;
+  throwAnim = 0; sfx.throw();
+}
+// what an apple hits: any scrumbly that's out and about
+function scrumblyAt(x, y, z) {
+  for (const list of CREATURE_LISTS) for (const c of list) {
+    if (!c.root.visible || ['caught', 'gone', 'buried', 'trapped'].includes(c.state) || (c.sink || 0) > 0.5 || (c.under || 0) > 0.5) continue;
+    const p = c.root.position, s = c.s || 1;
+    if (Math.hypot(x - p.x, y - (p.y + 0.35 * s), z - p.z) < 0.55 * s + 0.22) return c;
+  }
+  return null;
+}
+const appleSfx = { munch() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) { noiseHit(t + i * 0.13, 'bandpass', 1200 + Math.random() * 900, 0.14, 0.07, sfxBus, 2.5); tone(t + i * 0.13, 180, 120, 0.05, 0.04, 'square'); } tone(t + 0.6, 520, 780, 0.12, 0.04, 'sine'); } };
+// a hook for scrumblies that care about being fed (filled in later)
+function onAppleEaten(c) { c.fed = (c.fed || 0) + 1; }
+function updateApples(dt) {
+  for (const a of appleShots) {
+    if (a.state === 'ground') { a.t += dt; continue; }
+    if (a.state !== 'flying') continue;
+    a.vy -= ROCK_G * dt; a.x += a.vx * dt; a.y += a.vy * dt; a.z += a.vz * dt; a.t += dt;
+    a.mesh.position.set(a.x, a.y, a.z); a.mesh.rotation.x += dt * 8; a.mesh.rotation.z += dt * 5;
+    const c = a.bounces < 2 ? scrumblyAt(a.x, a.y, a.z) : null;
+    if (c) {
+      a.state = 'gone'; a.mesh.visible = false; appleSfx.munch();
+      const p = c.root.position; for (let i = 0; i < 3; i++) setTimeout(() => spawnHeart(p.x, p.y + 0.9 * (c.s || 1), p.z), i * 180);
+      if (c.body) c.body.scale.set(1.12, 0.9, 1.12);
+      onAppleEaten(c);
+      if (!appleHints.eat) { appleHints.eat = true; toast('Nom nom nom! It gobbled the apple right up.'); }
+      continue;
+    }
+    const g = groundAt(a.x, a.z);
+    if (a.y <= g + 0.1) {
+      if (heightAt(a.x, a.z) < water.position.y - 0.05 || (inland(a.x, a.z) > HEDGE_OUT && riverCut(a.x, a.z, inland(a.x, a.z)) > 0.4)) { a.state = 'gone'; a.mesh.visible = false; splash(a.x, a.z, 8, 0.5); continue; }
+      a.y = g + 0.1;
+      if (Math.abs(a.vy) > 3 && a.bounces < 2) { a.vy = -a.vy * 0.3; a.vx *= 0.5; a.vz *= 0.5; a.bounces++; sfx.thud(); }
+      else { a.state = 'ground'; a.t = 0; a.mesh.rotation.set(0, Math.random() * 6, 0); a.mesh.position.set(a.x, a.y, a.z); }
+    }
+  }
+}
+function findTargetApple() {
+  if (player.climb || inv.apples >= MAX_APPLES) return null;
+  camera.getWorldDirection(_dir);
+  let best = null, bestScore = Infinity;
+  for (const a of appleShots) {
+    if (a.state !== 'ground') continue;
+    const hd = Math.hypot(a.x - player.x, a.z - player.z); if (hd > 2.6) continue;
+    _to.set(a.x - camera.position.x, a.y - camera.position.y, a.z - camera.position.z).normalize();
+    const ang = Math.acos(clamp(_to.dot(_dir), -1, 1));
+    if (ang > 0.55 && !(hd < 1.3 && ang < 1.1)) continue;
+    const score = ang + hd * 0.15; if (score < bestScore) { bestScore = score; best = a; }
+  }
+  return best;
+}
+function pickUpApple(a) {
+  a.state = 'gone'; a.mesh.visible = false; targetApple = null;
+  inv.apples++; inv.owned.apple = true; renderHotbar(); sfx.pickup();
+}
+
+/* ---------- fireflies and fairy sparkles drifting through the forest ---------- */
+const FIREFLY_N = 420;
+const fireflies = (() => {
+  const pos = new Float32Array(FIREFLY_N * 3), col = new Float32Array(FIREFLY_N * 3), base = [], c = new THREE.Color();
+  for (let i = 0; i < FIREFLY_N; i++) {
+    let x = 0, z = 0, d = 0;
+    for (let k = 0; k < 20; k++) { const th = rr(0, Math.PI * 2); d = rr(HEDGE_OUT + 1, FOREST_OUT - 1); [x, z] = polar(th, d); if (Math.abs(riverOff(x, z, d)) > 1) break; }
+    base.push({ x, z, y: heightAt(x, z) + rr(0.4, 3.2), ph: rr(0, 6.28), sp: rr(0.4, 1.1) });
+    c.set(pick([0xfff1a8, 0xfff1a8, 0xffc6f0, 0xb8f4ff, 0xd0ffb0])); col.set([c.r, c.g, c.b], i * 3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const tex = spriteTex((g2, s) => { const grd = g2.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.3, 'rgba(255,255,255,.8)'); grd.addColorStop(1, 'rgba(255,255,255,0)'); g2.fillStyle = grd; g2.fillRect(0, 0, s, s); }, 64);
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.32, map: tex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  pts.frustumCulled = false; scene.add(pts);
+  return { pts, base };
+})();
+function updateFireflies() {
+  const near = inland(player.x, player.z) > INLAND_LIMIT - 30;
+  fireflies.pts.visible = near;
+  if (!near) return;
+  const arr = fireflies.pts.geometry.attributes.position.array;
+  fireflies.base.forEach((b, i) => {
+    const t = time * b.sp + b.ph;
+    arr[i * 3] = b.x + Math.sin(t) * 0.9; arr[i * 3 + 1] = b.y + Math.sin(t * 1.7) * 0.4; arr[i * 3 + 2] = b.z + Math.cos(t * 0.8) * 0.9;
+  });
+  fireflies.pts.geometry.attributes.position.needsUpdate = true;
+}
+
+/* ---------- scenery: an enormous Beeappy, drifting in slow circles high over the island ---------- */
+const giantBee = (() => {
+  const c = compactCreature(makeBeeappyMesh());
+  c.root.scale.setScalar(36); c.root.traverse(o => { o.castShadow = false; });
+  return Object.assign(c, { ang: Math.random() * 6.28, R: 230, buzzT: 20 });
+})();
+function updateGiantBee(dt) {
+  const g = giantBee;
+  g.ang += dt * 0.012;
+  const x = Math.cos(g.ang) * g.R, z = Math.sin(g.ang) * g.R, y = 125 + Math.sin(time * 0.25) * 10;
+  g.root.position.set(x, y, z);
+  g.root.rotation.set(0, Math.atan2(-Math.sin(g.ang), Math.cos(g.ang)) + Math.PI, 0);     // facing along its circle
+  g.body.rotation.x = Math.sin(time * 0.4) * 0.06; g.body.rotation.z = Math.sin(time * 0.31) * 0.08;
+  g.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 18 + i) * 0.45); });
+  g.buzzT -= dt;
+  if (g.buzzT <= 0) { g.buzzT = 30 + Math.random() * 30; if (actx && playing) { const v = clamp(1 - Math.hypot(player.x - x, player.z - z, y) / 420, 0, 1); if (v > 0.05) { const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'sawtooth'; o.frequency.value = 55; gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.05 * v, t + 1.2); gn.gain.exponentialRampToValueAtTime(0.0001, t + 3.5); const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; o.connect(f); f.connect(gn); gn.connect(ambBus); o.start(t); o.stop(t + 3.6); } } }
+}
+
+/* ---------- where you are: a banner when you step into the forest or back out ---------- */
+let areaNow = 'beach';
+function showArea(name) {
+  const area = document.getElementById('area');
+  area.innerHTML = `${name}<small>Scrumbly Island</small>`; area.style.opacity = 1;
+  clearTimeout(showArea.t); showArea.t = setTimeout(() => area.style.opacity = 0, 3600);
+}
+
+/* ---------- saving ---------- */
+function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
+function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
+
+/* ---------- every frame ---------- */
+function updateForest(dt) {
+  riverTex.offset.x -= dt * 0.12;
+  updateGiantBee(dt);
+  updateFireflies();
+  updateApples(dt);
+  gatherApples(dt);
+  for (const t of appleTrees) for (const a of t.apples) if (!a.on) { a.t -= dt; if (a.t <= 0) showApple(a, true); }
+  // the banner
+  const here = inland(player.x, player.z) > HEDGE_OUT + 0.5 ? 'forest' : 'beach';
+  if (playing && here !== areaNow) { areaNow = here; showArea(here === 'forest' ? 'Glimmerwood' : 'Pinksand Shore'); }
+  // the four Sir Hopsalots
+  const show = scrimHere();
+  for (const h of hops) {
+    h.root.visible = show; if (!show) continue;
+    const d = Math.hypot(player.x - h.x, player.z - h.z);
+    if (d > 60) continue;
+    const want = d < 12 ? Math.atan2(player.x - h.x, player.z - h.z) - h.baseYaw : 0;
+    h.face += angDiff(h.face, want) * Math.min(1, dt * 3);
+    h.root.rotation.y = h.baseYaw + h.face;
+    if (!h.greeted && d < 12 && playing) { h.greeted = true; h.wave = 1.6; if (!forestState.hopMet) toast('A rabbit in shining armour is standing to attention in the gap in the hedge...'); }
+    if (h.wave > 0) h.wave -= dt;
+    const talking = dialogOpen && dlgWho === 'hop' && nearHop === h;
+    h.arms[0].rotation.z = h.wave > 0 ? -2.6 - Math.sin(time * 9) * 0.35 : talking ? -1.1 - Math.sin(time * 6) * 0.3 : -0.25;
+    h.arms[1].rotation.x = -0.15 + Math.sin(time * 0.8 + h.gap) * 0.03;
+    h.ears.forEach((e, i) => { e.rotation.x = Math.sin(time * 1.3 + i + h.gap) * 0.08 - (talking ? 0.15 : 0); });
+    h.pennant.rotation.y = Math.sin(time * 3 + h.gap) * 0.4;
+    h.blink -= dt; const bl = h.blink < 0.12; if (h.blink < 0) h.blink = 2 + Math.random() * 3;
+    h.pupils.forEach(p => { p.scale.y = bl ? 0.15 : 1.15; });
+    h.mark.visible = !forestState.hopMet;
+    if (h.mark.visible) h.mark.position.y = 3.0 + Math.abs(Math.sin(time * 3)) * 0.25;
+    h.tag.visible = d < 12 && d > 4 && !dialogOpen;
+  }
+}
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
@@ -6279,7 +6895,7 @@ canvas.addEventListener('mouseup', e => {
 window.addEventListener('keydown', e => {
   if (!playing || paused || e.repeat) return;
   if (e.code === 'KeyE') pickQueued = true;
-  const n = /^Digit([1-5])$/.exec(e.code); if (n) selectSlot(+n[1] - 1);
+  const n = /^Digit([1-6])$/.exec(e.code); if (n) selectSlot(+n[1] - 1);
   if (e.code === 'KeyQ') cycleSlot(1);
 });
 canvas.addEventListener('wheel', e => { if (!playing || paused) return; e.preventDefault(); if (Math.abs(e.deltaY) > 2) cycleSlot(e.deltaY > 0 ? 1 : -1); }, { passive: false });
@@ -6349,6 +6965,7 @@ function tick(dt) {
   updateRanch(dt);
   updateScrim(dt);
   updateTeal(dt);
+  updateForest(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
   cullDecor();
@@ -6407,7 +7024,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
