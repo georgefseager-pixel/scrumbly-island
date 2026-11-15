@@ -1456,7 +1456,6 @@ function startGame() {
   document.getElementById('title').hidden = true;
   musicBtn.hidden = false; partyEl.hidden = false; hotbarEl.hidden = false; healthEl.hidden = false;
   setTimeout(() => document.getElementById('hint').classList.add('fade'), 20000);
-  if (tut.stage === 'done') setTimeout(() => toast('Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
   document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer();
   player.pitch = -0.05;
   const area = document.getElementById('area'); area.style.opacity = 1; setTimeout(() => area.style.opacity = 0, 4200);
@@ -1577,7 +1576,7 @@ function stunBobo(b) {
   if (!canStun(b)) return false;
   if (b.state !== 'stunned') sfx.stun();
   setState(b, 'stunned'); b.sink = 0; b.ex.visible = false;
-  if (!b.stunHint) { b.stunHint = true; toast('It\'s dizzy! Get close and swing your net!'); }
+  if (!b.stunHint) { b.stunHint = true; toast('It\'s seeing stars!'); }
   return true;
 }
 function boboNoticesPlayer(b) {
@@ -1611,7 +1610,7 @@ function tryNetCatch() {
       if (catchScrumbly('bobo', b.size, surprised && b.state !== 'stunned')) { setState(b, 'caught'); got = true; }
       else { setState(b, 'idle'); startBurrow(b); }
     }
-    else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first, or take it by surprise from a tree.'); startBurrow(b); }
+    else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free!'); startBurrow(b); }
   }
   if (typeof netSpeshuls === 'function' && netSpeshuls()) got = true;
   if (netTrapped()) got = true;
@@ -2057,7 +2056,7 @@ function updateMermigglies(dt) {
       const ax = -dxp / (dist || 1), az = -dzp / (dist || 1);
       const s = waterSpot(m.x + ax * 16, m.z + az * 16, 0, 10, 1.3, 4, player, 18) || waterSpot(m.x, m.z, 15, 35, 1.3, 4, player, 18) || { x: m.x + ax * 12, z: m.z + az * 12 };
       m.tx = s.x; m.tz = s.z;
-      if (!mermHints.flee) { mermHints.flee = true; setTimeout(() => toast('Too quick! You\'ll need a cleverer plan to catch a Mermiggly.'), 1300); }
+      if (!mermHints.flee) { mermHints.flee = true; setTimeout(() => toast('Splash! And it\'s gone.'), 1300); }
     }
     m.waveCD -= dt;
     if (m.state !== 'angry' && m.state !== 'leave') m.red = Math.max(0, m.red - dt * 0.5);
@@ -2205,7 +2204,7 @@ function startLeap(m) {
   m.leap = { from, dest, p, ang, dur: clamp(Math.hypot(dest.x - from.x, dest.z - from.z) / 9, 0.7, 1.5) };
   m.state = 'leap'; m.t = 0; m.ex.visible = true;
   speshulSfx.eek(speshulVol(m) + 0.3);
-  if (!speshulHints.leap) { speshulHints.leap = true; toast('Whoosh! It leapt to another tree. Climbing after it won\'t work...'); }
+  if (!speshulHints.leap) { speshulHints.leap = true; toast('Whoosh! It leapt to another tree.'); }
 }
 function knockSpeshul(m) {
   if (m.state === 'perch' || m.state === 'leap' || m.state === 'climb') {
@@ -2213,7 +2212,7 @@ function knockSpeshul(m) {
     m.state = 'fall'; m.t = 0; m.vy = wasLeaping ? 0 : 1.5; m.ex.visible = false; m.tree = null; m.leap = null;
     m.drift = { x: Math.cos(m.ang || 0) * 1.2, z: Math.sin(m.ang || 0) * 1.2 };
     speshulSfx.eek(1);
-    if (!speshulHints.fall) { speshulHints.fall = true; setTimeout(() => toast('Bonk! It\'s tumbling down. Net it while it panics!'), 500); }
+    if (!speshulHints.fall) { speshulHints.fall = true; setTimeout(() => toast('Bonk! Down it tumbles!'), 500); }
     return true;
   }
   if (m.state === 'panic' || m.state === 'return') { m.state = 'dazed'; m.t = 0; speshulSfx.eek(0.8); return true; }
@@ -2470,7 +2469,7 @@ function updatePengins(dt) {
         const n = q.nook, k = Math.min(1, q.t / 0.45);
         q.x = lerp(n.ex, n.hx, k); q.z = lerp(n.ez, n.hz, k); q.face = Math.atan2(-n.dx, -n.dz); waddle = 1.5;
         q.body.scale.setScalar(1 - k * 0.6);
-        if (k >= 1) { q.state = 'hiding'; q.t = 0; q.root.visible = false; q.body.scale.setScalar(1); penginSfx.hide(penginVol(q)); if (!penginHints.hid && dist < 30) { penginHints.hid = true; toast('It squeezed into its rock nook! Maybe a trap by the doorway would help...'); } }
+        if (k >= 1) { q.state = 'hiding'; q.t = 0; q.root.visible = false; q.body.scale.setScalar(1); penginSfx.hide(penginVol(q)); if (!penginHints.hid && dist < 30) { penginHints.hid = true; toast('It squeezed into its rock nook!'); } }
         break;
       }
       case 'hiding': {
@@ -2528,7 +2527,7 @@ function rockHitsPengin(r) {
     if (!penginHittable(q) || !penginHitBy(q, r.x, r.y, r.z)) continue;
     // bonk! straight back to its hideout, no dithering
     startPenginFlee(q, true); q.ex.visible = true;
-    if (!penginHints.bonked) { penginHints.bonked = true; toast('Bonk! It’s running straight home to its nook...'); }
+    if (!penginHints.bonked) { penginHints.bonked = true; toast('Bonk! Off it scurries!'); }
     return q;
   }
   return null;
@@ -2605,7 +2604,7 @@ function stunShark(d) {
   if (!sharkStunnable(d)) return false;
   if (d.state !== 'stunned') sfx.stun();
   d.state = 'stunned'; d.t = 0; d.ex.visible = false; d.lunge = 0;
-  if (!d.stunHint) { d.stunHint = true; toast('Bonk! The Duckshark is seeing stars. Wade in and net it, quick!'); }
+  if (!d.stunHint) { d.stunHint = true; toast('Bonk! The Duckshark is seeing stars!'); }
   return true;
 }
 function rockHitsShark(r) {
@@ -2635,7 +2634,7 @@ function updateDucksharks(dt) {
         if (d.dabble > 0) { d.dabble -= dt; dabbleWant = 1; speed = 0; }
         d.quackT -= dt; if (d.quackT <= 0) { d.quackT = 4 + Math.random() * 6; sharkSfx.quack(clamp(1 - dist / 40, 0, 1)); jawWant = 0.5; }
         if (!sharkHints.seen && dist < 25 && playing) { sharkHints.seen = true; toast('Is that a duck? It has an awful lot of teeth for a duck...'); }
-        if (wading && dist < SHARK_SEE * d.s ** 0.3) { d.state = 'charge'; d.t = 0; d.ex.visible = true; sharkSfx.growl(1); if (!sharkHints.charged) { sharkHints.charged = true; toast('The Duckshark is coming for you! Get out of the water!'); } }
+        if (wading && dist < SHARK_SEE * d.s ** 0.3) { d.state = 'charge'; d.t = 0; d.ex.visible = true; sharkSfx.growl(1); if (!sharkHints.charged) { sharkHints.charged = true; toast('The Duckshark is coming for you!'); } }
         break;
       }
       case 'charge': {
@@ -2800,14 +2799,14 @@ function rockHitsWeevil(r) {
   for (const w of weevils) {
     if (!w.root.visible || w.state !== 'run' || !weevilHitBy(w, r.x, r.y, r.z)) continue;
     w.cross = 2.5; weevilSfx.grr(1);
-    if (!weevilHints.rocked) { weevilHints.rocked = true; toast('That only made it cross, and it didn’t even slow down! It runs the same loop every time...'); }
+    if (!weevilHints.rocked) { weevilHints.rocked = true; toast('That only made it cross. It didn’t even slow down!'); }
     return w;
   }
   return null;
 }
 function netWeevils() {
   for (const w of weevils) if (w.root.visible && w.state === 'run' && inNetZone(w.x, w.y, w.z)) {
-    weevilSfx.yap(1); toast(weevilHints.netted ? 'Too quick!' : 'Way too quick for a net! Try setting a cage trap on its track.'); weevilHints.netted = true; return;
+    weevilSfx.yap(1); toast('Too quick!'); weevilHints.netted = true; return;
   }
 }
 function updateWeevils(dt) {
@@ -2823,7 +2822,7 @@ function updateWeevils(dt) {
         w.x = p.x; w.z = p.z; w.y = heightAt(p.x, p.z); w.face = Math.atan2(tg.x, tg.z);
         w.yapT -= dt; if (w.yapT <= 0) { w.yapT = 3 + Math.random() * 5; weevilSfx.yap(clamp(1 - Math.hypot(player.x - w.x, player.z - w.z) / 35, 0, 1)); }
         if (Math.random() < dt * 6) weevilSfx.patter(clamp(1 - Math.hypot(player.x - w.x, player.z - w.z) / 20, 0, 1));
-        if (!weevilHints.seen && playing && Math.hypot(player.x - w.x, player.z - w.z) < 20) { weevilHints.seen = true; toast('Zoom! A little sausage dog is racing round in circles. Look at the paw prints in the sand...'); }
+        if (!weevilHints.seen && playing && Math.hypot(player.x - w.x, player.z - w.z) < 20) { weevilHints.seen = true; toast('Zoom! A little sausage dog is racing round in circles.'); }
         break;
       }
       case 'trapped': { speed = 4; break; }
@@ -4519,7 +4518,7 @@ function talkToProf() {
       const n = totalCaught();
       openDialog([{ text: pick1([
         `${n} caught already! Only ${5 - n} more to go, dear.`,
-        'Try that cage trap by one of the rock nooks. I hear the shy ones run straight home when they\'re frightened...',
+        'Some scrumblies are trickier than others. Your Scrumblydex might have a tip or two.',
         `${P ? P.name : 'Your partner'} looks very happy following you about. Scrumblies love an adventure!`,
         'Have you read the catching tips in your Scrumblydex? They\'re ever so handy.'
       ]) }]);
