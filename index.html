@@ -1980,6 +1980,245 @@ function rockHitsMerm(r) {
   return null;
 }
 
+const SPESHUL_SCALE = 1.3;
+/* =========================================================
+   Scrumblies: the Speshul (a little green monkey)
+   Clings near the tops of palms, leaps away if you climb up,
+   tumbles down if bonked with a rock and panics on the sand.
+   ========================================================= */
+function makeSpeshulMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(), scaler = new THREE.Group(); scaler.scale.setScalar(SPESHUL_SCALE); scaler.add(body); root.add(scaler);
+  const fur = new THREE.MeshLambertMaterial({ color: 0xa3c23b, emissive: 0x23300a }), cream = new THREE.MeshLambertMaterial({ color: 0xf6e4b8, emissive: 0x3a3220 });
+  const black = new THREE.MeshBasicMaterial({ color: 0x141218 }), white = new THREE.MeshBasicMaterial({ color: 0xffffff }), brown = new THREE.MeshBasicMaterial({ color: 0x3a2418 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  add(new THREE.SphereGeometry(0.17, 18, 14), fur, 0, 0.27, 0, 1, 1.2, 0.9);
+  add(new THREE.SphereGeometry(0.1, 14, 10), fur, 0, 0.2, 0.06, 1.1, 1, 0.9);
+  const head = new THREE.Group(); head.position.y = 0.53; body.add(head);
+  add(new THREE.SphereGeometry(0.165, 20, 16), fur, 0, 0, 0, 1.05, 0.97, 0.95, head);
+  add(new THREE.SphereGeometry(0.13, 18, 14), cream, 0, -0.01, 0.075, 0.98, 0.9, 0.62, head);
+  add(new THREE.SphereGeometry(0.075, 14, 10), cream, 0, -0.07, 0.125, 1.2, 0.78, 0.75, head);
+  const eyes = [];
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.052, 14, 10), white, s * 0.058, 0.028, 0.14, 1, 1, 0.55, head);
+    add(new THREE.TorusGeometry(0.052, 0.006, 6, 18), cream, s * 0.058, 0.028, 0.163, 1, 1, 1, head);
+    eyes.push(add(new THREE.SphereGeometry(0.036, 12, 8), black, s * 0.058, 0.026, 0.168, 1, 1, 0.5, head));
+    add(new THREE.SphereGeometry(0.058, 12, 10), cream, s * 0.165, 0.005, 0, 0.45, 1, 1, head);
+    add(new THREE.SphereGeometry(0.009, 6, 4), brown, s * 0.018, -0.045, 0.18, 1, 1.6, 1, head);
+  });
+  const smile = new THREE.TorusGeometry(0.04, 0.006, 5, 14, Math.PI); const mouth = add(smile, brown, 0, -0.085, 0.172, 1, 0.7, 1, head); mouth.rotation.z = Math.PI;
+  const limb = (x, y, z, len, r) => {
+    const piv = new THREE.Group(); piv.position.set(x, y, z); body.add(piv);
+    add(new THREE.CylinderGeometry(r, r * 1.1, len, 10), fur, 0, -len / 2, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(r * 1.25, 12, 8), cream, 0, -len - 0.01, 0.01, 1, 0.9, 1.2, piv);
+    return piv;
+  };
+  const arms = [limb(-0.15, 0.37, 0, 0.21, 0.042), limb(0.15, 0.37, 0, 0.21, 0.042)];
+  const legs = [limb(-0.085, 0.14, 0.03, 0.12, 0.05), limb(0.085, 0.14, 0.03, 0.12, 0.05)];
+  legs.forEach(l => { l.children[1].scale.set(1.1, 0.7, 1.6); });
+  const tail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.16, -0.13), new THREE.Vector3(0, 0.08, -0.3), new THREE.Vector3(0, 0.22, -0.45), new THREE.Vector3(0, 0.42, -0.4), new THREE.Vector3(0, 0.48, -0.28)]), 20, 0.026, 8), fur);
+  tail.castShadow = true; body.add(tail);
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.position.y = 1.25; ex.scale.setScalar(0.5); ex.visible = false; ex.renderOrder = 5; root.add(ex);
+  const stars = [];
+  for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.14); st.visible = false; root.add(st); stars.push(st); }
+  scene.add(root);
+  return { root, body, head, eyes, arms, legs, tail, ex, stars };
+}
+function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : makeBoboMesh(); }
+
+const SPESHUL_COUNT = 4;
+const speshuls = [];
+const monkeyTrees = beachPalms.filter(p => p.H * p.scale >= 7.5 && !inRanchZone(p.x, p.z, 4) && inland(p.x, p.z) < 60 && inland(p.x, p.z) > 6);
+const perchY = p => p.y + p.H - 1.6;
+const treeTaken = (p, except) => speshuls.some(s => s !== except && s.tree === p);
+function perchAt(m, p, ang) {
+  m.tree = p; m.ang = ang;
+  m.y = perchY(p);
+  trunkAt(p, m.y + 0.25, tk);
+  m.x = tk.x + Math.cos(ang) * (tk.r + 0.12); m.z = tk.z + Math.sin(ang) * (tk.r + 0.12);
+  m.face = Math.atan2(Math.cos(ang), Math.sin(ang));
+}
+function freeTree(near, rMin, rMax, awayFrom, except) {
+  let best = null, bestScore = -Infinity;
+  for (const p of monkeyTrees) {
+    if (treeTaken(p, except) || (except && p === except.tree)) continue;
+    const d = near ? Math.hypot(p.x - near.x, p.z - near.z) : 0;
+    if (near && (d < rMin || d > rMax)) continue;
+    const score = (awayFrom ? Math.hypot(p.x - awayFrom.x, p.z - awayFrom.z) : 0) + Math.random() * 6;
+    if (score > bestScore) { bestScore = score; best = p; }
+  }
+  return best;
+}
+function newSpeshul(p) {
+  const m = Object.assign(makeSpeshulMesh(), { state: 'perch', t: 0, x: 0, y: 0, z: 0, face: 0, vy: 0, chatter: 2 + Math.random() * 5, look: 0, panicT: 0, tx: 0, tz: 0, retarget: 0, stunPhase: 0 });
+  applySize(m, rollSize());
+  perchAt(m, p, Math.random() * Math.PI * 2);
+  speshuls.push(m);
+  return m;
+}
+{
+  // one on a tree you can see from the start, the rest spread around
+  const ahead = monkeyTrees.map(p => ({ p, d: Math.hypot(p.x - spawnX, p.z - spawnZ) })).filter(o => o.d > 14).sort((a, b) => a.d - b.d);
+  if (ahead.length) newSpeshul(ahead[0].p);
+  for (let i = 1; i < SPESHUL_COUNT; i++) { const p = freeTree({ x: spawnX, z: spawnZ }, 30, 400, null, null); if (p) newSpeshul(p); }
+}
+function speshulVol(m) { return clamp(1 - Math.hypot(player.x - m.x, player.z - m.z) / 40, 0, 1); }
+const speshulSfx = {
+  chatter(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; [[520, 760], [560, 820], [900, 620]].forEach(([a, b], i) => tone(t + i * 0.13, a, b, 0.1, 0.06 * v, 'triangle')); },
+  eek(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 1100, 1900, 0.09, 0.07 * v, 'square'); tone(t + 0.1, 1500, 2100, 0.08, 0.05 * v, 'square'); },
+  whoosh(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; noiseHit(t, 'bandpass', 1500, 0.15 * v, 0.3, sfxBus, 1.5); }
+};
+let speshulHints = { seen: false, leap: false, fall: false };
+function startLeap(m) {
+  const p = freeTree(m.tree, 5, 16, player, m) || freeTree(m.tree, 5, 28, player, m);
+  if (!p) { m.state = 'perch'; m.cornered = true; return; }
+  const ang = Math.atan2(player.z - p.z, player.x - p.x) + Math.PI + (Math.random() - 0.5);
+  const from = { x: m.x, y: m.y, z: m.z }, dest = {}; perchAt(dest, p, ang);
+  m.leap = { from, dest, p, ang, dur: clamp(Math.hypot(dest.x - from.x, dest.z - from.z) / 9, 0.7, 1.5) };
+  m.state = 'leap'; m.t = 0; m.ex.visible = true;
+  speshulSfx.eek(speshulVol(m) + 0.3);
+  if (!speshulHints.leap) { speshulHints.leap = true; toast('Whoosh! It leapt to another tree. Climbing after it won\'t work...'); }
+}
+function knockSpeshul(m) {
+  if (m.state === 'perch' || m.state === 'leap' || m.state === 'climb') {
+    const wasLeaping = m.state === 'leap';
+    m.state = 'fall'; m.t = 0; m.vy = wasLeaping ? 0 : 1.5; m.ex.visible = false; m.tree = null; m.leap = null;
+    m.drift = { x: Math.cos(m.ang || 0) * 1.2, z: Math.sin(m.ang || 0) * 1.2 };
+    speshulSfx.eek(1);
+    if (!speshulHints.fall) { speshulHints.fall = true; setTimeout(() => toast('Bonk! It\'s tumbling down. Net it while it panics!'), 500); }
+    return true;
+  }
+  if (m.state === 'panic' || m.state === 'return') { m.state = 'dazed'; m.t = 0; speshulSfx.eek(0.8); return true; }
+  return false;
+}
+function speshulOnGround(m) { return m.state === 'dazed' || m.state === 'panic' || m.state === 'return'; }
+// called by the net swing
+function netSpeshuls() {
+  let got = false;
+  for (const m of speshuls) {
+    if (!m.root.visible || !(m.state === 'dazed' || m.state === 'panic')) continue;
+    if (!inNetZone(m.x, m.y, m.z)) continue;
+    if (catchScrumbly('speshul', m.size)) { m.state = 'caught'; m.t = 0; got = true; }
+  }
+  return got;
+}
+function rockHitsSpeshul(r) {
+  for (const m of speshuls) {
+    if (!m.root.visible || m.state === 'caught' || m.state === 'gone' || m.state === 'fall' || m.state === 'dazed') continue;
+    if (Math.hypot(r.x - m.x, r.y - (m.y + 0.4 * m.s), r.z - m.z) < 0.43 * m.s + 0.22 && knockSpeshul(m)) return m;
+  }
+  return null;
+}
+function updateSpeshuls(dt) {
+  for (const m of speshuls) {
+    m.t += dt;
+    const dxp = player.x - m.x, dzp = player.z - m.z, dist = Math.hypot(dxp, dzp);
+    let pose = 'cling', hopY = 0, flail = 0, sy = 1;
+    switch (m.state) {
+      case 'perch': {
+        if (!speshulHints.seen && dist < 20 && playing) { speshulHints.seen = true; toast('Ooh ooh! Something green is clinging to the top of that palm tree.'); }
+        m.chatter -= dt; if (m.chatter <= 0) { m.chatter = 4 + Math.random() * 6; speshulSfx.chatter(speshulVol(m)); m.look = 0.6; }
+        const c = player.climb;
+        if (c && (c.p === m.tree ? m.y - player.y < 6.5 : Math.hypot(c.p.x - m.tree.x, c.p.z - m.tree.z) < 3.5 && player.y > m.y - 3)) startLeap(m);
+        break;
+      }
+      case 'leap': {
+        const L = m.leap, k = Math.min(1, m.t / L.dur);
+        m.x = lerp(L.from.x, L.dest.x, k); m.z = lerp(L.from.z, L.dest.z, k);
+        m.y = lerp(L.from.y, L.dest.y, k) + Math.sin(k * Math.PI) * (1.8 + L.dur);
+        m.face = Math.atan2(L.dest.x - L.from.x, L.dest.z - L.from.z); pose = 'leap';
+        if (m.t > 0.35) m.ex.visible = false;
+        if (k >= 1) { perchAt(m, L.p, L.ang); m.state = 'perch'; m.t = 0; m.leap = null; speshulSfx.whoosh(speshulVol(m)); }
+        break;
+      }
+      case 'fall': {
+        m.vy -= 14 * dt; m.y += m.vy * dt; m.x += m.drift.x * dt; m.z += m.drift.z * dt; pose = 'leap'; flail = 1;
+        const g = heightAt(m.x, m.z);
+        if (m.y <= g) { m.y = g; m.state = 'dazed'; m.t = 0; sfx.thud(); sandPuff(m.x, m.z, 16); }
+        break;
+      }
+      case 'dazed': {
+        m.stunPhase += dt * 6; pose = 'sit'; sy = 1 - Math.abs(Math.sin(m.t * 4)) * 0.08;
+        if (m.t > 1.0) { m.state = 'panic'; m.t = 0; m.panicT = 7 + Math.random() * 2; m.panicHome = { x: m.x, z: m.z }; m.retarget = 0; speshulSfx.eek(speshulVol(m) + 0.2); }
+        break;
+      }
+      case 'panic': {
+        // running round in circles, arms in the air: easy pickings
+        m.retarget -= dt;
+        const mx = m.tx - m.x, mz = m.tz - m.z, md = Math.hypot(mx, mz);
+        if (m.retarget <= 0 || md < 0.3) {
+          m.retarget = 0.6 + Math.random() * 0.6;
+          for (let i = 0; i < 8; i++) { const a = Math.random() * 6.28, r = 1 + Math.random() * 3.5, x = m.panicHome.x + Math.cos(a) * r, z = m.panicHome.z + Math.sin(a) * r; if (walkable(x, z) && heightAt(x, z) > 0) { m.tx = x; m.tz = z; break; } }
+        }
+        if (md > 0.05) { const sp = 2.6 * dt; m.x += mx / md * Math.min(sp, md); m.z += mz / md * Math.min(sp, md); m.face += angDiff(m.face, Math.atan2(mx, mz)) * Math.min(1, dt * 10); }
+        m.y = heightAt(m.x, m.z); pose = 'run'; flail = 1; hopY = Math.abs(Math.sin(m.t * 14)) * 0.1;
+        if (Math.random() < dt * 1.2) speshulSfx.eek(speshulVol(m));
+        if (m.t > m.panicT) {
+          const p = freeTree(m, 0, 30, null, m) || freeTree(m, 0, 80, null, m);
+          if (p) { m.state = 'return'; m.t = 0; m.tree = p; m.ang = Math.atan2(m.z - p.z, m.x - p.x); }
+        }
+        break;
+      }
+      case 'return': {
+        trunkAt(m.tree, heightAt(m.tree.x, m.tree.z) + 0.3, tk);
+        const bx = tk.x + Math.cos(m.ang) * (tk.r + 0.12), bz = tk.z + Math.sin(m.ang) * (tk.r + 0.12);
+        const mx = bx - m.x, mz = bz - m.z, md = Math.hypot(mx, mz);
+        if (md > 0.1) { const sp = 4.5 * dt; m.x += mx / md * Math.min(sp, md); m.z += mz / md * Math.min(sp, md); m.face += angDiff(m.face, Math.atan2(mx, mz)) * Math.min(1, dt * 10); }
+        else { m.state = 'climb'; m.t = 0; }
+        m.y = heightAt(m.x, m.z); pose = 'run'; hopY = Math.abs(Math.sin(m.t * 12)) * 0.08;
+        break;
+      }
+      case 'climb': {
+        m.y = Math.min(perchY(m.tree), m.y + 2.4 * dt);
+        trunkAt(m.tree, m.y + 0.25, tk);
+        m.x = tk.x + Math.cos(m.ang) * (tk.r + 0.12); m.z = tk.z + Math.sin(m.ang) * (tk.r + 0.12);
+        m.face = Math.atan2(-Math.cos(m.ang), -Math.sin(m.ang)); pose = 'climb';
+        if (m.y >= perchY(m.tree)) { perchAt(m, m.tree, m.ang); m.state = 'perch'; m.t = 0; speshulSfx.chatter(speshulVol(m)); }
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, m.t / 0.45); camera.getWorldDirection(_cv);
+        m.x = lerp(m.x, camera.position.x + _cv.x * 1.2, k * 0.35); m.z = lerp(m.z, camera.position.z + _cv.z * 1.2, k * 0.35); m.y = lerp(m.y, camera.position.y - 0.6, k * 0.35);
+        m.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 30 + Math.random() * 25; }
+        break;
+      }
+      case 'gone': {
+        if (m.t > m.respawn) { const p = freeTree(null, 0, 0, player, m); if (p && Math.hypot(p.x - player.x, p.z - player.z) > 25) { applySize(m, rollSize()); perchAt(m, p, Math.random() * 6.28); m.state = 'perch'; m.t = 0; m.root.visible = true; m.body.scale.setScalar(1); } else m.t = m.respawn - 3; }
+        break;
+      }
+    }
+    if (!m.root.visible) continue;
+    if (m.state !== 'caught') m.body.scale.set(1, sy, 1);
+    m.root.position.set(m.x, m.y + hopY * m.s, m.z);
+    m.root.rotation.set(0, m.face, 0);
+    // head: watch the player (perched ones crane round), googly eyes wobble
+    m.look = Math.max(0, m.look - dt);
+    const rel = angDiff(m.face, Math.atan2(dxp, dzp));
+    m.head.rotation.y = (m.state === 'perch' && dist < 30 ? clamp(rel, -1.2, 1.2) : 0) + Math.sin(time * 6) * m.look * 0.4;
+    m.head.rotation.x = m.state === 'perch' ? clamp((m.y - player.y - 1.5) / Math.max(dist, 1), 0, 0.7) : 0;
+    m.eyes.forEach((e, i) => { e.position.x = (i ? 1 : -1) * 0.058 + Math.sin(time * 9 + i) * (flail ? 0.012 : 0.004); e.position.y = 0.026 + Math.cos(time * 11 + i) * (flail ? 0.012 : 0.003); });
+    const [aL, aR] = m.arms, [lL, lR] = m.legs;
+    if (pose === 'cling') {        // arms back round the trunk, tail swishing
+      aL.rotation.set(-0.9, 0, -0.5); aR.rotation.set(-0.9, 0, 0.5); lL.rotation.set(-0.6, 0, -0.3); lR.rotation.set(-0.6, 0, 0.3);
+      m.body.rotation.x = -0.12; m.tail.rotation.x = Math.sin(time * 1.6 + m.x) * 0.2;
+    } else if (pose === 'leap') {
+      aL.rotation.set(0, 0, -2.4 - flail * Math.sin(time * 20) * 0.4); aR.rotation.set(0, 0, 2.4 + flail * Math.sin(time * 20 + 1) * 0.4); lL.rotation.set(0.5, 0, -0.4); lR.rotation.set(0.5, 0, 0.4);
+      m.body.rotation.x = 0.3 + (m.state === 'fall' ? m.t * 6 : 0); m.tail.rotation.x = 0.3;
+    } else if (pose === 'run') {
+      const r = Math.sin(m.t * 16);
+      if (flail) { aL.rotation.set(0, 0, -2.7 + r * 0.4); aR.rotation.set(0, 0, 2.7 - r * 0.4); } else { aL.rotation.set(r * 0.8, 0, -0.2); aR.rotation.set(-r * 0.8, 0, 0.2); }
+      lL.rotation.set(r * 0.9, 0, 0); lR.rotation.set(-r * 0.9, 0, 0); m.body.rotation.x = 0.15; m.tail.rotation.x = Math.sin(m.t * 10) * 0.3;
+    } else if (pose === 'climb') {
+      const r = Math.sin(m.t * 14);
+      aL.rotation.set(-2.4 + r * 0.4, 0, -0.3); aR.rotation.set(-2.4 - r * 0.4, 0, 0.3); lL.rotation.set(-1 - r * 0.3, 0, 0); lR.rotation.set(-1 + r * 0.3, 0, 0); m.body.rotation.x = 0;
+    } else {                       // sitting, seeing stars
+      aL.rotation.set(0, 0, -0.4); aR.rotation.set(0, 0, 0.4); lL.rotation.set(-1.4, 0, -0.3); lR.rotation.set(-1.4, 0, 0.3); m.body.rotation.x = -0.1;
+    }
+    const dazed = m.state === 'dazed';
+    m.stars.forEach((st, i) => { st.visible = dazed; if (dazed) { const a = m.stunPhase + i * 2.09; st.position.set(Math.cos(a) * 0.32, 1.0 + Math.sin(a * 2) * 0.03, Math.sin(a) * 0.32); } });
+  }
+}
+
 /* ---------- throwable rocks ---------- */
 const rocks = [];
 const rockGeo = (() => { const g = new THREE.DodecahedronGeometry(0.15, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 0.72); g.computeVertexNormals(); return g; })();
@@ -2111,6 +2350,10 @@ function updateAim() {
       const base = water.position.y + m.rise - 0.15;
       if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 * m.s && sim.y > base && sim.y < base + 1.05 * m.s) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
     }
+    for (const m of speshuls) {
+      if (!m.root.visible || m.state === 'caught' || m.state === 'gone' || m.state === 'fall' || m.state === 'dazed') continue;
+      if (Math.hypot(sim.x - m.x, sim.y - (m.y + 0.4 * m.s), sim.z - m.z) < 0.43 * m.s + 0.22) { hit = m; land = { x: sim.x, y: sim.y, z: sim.z }; }
+    }
     if (land) break;
     const g = heightAt(sim.x, sim.z), floor = Math.max(g + 0.07, water.position.y);
     if (sim.y <= floor) land = { x: sim.x, y: floor, z: sim.z };
@@ -2150,6 +2393,8 @@ function updateRocks(dt) {
       const m = rockHitsMerm(r);
       if (m) { sfx.thud(); const nx = r.x - m.x, nz = r.z - m.z, nl = Math.hypot(nx, nz) || 1; r.vx = nx / nl * 2; r.vz = nz / nl * 2; r.vy = 3; r.bounces = 2; }
     }
+    // knock a Speshul out of its tree?
+    if (r.bounces <= 1 && rockHitsSpeshul(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     // trunks block rocks too
     for (const p of beachPalms) {
       if (Math.abs(p.x - r.x) > 5 || Math.abs(p.z - r.z) > 5 || r.y > p.y + p.H) continue;
@@ -2361,6 +2606,12 @@ SPECIES.mermiggly = {
   fact: 'Mermigglies can\'t decide whether they\'re frogs or fish, so they ribbit underwater and blow bubbles on land. They wave at absolutely everyone.',
   hint: 'Friendly from afar, but it zooms off and dives if you come close. Throwing rocks only makes it cross. Maybe there\'s a way to get it to come to you instead...'
 };
+SPECIES.speshul = {
+  name: 'Speshul', num: 3, where: 'Pinksand Shore · up near the tops of palm trees',
+  icon: '<svg viewBox="0 0 48 48"><circle cx="9" cy="23" r="5.5" fill="#f6e4b8" stroke="#a3c23b" stroke-width="2.5"/><circle cx="39" cy="23" r="5.5" fill="#f6e4b8" stroke="#a3c23b" stroke-width="2.5"/><ellipse cx="24" cy="23" rx="15" ry="15.5" fill="#a3c23b"/><ellipse cx="24" cy="26" rx="11.5" ry="11" fill="#f6e4b8"/><circle cx="18.5" cy="22" r="5" fill="#fff" stroke="#e9d7a8" stroke-width="1.2"/><circle cx="29.5" cy="22" r="5" fill="#fff" stroke="#e9d7a8" stroke-width="1.2"/><circle cx="19" cy="22.5" r="3.4" fill="#141218"/><circle cx="29" cy="22.5" r="3.4" fill="#141218"/><circle cx="20" cy="21.3" r="1" fill="#fff"/><circle cx="30" cy="21.3" r="1" fill="#fff"/><path d="M22.5 28.5l-.8 2M25.5 28.5l.8 2" stroke="#3a2418" stroke-width="1.4" stroke-linecap="round"/><path d="M19.5 32.5 Q24 35.5 28.5 32.5" stroke="#3a2418" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>',
+  fact: 'Speshuls are utterly convinced they\'re the most special monkey in the world, and frankly nobody has the heart to argue. Rumour has it they can also be found on the shores of Crete, lounging on the fishing boats and stealing olives.',
+  hint: 'Clings near the tops of palm trees and leaps to the next tree the moment you start climbing after it. Knock it out of its tree with a well-aimed rock instead, then net it while it runs about the sand in a panic. Be quick: it soon scampers back up a tree.'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -2433,6 +2684,7 @@ function scrumblyCandidates() {
   const out = [];
   for (const b of bobos) if (b.root.visible && b.sink < 0.5 && b.state !== 'caught') out.push({ o: b, id: 'bobo', y: 0.35 * b.s });
   for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
+  for (const m of speshuls) if (m.root.visible && m.state !== 'caught') out.push({ o: m, id: 'speshul', y: 0.4 * m.s });
   return out;
 }
 function findScanTarget(slack = 1) {
@@ -2814,7 +3066,7 @@ function refreshResidents() {
   const pool = boxSlots.filter(Boolean).slice().sort(() => Math.random() - 0.5).slice(0, RESIDENTS_MAX);
   residents = pool.map(p => {
     const water = p.species === 'mermiggly';
-    const c = water ? makeMermMesh() : makeBoboMesh();
+    const c = makeSpeciesMesh(p.species);
     applySize(c, p.size);
     const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = (water ? 1.5 : 1.15);
     tag.scale.multiplyScalar(1 / c.s);
@@ -2996,7 +3248,7 @@ function syncPartner() {
   partner = null;
   if (!p) return;
   const water = p.species === 'mermiggly';
-  const c = water ? makeMermMesh() : makeBoboMesh();
+  const c = makeSpeciesMesh(p.species);
   applySize(c, p.size);
   const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = water ? 1.5 : 1.15; tag.scale.multiplyScalar(1 / c.s);
   // appear just behind you with a little puff
@@ -3091,6 +3343,7 @@ const BOND_LINES = [
 const BOND_SPECIES_LINES = {
   bobo: ['{name} is glowing just a tiny bit.', '{name} hasn\'t felt like hiding in the sand all day.', '{name} is puffed up with pride. Literally.', '{name} feels squishy-soft and safe.'],
   mermiggly: ['{name} waved at you. Then waved again, just in case.', '{name} blew you a little bubble.', '{name} did a happy ribbit.']
+  ,speshul: ['{name} is utterly convinced it’s the most special monkey alive. It might be right.', '{name} is eyeing up that palm tree. It’ll stay with you, though.', '{name} did a little cartwheel to impress you.', '{name} is wondering whether you’d like to see Crete one day.', '{name} chattered something that definitely meant "you’re great".']
 };
 let bondTimer = 70 + Math.random() * 50, bondBag = [];
 const bondEl = document.getElementById('bond');
@@ -3151,6 +3404,7 @@ function tick(dt) {
   if (playing) updateViewmodel(dt);
   updateBobos(dt);
   updateMermigglies(dt);
+  updateSpeshuls(dt);
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -3203,6 +3457,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
