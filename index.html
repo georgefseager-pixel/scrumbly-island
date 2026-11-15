@@ -552,10 +552,10 @@ const MAX_DEPTH = 1.05;      // deepest the player may wade (metres)
 const INLAND_LIMIT = 70;     // where the beach ends and the hedge around Glimmerwood begins
 /* Glimmerwood, the forest ring: a hedge (d 70..74.5) with four gaps, forest floor out to FOREST_OUT,
    a river winding right round it, then a bramble thicket and the hills of the island's heart (for later) */
-const HEDGE_OUT = 74.5, FOREST_OUT = 112;
+const HEDGE_OUT = 74.5, FOREST_OUT = 142;
 const GAP_TH = [0, 1, 2, 3].map(k => 0.65 + k * Math.PI / 2);
 const RIVER_HALF = 4.4, RIVER_DEPTH = 1.0;
-const riverD = th => 93 + 4 * Math.sin(2 * th + 1) + 2.5 * Math.sin(5 * th + 2);
+const riverD = th => 108 + 7 * Math.sin(2 * th + 1) + 3.5 * Math.sin(5 * th + 2);
 const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 // metres along the hedge to the nearest gap
 function gapArc(x, z) { const th = Math.atan2(z, x), r = Math.hypot(x, z); let best = 1e9; for (const g of GAP_TH) best = Math.min(best, angGap(th, g) * r); return best; }
@@ -566,9 +566,10 @@ function forestFloor(x, z, d) {
 }
 const riverOff = (x, z, d) => d - riverD(Math.atan2(z, x));      // signed distance across the river (roughly metres)
 const riverCut = (x, z, d) => { const o = Math.abs(riverOff(x, z, d)); return o > RIVER_HALF ? 0 : RIVER_DEPTH * (1 - smooth(RIVER_HALF * 0.45, RIVER_HALF, o)); };
+const ISLAND_R = 185;        // average radius of the shoreline
 function shoreR(theta) {
   const c = Math.cos(theta), s = Math.sin(theta);
-  return 150 + 10 * Math.sin(3 * theta + 0.7) + 6 * Math.sin(5 * theta + 2.1) + 2.5 * Math.sin(9 * theta + 0.3) + (vnoise(c * 2.5 + 10, s * 2.5 + 10) - 0.5) * 10;
+  return ISLAND_R + 10 * Math.sin(3 * theta + 0.7) + 6 * Math.sin(5 * theta + 2.1) + 2.5 * Math.sin(9 * theta + 0.3) + (vnoise(c * 2.5 + 10, s * 2.5 + 10) - 0.5) * 10;
 }
 function inland(x, z) { return shoreR(Math.atan2(z, x)) - Math.hypot(x, z); }
 function heightAt(x, z) {
@@ -668,7 +669,7 @@ const vcLambert = (opts = {}) => new THREE.MeshLambertMaterial(Object.assign({ v
 /* =========================================================
    Terrain
    ========================================================= */
-const TERRAIN_SIZE = 460, TERRAIN_SEG = 230;
+const TERRAIN_SIZE = 520, TERRAIN_SEG = 250;
 {
   const geo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEG, TERRAIN_SEG);
   geo.rotateX(-Math.PI / 2);
@@ -702,9 +703,22 @@ const TERRAIN_SIZE = 460, TERRAIN_SEG = 230;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const terrain = new THREE.Mesh(geo, vcLambert());
-  terrain.receiveShadow = true;
-  scene.add(terrain);
+  // cut the ground into tiles, so only the ones in view get drawn (normals come from the whole, so no seams)
+  const terrainMat = vcLambert(), TILES = 5, TS = TERRAIN_SEG / TILES, row = TERRAIN_SEG + 1;
+  const P = geo.attributes.position.array, Nn = geo.attributes.normal.array, Cc = geo.attributes.color.array;
+  for (let tj = 0; tj < TILES; tj++) for (let ti = 0; ti < TILES; ti++) {
+    const n = (TS + 1) * (TS + 1), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), idx = [];
+    for (let j = 0; j <= TS; j++) for (let i = 0; i <= TS; i++) {
+      const src = ((tj * TS + j) * row + ti * TS + i) * 3, dst = (j * (TS + 1) + i) * 3;
+      for (let k = 0; k < 3; k++) { pos[dst + k] = P[src + k]; nor[dst + k] = Nn[src + k]; col[dst + k] = Cc[src + k]; }
+      if (i < TS && j < TS) { const a = j * (TS + 1) + i, b = a + 1, c = a + TS + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(idx); g.computeBoundingSphere();
+    const tile = new THREE.Mesh(g, terrainMat); tile.receiveShadow = true; scene.add(tile);
+  }
+  geo.dispose();
 
   const seabed = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshLambertMaterial({ color: 0x6c8fb8 }));
   seabed.rotation.x = -Math.PI / 2; seabed.position.y = -14.05;
@@ -867,8 +881,8 @@ function trunkAt(p, wy, out) {
   const spots = [];
   let tries = 0;
   // a few groves plus loose singles
-  const groveCenters = Array.from({ length: 16 }, () => [rr(0, Math.PI * 2), rr(25, 55)]);
-  while (spots.length < 130 && tries++ < 8000) {
+  const groveCenters = Array.from({ length: 20 }, () => [rr(0, Math.PI * 2), rr(25, 55)]);
+  while (spots.length < 165 && tries++ < 9000) {
     let theta, d;
     if (rand() < 0.6) { const g = pick(groveCenters); theta = g[0] + rr(-0.09, 0.09); d = g[1] + rr(-12, 12); }
     else { theta = rr(0, Math.PI * 2); d = rr(10, 64); }
@@ -1000,7 +1014,7 @@ const blobGeo = new THREE.IcosahedronGeometry(1, 1);
 const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 });
 {
   const bushes = [], flowers = [];
-  const steps = 270;
+  const steps = 330;
   for (let i = 0; i < steps; i++) {
     for (let row = 0; row < 2; row++) {
       const th = (i / steps) * Math.PI * 2 + rr(-0.006, 0.006) + row * 0.012, d = INLAND_LIMIT + 1.6 + row * 2.0 + rr(-0.3, 0.3), [x, z] = polar(th, d);
@@ -1046,7 +1060,7 @@ function forestSpot(minGap, list, tries = 60) {
   for (let i = 0; i < tries; i++) {
     const th = rr(0, Math.PI * 2), d = rr(HEDGE_OUT + 2, FOREST_OUT - 3), [x, z] = polar(th, d);
     if (!forestFree(x, z, d)) continue;
-    if (bridges.some(b => Math.hypot(b.cx - x, b.cz - z) < 8)) continue;
+    if (bridges.some(b => Math.hypot(b.cx - x, b.cz - z) < b.L + 3)) continue;
     if (list.some(o => Math.hypot(o.x - x, o.z - z) < minGap)) continue;
     return { x, z, d, th };
   }
@@ -1079,15 +1093,20 @@ const riverTex = (() => {
 // little arched wooden bridges over the river (you can walk on these)
 {
   for (const th of BRIDGE_TH) {
-    const d = riverD(th), [cx, cz] = polar(th, d), ox = Math.cos(th), oz = Math.sin(th), L = 5.4;
-    const y0 = Math.max(heightAt(cx + ox * L, cz + oz * L), heightAt(cx - ox * L, cz - oz * L)) + 0.02;
-    const parts = [], arch = s => 0.55 * (1 - (s / L) * (s / L));
+    const d = riverD(th), [cx, cz] = polar(th, d), ox = Math.cos(th), oz = Math.sin(th), tx = -oz, tz = ox;
+    const dry = s => [-1.3, 0, 1.3].every(l => { const x = cx + ox * s + tx * l, z = cz + oz * s + tz * l; return riverCut(x, z, inland(x, z)) < 0.02; });
+    let L = 5; while (L < 11 && !(dry(L) && dry(-L))) L += 0.25;
+    L += 0.6;                                                 // ends tuck a little way into the bank
+    const yA = heightAt(cx - ox * L, cz - oz * L), yB = heightAt(cx + ox * L, cz + oz * L), y0 = 0;
+    const parts = [], arch = s => lerp(yA, yB, (s + L) / (2 * L)) + 0.65 * (1 - (s / L) * (s / L)) - 0.04;
     for (let s = -L + 0.25; s < L; s += 0.5) parts.push(bake(new THREE.BoxGeometry(0.44, 0.1, 2.5), pick([0xc89060, 0xb98352, 0xd59e6a])).translate(s, arch(s) + 0.03, 0));
     [-1, 1].forEach(side => {
       for (let s = -L + 0.3, k = 0; s <= L; s += (2 * L - 0.6) / 6, k++) parts.push(bake(new THREE.CylinderGeometry(0.07, 0.08, 0.85, 6), 0x8a5a33).translate(s, arch(s) + 0.45, side * 1.2));
       for (let s = -L + 0.3; s < L - 0.3; s += 0.5) parts.push(bake(new THREE.BoxGeometry(0.52, 0.07, 0.08), 0x9a6a40).translate(s + 0.25, arch(s + 0.25) + 0.85, side * 1.2));
       // lanterns on the middle posts
       parts.push(bake(new THREE.SphereGeometry(0.12, 8, 6), 0xfff1a8).translate(0, arch(0) + 1.0, side * 1.2));
+      // feet where the ends meet the banks
+      [-L + 0.2, L - 0.2].forEach(s => parts.push(bake(new THREE.BoxGeometry(0.5, 0.5, 0.25), 0x8a5a33).translate(s, arch(s) - 0.2, side * 1.1)));
     });
     const m = new THREE.Mesh(merge(parts), vcLambert({ emissive: 0x150c04 }));
     m.position.set(cx, y0, cz); m.rotation.y = -th; m.castShadow = m.receiveShadow = true; scene.add(m);
@@ -1098,22 +1117,22 @@ const riverTex = (() => {
 function groundAt(x, z) {
   const h = heightAt(x, z);
   for (const b of bridges) {
-    const dx = x - b.cx, dz = z - b.cz; if (Math.abs(dx) > 7 || Math.abs(dz) > 7) continue;
+    const dx = x - b.cx, dz = z - b.cz; if (Math.abs(dx) > 13 || Math.abs(dz) > 13) continue;
     const along = dx * b.ox + dz * b.oz, lat = -dx * b.oz + dz * b.ox;
     if (Math.abs(along) < b.L && Math.abs(lat) < 1.3) return Math.max(h, b.y0 + b.arch(along) + 0.08);
   }
   return h;
 }
 // apple trees: climbable (they join the palms for climbing and bumping into), with apples in the canopy
-const APPLE_TREES = 22, appleTrees = [];
-const appleMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 10, 8), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x220606 }), APPLE_TREES * 5);
+const APPLE_TREES = 34, appleTrees = [];
+const appleMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.14, 12, 9).scale(1, 0.92, 1), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x220606 }), APPLE_TREES * 5);
 {
   const crownMat = vcLambert({ flatShading: true }), canopies = [0, 1, 2].map(v => {
     const parts = [];
-    [[0, 1.1, 0, 1.9], [1.2, 0.8, 0.3, 1.3], [-1.1, 0.85, -0.4, 1.35], [0.2, 0.8, 1.2, 1.25], [-0.3, 0.9, -1.2, 1.3], [0, 2.0, 0, 1.3]].forEach(([x, y, z, r], k) => parts.push(bake(new THREE.IcosahedronGeometry(r, 1), [0x4fb56a, 0x5cc277, 0x63c879, 0x45a862][(k + v) % 4]).translate(x, y, z)));
-    [[0.6, 0.2, 0], [-0.5, 0.25, 0.3], [0, 0.3, -0.6]].forEach(([x, y, z]) => parts.push(bake(new THREE.CylinderGeometry(0.06, 0.12, 1.3, 5), 0x7d5a3c).rotateZ(x * 1.2).rotateX(z * 1.2).translate(x * 0.7, y + 0.4, z * 0.7)));
+    [[0, 2.0, 0, 1.9], [1.2, 1.75, 0.3, 1.3], [-1.1, 1.8, -0.4, 1.35], [0.2, 1.75, 1.2, 1.25], [-0.3, 1.85, -1.2, 1.3], [0, 2.9, 0, 1.3]].forEach(([x, y, z, r], k) => parts.push(bake(new THREE.IcosahedronGeometry(r, 1), [0x4fb56a, 0x5cc277, 0x63c879, 0x45a862][(k + v) % 4]).translate(x, y, z)));
+    [[0.6, 0.2, 0], [-0.5, 0.25, 0.3], [0, 0.3, -0.6]].forEach(([x, y, z]) => parts.push(bake(new THREE.CylinderGeometry(0.06, 0.12, 1.3, 5), 0x7d5a3c).rotateZ(x * 1.2).rotateX(z * 1.2).translate(x * 0.7, y + 0.75, z * 0.7)));
     // little white blossoms
-    for (let k = 0; k < 14; k++) { const a = k * 2.39 + v, e = (k % 5) / 5; parts.push(bake(new THREE.SphereGeometry(0.11, 6, 4), k % 3 ? 0xffffff : 0xffc6e0).translate(Math.cos(a) * 1.9 * (1 - e * 0.4), 1.0 + e * 1.4, Math.sin(a) * 1.9 * (1 - e * 0.4))); }
+    for (let k = 0; k < 14; k++) { const a = k * 2.39 + v, e = (k % 5) / 5; parts.push(bake(new THREE.SphereGeometry(0.11, 6, 4), k % 3 ? 0xffffff : 0xffc6e0).translate(Math.cos(a) * 1.9 * (1 - e * 0.4), 1.75 + e * 1.4, Math.sin(a) * 1.9 * (1 - e * 0.4))); }
     return merge(parts);
   });
   const trunkGeos = [], placed = [];
@@ -1135,7 +1154,7 @@ const appleMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 10, 8),
     const apples = [];
     for (let k = 0; k < 5; k++) {
       const a = k / 5 * Math.PI * 2 + rr(-0.3, 0.3), rad = rr(1.2, 1.7);
-      const ap = { idx: ai++, x: crown.position.x + Math.cos(a) * rad, y: crown.position.y + rr(0.05, 0.45), z: crown.position.z + Math.sin(a) * rad, on: true, t: 0 };
+      const ap = { idx: ai++, x: crown.position.x + Math.cos(a) * rad, y: crown.position.y + rr(-0.2, 0.3), z: crown.position.z + Math.sin(a) * rad, on: true, t: 0 };
       apples.push(ap);
     }
     const tree = { x, y, z, H, lean, ux, uz, scale, crown, phase: rand() * 10, baseRot: crown.rotation.y, apple: true, apples };
@@ -1148,14 +1167,14 @@ const appleMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 10, 8),
   appleMesh.instanceMatrix.needsUpdate = true; if (appleMesh.instanceColor) appleMesh.instanceColor.needsUpdate = true;
   appleMesh.castShadow = true; scene.add(appleMesh);
 }
-function showApple(ap, on) {
-  ap.on = on; dummy.position.set(ap.x, ap.y, ap.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(on ? 1 : 0); dummy.updateMatrix();
+function showApple(ap, on, size = 1) {
+  ap.on = on; dummy.position.set(ap.x, ap.y, ap.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(on ? size : 0); dummy.updateMatrix();
   appleMesh.setMatrixAt(ap.idx, dummy.matrix); appleMesh.instanceMatrix.needsUpdate = true;
 }
 // big fairy trees with pastel canopies, some strung with glowing fairy lights
 {
   const trunks = [], tops = [], lights = [], placed = [];
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 190; i++) {
     const sp = forestSpot(6.5, placed.concat(appleTrees)); if (!sp) continue;
     placed.push(sp);
     const { x, z } = sp, y = heightAt(x, z), h = rr(4.5, 8), r = rr(0.45, 0.7), s = rr(2.6, 4);
@@ -1168,9 +1187,9 @@ function showApple(ap, on) {
     if (rand() < 0.55) for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + rr(-0.2, 0.2); lights.push({ x: x + Math.cos(a) * s * 0.95, z: z + Math.sin(a) * s * 0.95, y: y + h - s * 0.15 + rr(-0.2, 0.2), s: 0.11, c: pick([0xfff1a8, 0xffc6f0, 0xb8f4ff]) }); }
     forestColliders.push({ x, z, r: r + 0.05 });
   }
-  instanced(new THREE.CylinderGeometry(0.4, 0.55, 1, 7), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true, far: 400, slices: 8 });
-  instanced(blobGeo, flatMat, tops, { cast: true, receive: true, far: 600, slices: 8 });
-  instanced(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), lights, { far: 200, slices: 8 });
+  instanced(new THREE.CylinderGeometry(0.4, 0.55, 1, 7), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true, far: 300, slices: 12 });
+  instanced(blobGeo, flatMat, tops, { cast: true, receive: true, far: 280, slices: 12 });
+  instanced(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), lights, { far: 150, slices: 8 });
 }
 // tree stumps (some with toadstools growing on them), toadstools, glowing mushrooms, mossy rocks
 {
@@ -1180,7 +1199,7 @@ function showApple(ap, on) {
     caps.push({ x, z, y: y + 0.45 * s, ry: rr(0, 6), s: [s, s * 0.8, s], c });
     for (let k = 0; k < 5; k++) { const a = k * 1.3 + rr(0, 0.5), e = rr(0.3, 1.1); dots.push({ x: x + Math.cos(a) * Math.cos(e) * 0.28 * s, z: z + Math.sin(a) * Math.cos(e) * 0.28 * s, y: y + 0.45 * s + Math.sin(e) * 0.22 * s, s: 0.045 * s, c: 0xffffff }); }
   };
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 80; i++) {
     const sp = forestSpot(5, placed.concat(forestColliders)); if (!sp) continue;
     placed.push(sp);
     const { x, z } = sp, y = heightAt(x, z), r = rr(0.5, 0.9), h = rr(0.5, 1.1);
@@ -1189,19 +1208,19 @@ function showApple(ap, on) {
     forestColliders.push({ x, z, r: r + 0.05 });
     if (rand() < 0.6) toadstool(x + r * 0.3, z, y + h - 0.1, rr(0.35, 0.55), pick([0xe8283c, 0xff6a3d, 0xc94cff]));
   }
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 360; i++) {
     const sp = forestSpot(0.8, []); if (!sp) continue;
     const big = rand() < 0.08, s = big ? rr(1.8, 2.8) : rr(0.4, 0.9);
     toadstool(sp.x, sp.z, heightAt(sp.x, sp.z) - 0.02, s, pick([0xe8283c, 0xe8283c, 0xff6a3d, 0xff7fb0, 0xc94cff]));
     if (big) forestColliders.push({ x: sp.x, z: sp.z, r: 0.2 * s });
   }
   // clusters of softly glowing mushrooms
-  for (let i = 0; i < 110; i++) {
+  for (let i = 0; i < 200; i++) {
     const sp = forestSpot(0.5, []); if (!sp) continue;
     const c = pick([0x7ff7ff, 0xd38cff, 0x9fffc0, 0xff9ce6]), y = heightAt(sp.x, sp.z);
     for (let k = 0; k < 4; k++) { const a = rr(0, 6.28), o = rr(0, 0.5), s = rr(0.12, 0.26); glows.push({ x: sp.x + Math.cos(a) * o, z: sp.z + Math.sin(a) * o, y: y + s * 0.9, s: [s, s * 0.6, s], c }); stems.push({ x: sp.x + Math.cos(a) * o, z: sp.z + Math.sin(a) * o, y: y + s * 0.4, s: [s * 0.5, s * 1.2, s * 0.5], c: 0xf4f0ff }); }
   }
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 70; i++) {
     const sp = forestSpot(3, placed); if (!sp) continue;
     const s = rr(0.5, 1.3); mossy.push({ x: sp.x, z: sp.z, y: heightAt(sp.x, sp.z) + s * 0.2, rx: rr(0, 3), ry: rr(0, 3), s: [s * 1.3, s * 0.8, s], c: pick([0x9fb8a6, 0x8fb39a, 0xa6b4c8]) });
     if (s > 1) forestColliders.push({ x: sp.x, z: sp.z, r: s * 0.9 });
@@ -1217,35 +1236,35 @@ function showApple(ap, on) {
 // colourful flowers and ferns all over the forest floor
 {
   const heads = [], stalks = [], ferns = [];
-  for (let c = 0; c < 420; c++) {
+  for (let c = 0; c < 780; c++) {
     const sp = forestSpot(0, [], 20); if (!sp) continue;
     const col = pick([0xff4f8b, 0xff7fb0, 0xffd23f, 0xb48cff, 0x7fd8ff, 0xffffff, 0xff8a3d, 0xd38cff]);
-    for (let k = 0; k < 6; k++) {
+    for (let k = 0; k < 5; k++) {
       const a = rr(0, 6.28), o = rr(0, 1.6), x = sp.x + Math.cos(a) * o, z = sp.z + Math.sin(a) * o, y = heightAt(x, z), h = rr(0.25, 0.55);
       stalks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x4fa060 });
       heads.push({ x, z, y: y + h, s: rr(0.07, 0.12), c: col });
     }
   }
-  for (let c = 0; c < 260; c++) {
+  for (let c = 0; c < 480; c++) {
     const sp = forestSpot(0, [], 20); if (!sp) continue;
     for (let k = 0; k < 6; k++) { const a = rr(0, 6.28), x = sp.x + Math.cos(a) * rr(0, 0.6), z = sp.z + Math.sin(a) * rr(0, 0.6); ferns.push({ x, z, y: heightAt(x, z) + 0.3, rx: rr(-0.5, 0.5), rz: rr(-0.5, 0.5), ry: rr(0, 6), s: [1, rr(0.8, 1.5), 1], c: pick([0x4fb56a, 0x63c879, 0x3fa060, 0x7fd08a]) }); }
   }
   instanced(new THREE.CylinderGeometry(0.012, 0.016, 1, 3, 1, true), new THREE.MeshLambertMaterial({ color: 0xffffff }), stalks, { far: 80, slices: 8 });
-  instanced(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x221122 }), heads, { far: 110, slices: 8 });
+  instanced(new THREE.OctahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x221122 }), heads, { far: 90, slices: 8 });
   instanced(new THREE.ConeGeometry(0.09, 0.8, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), ferns, { far: 90, slices: 8 });
 }
 // the bramble thicket around the island's heart (somewhere to explore another day), and the deep woods beyond
 {
   const bushes = [], berries = [], trunks = [], tops = [];
-  const steps = 200;
+  const steps = 230;
   for (let i = 0; i < steps; i++) for (let row = 0; row < 2; row++) {
     const th = i / steps * Math.PI * 2 + rr(-0.01, 0.01) + row * 0.015, d = FOREST_OUT + 0.8 + row * 2.2 + rr(-0.4, 0.4), [x, z] = polar(th, d), s = rr(1.8, 2.7);
     const y = heightAt(x, z) + s * 0.55;
     bushes.push({ x, z, y, ry: rr(0, 6), s: [s * 1.1, s * 1.2, s * 1.1], c: pick([0x2f6a52, 0x35604f, 0x3e5a6e, 0x4a4a72]) });
     if (rand() < 0.5) for (let k = 0; k < 3; k++) { const a = rr(0, 6.28), e = rr(0, 1); berries.push({ x: x + Math.cos(a) * s * Math.cos(e), z: z + Math.sin(a) * s * Math.cos(e), y: y + Math.sin(e) * s, s: 0.12, c: pick([0xd38cff, 0xff4f8b, 0x7f8cff]) }); }
   }
-  for (let i = 0; i < 170; i++) {
-    const th = rr(0, Math.PI * 2), d = rr(FOREST_OUT + 6, 150), [x, z] = polar(th, d);
+  for (let i = 0; i < 200; i++) {
+    const th = rr(0, Math.PI * 2), d = rr(FOREST_OUT + 6, ISLAND_R - 2), [x, z] = polar(th, d);
     if (Math.hypot(x, z) < 3) continue;
     const y = heightAt(x, z), h = rr(5, 9), s = rr(3, 5);
     trunks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x6d5a52 });
@@ -1721,6 +1740,8 @@ function updatePlayer(dt) {
       const cb = Math.sin(player.climb.phase * 2) * 0.03;
       camera.position.set(player.x, player.y + 1.65 + cb, player.z);
       camera.fov = lerp(camera.fov, 72, Math.min(1, dt * 5)); camera.updateProjectionMatrix();
+      targetTreeApple = findTreeApple();
+      if (pickQueued && targetTreeApple) pickTreeApple(targetTreeApple);
       swingQueued = pickQueued = false; targetRock = null; updatePrompt();
       return;
     }
@@ -1979,7 +2000,7 @@ function makeBoboMesh() {
   return { root, body, eyes, mouth, ex, stars };
 }
 
-const ALERT_R = 6, REAPPEAR_R = 12, STUN_T = 5, BOBO_COUNT = 10;
+const ALERT_R = 6, REAPPEAR_R = 12, STUN_T = 5, BOBO_COUNT = 12;
 const bobos = [];
 let caughtCount = 0;
 const beachPalms = palms.filter(p => inland(p.x, p.z) < INLAND_LIMIT - 4);
@@ -2442,7 +2463,7 @@ function makeMermMesh() {
 }
 
 const MERM_CROSS = new THREE.Color(0xff7a6b);
-const MERM_COUNT = 5, MERM_ALERT_R = 9;
+const MERM_COUNT = 6, MERM_ALERT_R = 9;
 const mermigglies = [];
 const depthAt = (x, z) => water.position.y - heightAt(x, z);
 function waterSpot(cx, cz, rMin, rMax, dMin, dMax, awayFrom, awayDist) {
@@ -3495,7 +3516,7 @@ function makeBeeangyMesh() {
   [-1, 1].forEach(s => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.025, 0.03), brow); b.position.set(s * 0.22, 0.14, 0.41); b.rotation.z = s * 0.45; b.castShadow = true; c.body.add(b); });
   return c;
 }
-const BEE_COUNT = 4, BEE_LOW = 1.0, BEE_HIGH = 6.0, BEE_PERIOD = 12;
+const BEE_COUNT = 5, BEE_LOW = 1.0, BEE_HIGH = 6.0, BEE_PERIOD = 12;
 const beeappies = [];
 function beeGround(x, z) { return Math.max(heightAt(x, z), water.position.y); }
 function newBeeappy(x, z) {
@@ -4152,7 +4173,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
+  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -6762,21 +6783,34 @@ const heldAppleMesh = new THREE.Mesh(appleGeo, new THREE.MeshLambertMaterial({ v
 heldAppleMesh.visible = false; heldAppleMesh.scale.setScalar(0.9); viewScene.add(heldAppleMesh);
 const appleShots = Array.from({ length: 16 }, () => { const m = new THREE.Mesh(appleGeo, new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xe8283c, emissive: 0x300606 })); m.visible = false; m.castShadow = true; scene.add(m); return { mesh: m, state: 'gone', x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, bounces: 0, t: 0 }; });
 let targetApple = null, appleHints = {};
-function gatherApples(dt) {
-  const c = player.climb;
-  if (!c || !c.p.apple) return;
-  const p = c.p;
-  if (player.y < p.y + p.H - 1.75 - 0.5) return;
-  const ready = p.apples.filter(a => a.on);
-  if (!ready.length) { if (!p.emptyHint) { p.emptyHint = true; toast('No apples left on this tree. They’ll grow back in a while.'); } return; }
-  const room = MAX_APPLES - inv.apples;
-  if (room <= 0) { if (!appleHints.full) { appleHints.full = true; toast(`Your pockets are full of apples! (${MAX_APPLES} max)`); } return; }
-  const got = ready.slice(0, room);
-  got.forEach(a => { showApple(a, false); a.t = rr(...APPLE_REGROW); });
-  inv.apples += got.length; inv.owned.apple = true; p.emptyHint = false; renderHotbar(); sfx.pickup();
+let targetTreeApple = null, appleGlow = null;
+// the apple you're looking at while up an apple tree (it swells a little so you can tell)
+function findTreeApple() {
+  let best = null, bestScore = Infinity;
+  if (player.climb && inv.apples < MAX_APPLES) {
+    camera.getWorldDirection(_dir);
+    for (const t of appleTrees) {
+      if (Math.abs(t.x - player.x) > 6 || Math.abs(t.z - player.z) > 6) continue;
+      for (const a of t.apples) {
+        if (!a.on) continue;
+        _to.set(a.x - camera.position.x, a.y - camera.position.y, a.z - camera.position.z);
+        const dd = _to.length(); if (dd > 2.9) continue;
+        const ang = Math.acos(clamp(_to.normalize().dot(_dir), -1, 1)); if (ang > 0.6) continue;
+        const score = ang + dd * 0.1; if (score < bestScore) { bestScore = score; best = a; }
+      }
+    }
+  }
+  if (best !== appleGlow) { if (appleGlow && appleGlow.on) showApple(appleGlow, true); appleGlow = best; if (best) showApple(best, true, 1.2); }
+  if (player.climb && player.climb.p.apple && !appleHints.climb && player.y > player.climb.p.y + player.climb.p.H - 2.6) { appleHints.climb = true; toast('Apples! Look at one and press E to pick it.'); }
+  if (player.climb && player.climb.p.apple && inv.apples >= MAX_APPLES && !appleHints.full && player.y > player.climb.p.y + player.climb.p.H - 2.6) { appleHints.full = true; toast(`Your pockets are full of apples! ( max)`); }
+  return best;
+}
+function pickTreeApple(a) {
+  showApple(a, false); a.t = rr(...APPLE_REGROW); appleGlow = null; targetTreeApple = null;
+  inv.apples++; inv.owned.apple = true; renderHotbar(); sfx.pickup();
   const el = hotbarEl.children[inv.slots.indexOf('apple')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-  toast(appleHints.first ? `+${got.length} apple${got.length === 1 ? '' : 's'}!` : `You picked ${got.length} apple${got.length === 1 ? '' : 's'}! Press 6 to get them out and throw them like rocks. Scrumblies might like them...`);
-  appleHints.first = true; saveGame();
+  if (!appleHints.first) { appleHints.first = true; toast('Got an apple! Press 6 to get it out and throw it like a rock. Scrumblies might like them...'); }
+  saveGame();
 }
 function throwApple() {
   if (player.climb || inv.apples <= 0) return;
@@ -6848,7 +6882,7 @@ function pickUpApple(a) {
 }
 
 /* ---------- fireflies and fairy sparkles drifting through the forest ---------- */
-const FIREFLY_N = 420;
+const FIREFLY_N = 650;
 const fireflies = (() => {
   const pos = new Float32Array(FIREFLY_N * 3), col = new Float32Array(FIREFLY_N * 3), base = [], c = new THREE.Color();
   for (let i = 0; i < FIREFLY_N; i++) {
@@ -6879,7 +6913,7 @@ function updateFireflies() {
 const giantBee = (() => {
   const c = compactCreature(makeBeeappyMesh());
   c.root.scale.setScalar(36); c.root.traverse(o => { o.castShadow = false; });
-  return Object.assign(c, { ang: Math.random() * 6.28, R: 230, buzzT: 20 });
+  return Object.assign(c, { ang: Math.random() * 6.28, R: 270, buzzT: 20 });
 })();
 function updateGiantBee(dt) {
   const g = giantBee;
@@ -6911,7 +6945,7 @@ function updateForest(dt) {
   updateGiantBee(dt);
   updateFireflies();
   updateApples(dt);
-  gatherApples(dt);
+  if (!player.climb && (appleGlow || targetTreeApple)) targetTreeApple = findTreeApple();   // climbed down: stop highlighting
   for (const t of appleTrees) for (const a of t.apples) if (!a.on) { a.t -= dt; if (a.t <= 0) showApple(a, true); }
   // the banner
   const here = inland(player.x, player.z) > HEDGE_OUT + 0.5 ? 'forest' : 'beach';
