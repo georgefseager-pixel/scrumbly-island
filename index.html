@@ -59,8 +59,32 @@
           padding: 7px 12px; cursor: pointer; box-shadow: 0 3px 0 rgba(44,37,82,.2); }
   #crosshair { left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,250,246,.85); box-shadow: 0 0 0 2px rgba(226,72,127,.5); }
 
-  #pause { position: fixed; inset: 0; z-index: 18; display: grid; place-items: center; background: rgba(44,37,82,.25); cursor: pointer; }
-  #pause div { font-family: var(--display); font-weight: 700; font-size: 1.6rem; color: var(--cream); background: var(--pink); padding: 14px 26px; border-radius: 18px; box-shadow: 0 5px 0 var(--pink-deep); }
+  #pause, #saves { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; background: rgba(44,37,82,.4); padding: 16px; }
+  #saves { z-index: 32; }
+  .menu { width: min(340px, 100%); display: grid; gap: 10px; background: var(--cream); border-radius: 24px; padding: 18px; box-shadow: 0 6px 0 var(--pink-deep), 0 18px 40px rgba(44,37,82,.35); border: 4px solid var(--pink); }
+  .menu.wide { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+  .menu h2 { margin: 0 0 4px; text-align: center; font-family: var(--display); font-size: 1.8rem; color: var(--pink-deep); }
+  .menu button { font-family: var(--display); font-weight: 600; font-size: 1.05rem; border: 0; border-radius: 14px; padding: 10px 14px; cursor: pointer; background: #ffe3ec; color: var(--ink); box-shadow: 0 3px 0 rgba(226,72,127,.35); }
+  .menu button:hover, .menu button:focus-visible { background: #ffd0e0; outline: 3px solid var(--ink); outline-offset: 2px; }
+  .menu button.primary { background: var(--lagoon); color: var(--cream); box-shadow: 0 4px 0 #0d7f7b; }
+  .menu button.quiet { background: transparent; box-shadow: none; color: rgba(44,37,82,.7); font-size: .95rem; }
+  .menu-tip { margin: 0; text-align: center; font-size: .82rem; font-weight: 700; color: rgba(44,37,82,.6); min-height: 1em; }
+  #slotList { display: grid; gap: 8px; }
+  .slotrow { display: grid !important; grid-template-columns: 64px auto 1fr; align-items: center; gap: 10px; text-align: left; position: relative; }
+  .slotrow .sl { font-weight: 700; color: var(--pink-deep); }
+  .slotrow .pics { display: flex; gap: 2px; }
+  .slotrow .pics i { width: 28px; height: 28px; display: grid; place-items: center; }
+  .slotrow .pics i svg { width: 100%; height: 100%; } .slotrow .pics i.small svg { transform: scale(.7); }
+  .slotrow .info { display: grid; line-height: 1.2; } .slotrow .info small { font-family: var(--body); font-weight: 700; font-size: .75rem; color: rgba(44,37,82,.6); }
+  .slotrow.blank .info b { color: rgba(44,37,82,.45); }
+  .slotrow[disabled] { opacity: .5; cursor: default; }
+  .slotrow.armed { background: #fff3a8 !important; }
+  .slotrow .confirm { position: absolute; right: 10px; top: -9px; font-size: .7rem; background: var(--pink); color: var(--cream); padding: 1px 8px; border-radius: 8px; }
+  .file-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .file-row button[hidden] { display: none; } .file-row:has(button[hidden]) { grid-template-columns: 1fr; }
+  .title-btns { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .ghost { font-family: var(--display); font-weight: 600; font-size: 1.05rem; border: 0; border-radius: 14px; padding: 10px 16px; cursor: pointer; background: rgba(255,250,246,.9); color: var(--ink); box-shadow: 0 3px 0 rgba(44,37,82,.2); }
+  .ghost:hover, .ghost:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .continue-info { margin: -4px 0 0; font-weight: 800; font-size: .9rem; background: rgba(255,250,246,.85); padding: 4px 10px; border-radius: 10px; width: fit-content; }
 
   #prompt { left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-weight: 800; font-size: .95rem; background: rgba(255,250,246,.9);
             padding: 6px 12px; border-radius: 12px; box-shadow: 0 3px 0 rgba(44,37,82,.18); white-space: nowrap; }
@@ -262,11 +286,31 @@
       <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
     </ul>
-    <button class="play" id="playBtn">Play</button>
+    <div class="title-btns"><button class="play" id="playBtn">Play</button><button class="ghost" id="newBtn" hidden>New game</button><button class="ghost" id="titleLoad" hidden>Load game</button></div>
+    <p class="continue-info" id="continueInfo" hidden></p>
   </div>
 </div>
 
-<div id="pause" hidden><div>Paused. Click to keep exploring</div></div>
+<div id="pause" hidden>
+  <div class="menu" role="dialog" aria-label="Paused">
+    <h2>Paused</h2>
+    <button data-act="resume" class="primary">Keep exploring</button>
+    <button data-act="save">Save game</button>
+    <button data-act="load">Load game</button>
+    <button data-act="new" class="quiet">New game</button>
+    <p class="menu-tip">Your progress also autosaves as you play.</p>
+  </div>
+</div>
+<div id="saves" hidden>
+  <div class="menu wide" role="dialog" aria-labelledby="savesTitle">
+    <h2 id="savesTitle">Load game</h2>
+    <div id="slotList"></div>
+    <div class="file-row"><button id="fileExport">Download save file</button><button id="fileImport">Load from a save file…</button></div>
+    <p class="menu-tip" id="savesNote"></p>
+    <button id="savesBack" class="quiet">Back</button>
+  </div>
+</div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
 <div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–5 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div>
@@ -1090,6 +1134,18 @@ function pollPad() {
   pad.run = b(10) || b(6) || Math.hypot(pad.mx, pad.my) > 0.95; // L3 / LT / full tilt
   const now = gp.buttons.map(x => x.pressed);
   const tap = i => now[i] && !pad.prev[i];
+  if (tap(9) && playing && !menuOpen()) { if (paused) resumeGame(); else openPause(); pad.prev = now; return; }
+  if ((playing && paused) || !savesEl.hidden || !playing) {          // menus: d-pad moves between buttons, A presses, B backs out
+    const vis = [...document.querySelectorAll('#saves:not([hidden]) button:not([hidden]):not([disabled]), #pause:not([hidden]) button, #title:not([hidden]) button:not([hidden])')].filter(b => b.offsetParent && (savesEl.hidden || b.closest('#saves')));
+    if (vis.length) {
+      let i = vis.indexOf(document.activeElement);
+      if (tap(13) || tap(15)) vis[(i + 1) % vis.length].focus();
+      if (tap(12) || tap(14)) vis[(i - 1 + vis.length) % vis.length].focus();
+      if (tap(0)) { if (i < 0) vis[0].focus(); else vis[i].click(); }
+      if (tap(1)) { if (!savesEl.hidden) closeSaves(); else if (playing) resumeGame(); }
+    }
+    pad.prev = now; return;
+  }
   if (playing && boxOpen) {                           // shuffling scrumblies in the Box
     if (tap(1) || tap(9)) closeBox();
     if (tap(0)) boxActivate();
@@ -1292,7 +1348,10 @@ document.addEventListener('mousemove', e => {
 });
 const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight'];
 window.addEventListener('keydown', e => {
-  if (!playing) { if (e.code === 'Enter') startGame(); return; }
+  if (!playing) { if (e.code === 'Enter' && savesEl.hidden && document.activeElement === document.body) playBtn.click(); return; }
+  if (!savesEl.hidden && e.code === 'Escape') { closeSaves(); return; }
+  if (paused) { if (e.code === 'Escape' && savesEl.hidden && performance.now() - pausedAt > 400) resumeGame(); return; }
+  if (e.code === 'Escape' && dragLook && !menuOpen()) { openPause(); return; }
   if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (!e.repeat) dexToggleQueued = true; return; }
   if (dexOpen) { dexKey(e); e.stopImmediatePropagation(); return; }
   if (boxOpen) { boxKey(e); e.stopImmediatePropagation(); return; }
@@ -1305,6 +1364,7 @@ window.addEventListener('keyup', e => { keys[e.code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 const pauseEl = document.getElementById('pause');
+let pausedAt = 0;
 function lockPointer() {
   if (dragLook) return;
   try {
@@ -1324,10 +1384,10 @@ document.addEventListener('pointerlockchange', () => {
   if (!playing || dragLook) return;
   if (menuOpen() && !locked) return;                   // released on purpose to browse the dex
   paused = !locked; pauseEl.hidden = locked;
+  if (!locked) { pausedAt = performance.now(); savesEl.hidden = true; setTimeout(() => pauseEl.querySelector('[data-act=resume]').focus(), 0); saveGame(); }
   document.getElementById('crosshair').hidden = !locked;
   if (!locked) for (const k in keys) keys[k] = false;
 });
-pauseEl.addEventListener('click', () => { lockPointer(); canvas.focus(); });
 canvas.addEventListener('click', () => { if (playing && !dragLook && document.pointerLockElement !== canvas) lockPointer(); canvas.focus(); });
 
 const musicBtn = document.getElementById('musicBtn');
@@ -1353,7 +1413,6 @@ function startGame() {
   const area = document.getElementById('area'); area.style.opacity = 1; setTimeout(() => area.style.opacity = 0, 4200);
   canvas.focus();
 }
-document.getElementById('playBtn').addEventListener('click', startGame);
 
 /* =========================================================
    Scrumblies: the Bobo (a shy little dumpling)
@@ -2840,20 +2899,13 @@ const dexState = { scanned: new Set(), caught: new Set(), sel: 0 };
 const pad3 = n => String(n).padStart(3, '0');
 function dexMarkCaught(id) { dexState.caught.add(id); dexState.scanned.add(id); saveGame(); if (dexOpen) renderDex(); }
 
-/* ---------- save: party (with names) + Scrumblydex progress, kept in this browser ---------- */
-const SAVE_KEY = 'scrumbly-island-save-v1';
-function saveGame() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ party: party.map(p => ({ species: p.species, name: p.name, size: p.size })), box: boxSlots.map(p => p && { species: p.species, name: p.name, size: p.size }), scanned: [...dexState.scanned], caught: [...dexState.caught], metProf: typeof metProf !== 'undefined' && metProf })); } catch (e) {}
-}
-(function loadGame() {
-  let s = null;
-  try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
-  if (!s) return;
-  (s.party || []).slice(0, PARTY_MAX).forEach(p => { if (SPECIES[p.species] && p.name) addToParty(p.species, String(p.name), true, p.size); });
-  (s.box || []).slice(0, BOX_SIZE).forEach((p, i) => { if (p && SPECIES[p.species] && p.name) boxSlots[i] = makeScrumbly(p.species, String(p.name), p.size); });
-  (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
-  (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
-})();
+/* ---------- saving: an autosave plus three save slots, kept in this browser ---------- */
+const SAVE_KEY = 'scrumbly-island-save-v1';                 // the autosave (same key as older versions, so old progress carries over)
+const SLOT_KEY = i => `scrumbly-island-slot-${i}`, SAVE_SLOTS = 3;
+let autosaveOn = false;                                     // switched on once a game is under way
+function readSave(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+function writeSave(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); return true; } catch (e) { return false; } }
+function saveGame() { if (autosaveOn) writeSave(SAVE_KEY, snapshot()); }
 
 /* ---------- the device in your hand ---------- */
 const dexModel = new THREE.Group();
@@ -3317,7 +3369,7 @@ function updateResidents(dt) {
 
 /* ---------- the Box screen ---------- */
 let boxOpen = false, boxCur = { area: 'party', i: 0 }, boxHeld = null, boxDirty = false;
-let metProf = (() => { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return !!(s && s.metProf); } catch (e) { return false; } })();
+let metProf = false;
 function menuOpen() { return dexOpen || boxOpen; }
 const boxEl = document.getElementById('box'), boxPartyEl = document.getElementById('boxParty'), boxGridEl = document.getElementById('boxGrid');
 const boxSpeech = document.getElementById('boxSpeech'), boxFoot = document.getElementById('boxFoot');
@@ -3619,10 +3671,13 @@ function trapPlacement() {
 function placeTrap() {
   const s = trapPlacement();
   if (!s.ok) { sfx.dexNope(); toast('Can\'t put a trap there. Try open sand, out of the water.'); return; }
-  const g = makeTrapMesh(); g.position.set(s.x, s.y, s.z); g.rotation.y = s.yaw; setDoors(g, 1); scene.add(g);
-  traps.push({ g, x: s.x, y: s.y, z: s.z, state: 'open', occupant: null, t: 0, open: 1 });
+  spawnTrapAt(s.x, s.z, s.yaw);
   inv.traps--; renderHotbar(); throwAnim = 0; sfx.thud(); sandPuff(s.x, s.z, 8);
   if (!trapHintShown) { trapHintShown = true; toast('Trap set! Any scrumbly that wanders over it gets shut in. Press E on an empty trap to pick it back up.'); }
+}
+function spawnTrapAt(x, z, yaw) {
+  const y = heightAt(x, z), g = makeTrapMesh(); g.position.set(x, y, z); g.rotation.y = yaw; setDoors(g, 1); scene.add(g);
+  const t = { g, x, y, z, state: 'open', occupant: null, t: 0, open: 1 }; traps.push(t); return t;
 }
 // creatures a trap can grab (Mermigglies stay in the water, so never)
 function trappable() {
@@ -3639,7 +3694,7 @@ function shutTrap(t, c) {
   sfx.clank(clamp(1.2 - Math.hypot(player.x - t.x, player.z - t.z) / 40, 0.2, 1));
   if (Math.hypot(player.x - t.x, player.z - t.z) < 60) toast(`Clang! Your trap caught a ${sizeWord(c.o.size)}${SPECIES[c.id].name}! Collect it before it breaks out.`);
 }
-function releaseTrap(t, escaped) {
+function releaseTrap(t, escaped, quiet) {
   const c = t.occupant; t.state = escaped ? 'sprung' : 'open'; t.t = 0; t.occupant = null;
   if (!escaped || !c) return;
   const o = c.o;
@@ -3647,6 +3702,7 @@ function releaseTrap(t, escaped) {
   if (c.id === 'bobo') { o.y = heightAt(o.x, o.z); setState(o, 'idle'); startBurrow(o); }
   else if (c.id === 'speshul') { o.state = 'panic'; o.t = 0; o.panicT = 1.5; o.panicHome = { x: o.x, z: o.z }; o.retarget = 0; }
   else if (c.id === 'pengin') { startPenginFlee(o, true); }
+  if (quiet) return;
   sfx.wriggle();
   if (Math.hypot(player.x - t.x, player.z - t.z) < 40) toast(`Oh no! The ${SPECIES[c.id].name} broke out of your trap!`);
 }
@@ -3700,6 +3756,182 @@ function updateTraps(dt) {
   }
 }
 
+/* =========================================================
+   Save & load: autosave, three slots, save files, pause menu
+   ========================================================= */
+const TRAP_TOTAL = 3;
+const packP = p => p && { species: p.species, name: p.name, size: p.size || null };
+function snapshot() {
+  return {
+    v: 2, savedAt: Date.now(),
+    party: party.map(packP), box: boxSlots.map(packP),
+    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
+    player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
+    inv: { rocks: inv.rocks, traps: inv.traps }, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
+    music: musicOn
+  };
+}
+const unpackP = p => p && SPECIES[p.species] && p.name ? makeScrumbly(p.species, String(p.name).slice(0, 40), p.size) : null;
+function setRockCount(n) {
+  const held = rocks.filter(r => r.state === 'inv');
+  while (held.length > n) {
+    const r = held.pop(); r.state = 'ground'; r.mesh.visible = true;
+    for (let i = 0; i < 30; i++) { const [x, z] = polar(Math.random() * 6.28, 10 + Math.random() * 45); if (boboSpotOK(x, z)) { r.x = x; r.z = z; r.y = heightAt(x, z) + 0.07; r.mesh.position.set(r.x, r.y, r.z); break; } }
+  }
+  for (const r of rocks) { if (held.length >= n) break; if (r.state === 'ground') { r.state = 'inv'; r.mesh.visible = false; held.push(r); } }
+  inv.rocks = held.length;
+}
+function applySnapshot(s) {
+  s = s && typeof s === 'object' ? s : {};
+  // party, Box, Scrumblydex, the Professor
+  party.length = 0; (Array.isArray(s.party) ? s.party : []).slice(0, PARTY_MAX).map(unpackP).filter(Boolean).forEach(p => party.push(p));
+  for (let i = 0; i < BOX_SIZE; i++) boxSlots[i] = Array.isArray(s.box) ? unpackP(s.box[i]) : null;
+  // the partner rule: if the party is empty but the Box isn't, the first boxed scrumbly comes along
+  if (!party.length) { const i = boxSlots.findIndex(Boolean); if (i >= 0) { party.push(boxSlots[i]); boxSlots[i] = null; } }
+  renderPartyHud();
+  dexState.scanned.clear(); dexState.caught.clear();
+  (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
+  (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
+  metProf = !!s.metProf;
+  // where you were standing
+  const P = s.player;
+  if (P && isFinite(P.x) && isFinite(P.z) && walkable(P.x, P.z)) { player.x = P.x; player.z = P.z; player.yaw = isFinite(P.yaw) ? P.yaw : player.yaw; player.pitch = clamp(isFinite(P.pitch) ? P.pitch : 0, -1.2, 1.2); }
+  else { player.x = spawnX; player.z = spawnZ; const fx = Math.cos(spawnTheta + 0.55), fz = Math.sin(spawnTheta + 0.55); player.yaw = Math.atan2(-fx, -fz); player.pitch = -0.05; }
+  player.y = heightAt(player.x, player.z); player.vx = player.vz = player.vy = 0; player.climb = null; player.grounded = true;
+  // what's in your pockets, and traps left out on the sand
+  traps.slice().forEach(t => { if (t.occupant) releaseTrap(t, true, true); scene.remove(t.g); });
+  traps.length = 0;
+  (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, TRAP_TOTAL).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0); });
+  inv.traps = clamp(s.inv && isFinite(s.inv.traps) ? s.inv.traps : TRAP_TOTAL - traps.length, 0, TRAP_TOTAL - traps.length);
+  setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
+  inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
+  if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
+  refreshResidents(); bondBag = [];
+}
+// a short description of a save, for the slot list
+function saveSummary(s) {
+  if (!s) return null;
+  const party = (s.party || []).map(unpackP).filter(Boolean), boxed = (s.box || []).filter(Boolean).length;
+  const when = s.savedAt ? new Date(s.savedAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'an older version';
+  const lead = party[0] ? fullName(party[0]) : 'No scrumblies yet';
+  return { party, lead, boxed, caught: (s.caught || []).length, scanned: (s.scanned || []).length, when };
+}
+
+/* ---------- the saves panel (used from the title screen and the pause menu) ---------- */
+const savesEl = document.getElementById('saves'), slotList = document.getElementById('slotList'), savesTitle = document.getElementById('savesTitle'), savesNote = document.getElementById('savesNote');
+const importFile = document.getElementById('importFile');
+let savesMode = 'load', savesFrom = 'pause', armed = null;
+function openSaves(mode, from) {
+  savesMode = mode; savesFrom = from; armed = null;
+  savesTitle.textContent = mode === 'save' ? 'Save game' : 'Load game';
+  document.getElementById('fileExport').hidden = mode !== 'save';
+  document.getElementById('fileImport').hidden = mode !== 'load';
+  savesNote.textContent = '';
+  renderSlots(); savesEl.hidden = false;
+  const first = slotList.querySelector('button:not([disabled])'); if (first) first.focus();
+}
+function closeSaves() { savesEl.hidden = true; armed = null; const b = (savesFrom === 'title' ? document.getElementById('playBtn') : pauseEl.querySelector('[data-act=resume]')); if (b) b.focus(); }
+function renderSlots() {
+  const rows = [];
+  if (savesMode === 'load') rows.push({ key: SAVE_KEY, label: 'Autosave' });
+  for (let i = 1; i <= SAVE_SLOTS; i++) rows.push({ key: SLOT_KEY(i), label: `Slot ${i}` });
+  slotList.innerHTML = '';
+  rows.forEach(r => {
+    const sum = saveSummary(readSave(r.key)), b = document.createElement('button');
+    b.className = 'slotrow' + (sum ? '' : ' blank') + (armed === r.key ? ' armed' : '');
+    b.disabled = savesMode === 'load' && !sum;
+    b.innerHTML = `<span class="sl">${r.label}</span><span class="pics">${sum ? sum.party.map(p => `<i class="${p.size || ''}">${SPECIES[p.species].icon}</i>`).join('') : ''}</span>
+      <span class="info">${sum ? `<b></b><small>${sum.caught} species caught · ${sum.scanned} scanned · ${sum.boxed} in the Box · ${sum.when}</small>` : '<b>Empty</b>'}</span>
+      ${armed === r.key ? '<span class="confirm">Overwrite? Click again</span>' : ''}`;
+    if (sum) b.querySelector('.info b').textContent = sum.lead + (sum.party.length > 1 ? ` + ${sum.party.length - 1} more` : '');
+    b.addEventListener('click', () => slotChosen(r.key, sum));
+    slotList.appendChild(b);
+  });
+}
+function slotChosen(key, sum) {
+  if (savesMode === 'save') {
+    if (sum && armed !== key) { armed = key; renderSlots(); slotList.querySelector('.armed').focus(); return; }
+    const ok = writeSave(key, snapshot()); armed = null; renderSlots();
+    savesNote.textContent = ok ? 'Saved! ♥' : 'Hmm, this browser won’t let the game save here. Try "Download save file" instead.';
+    if (ok) sfx.dexDone(false);
+  } else if (sum) loadAndGo(readSave(key));
+}
+function loadAndGo(s) {
+  applySnapshot(s); savesEl.hidden = true;
+  if (savesFrom === 'title') beginGame();
+  else { resumeGame(); toast('Game loaded. Welcome back!'); }
+  sfx.dexDone(false);
+}
+document.getElementById('fileExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }), a = document.createElement('a');
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  a.href = URL.createObjectURL(blob); a.download = `scrumbly-island-save-${stamp}.json`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  savesNote.textContent = 'Save file downloaded. Keep it somewhere safe!';
+});
+document.getElementById('fileImport').addEventListener('click', () => { importFile.value = ''; importFile.click(); });
+importFile.addEventListener('change', () => {
+  const f = importFile.files && importFile.files[0]; if (!f) return;
+  f.text().then(txt => {
+    let s = null; try { s = JSON.parse(txt); } catch (e) {}
+    if (!s || typeof s !== 'object' || !('party' in s || 'box' in s)) { savesNote.textContent = 'That doesn’t look like a Scrumbly Island save file.'; return; }
+    loadAndGo(s);
+  });
+});
+document.getElementById('savesBack').addEventListener('click', closeSaves);
+
+/* ---------- pause menu ---------- */
+function resumeGame() {
+  if (!playing) return;
+  savesEl.hidden = true;
+  if (dragLook) { paused = false; pauseEl.hidden = true; canvas.focus(); return; }
+  lockPointer(); canvas.focus();
+}
+function openPause() {
+  if (!playing || paused || menuOpen()) return;
+  saveGame();
+  if (dragLook || document.pointerLockElement !== canvas) { paused = true; pausedAt = performance.now(); pauseEl.hidden = false; for (const k in keys) keys[k] = false; setTimeout(() => pauseEl.querySelector('[data-act=resume]').focus(), 0); }
+  else if (document.pointerLockElement === canvas) document.exitPointerLock();
+}
+let newArmed = false;
+pauseEl.addEventListener('click', e => {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (e.target === pauseEl) { resumeGame(); return; }
+  if (act !== 'new') { newArmed = false; pauseEl.querySelector('[data-act=new]').textContent = 'New game'; }
+  if (act === 'resume') resumeGame();
+  else if (act === 'save') openSaves('save', 'pause');
+  else if (act === 'load') openSaves('load', 'pause');
+  else if (act === 'new') {
+    const b = pauseEl.querySelector('[data-act=new]');
+    if (!newArmed) { newArmed = true; b.textContent = 'Start over? Click again'; return; }
+    newArmed = false; b.textContent = 'New game';
+    applySnapshot({}); saveGame(); resumeGame(); toast('A brand new adventure! Your save slots are still there.');
+  }
+});
+// keep the autosave fresh
+setInterval(() => { if (playing && !paused && !menuOpen()) saveGame(); }, 20000);
+addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+addEventListener('pagehide', saveGame);
+
+/* ---------- title screen: Continue / New game / Load game ---------- */
+const playBtn = document.getElementById('playBtn'), newBtn = document.getElementById('newBtn'), titleLoad = document.getElementById('titleLoad');
+let titleNewArmed = false;
+function setupTitle() {
+  const auto = saveSummary(readSave(SAVE_KEY)), any = auto || [1, 2, 3].some(i => readSave(SLOT_KEY(i)));
+  playBtn.textContent = auto ? 'Continue' : 'Play';
+  document.getElementById('continueInfo').hidden = !auto;
+  if (auto) document.getElementById('continueInfo').textContent = `${auto.lead} · ${auto.caught} species caught · ${auto.when}`;
+  newBtn.hidden = !auto; titleLoad.hidden = !any;
+}
+function beginGame() { autosaveOn = true; saveGame(); startGame(); }
+playBtn.addEventListener('click', () => { const s = readSave(SAVE_KEY); if (s) applySnapshot(s); beginGame(); });
+newBtn.addEventListener('click', () => {
+  if (!titleNewArmed) { titleNewArmed = true; newBtn.textContent = 'Replace the autosave? Click again'; return; }
+  applySnapshot({}); beginGame();
+});
+titleLoad.addEventListener('click', () => openSaves('load', 'title'));
+setupTitle();
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
@@ -3730,7 +3962,7 @@ function frame() {
 }
 function tick(dt) {
   time += dt;
-  if (playing) pollPad();
+  pollPad();
   if (playing && !paused && !menuOpen()) updatePlayer(dt);
   else if (!playing) { player.yaw += dt * 0.04; camera.position.set(player.x, player.y + 1.65, player.z); }
   camera.rotation.set(player.pitch, player.yaw, 0);
@@ -3793,6 +4025,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, nooks, traps, inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, nooks, traps, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
