@@ -2234,7 +2234,7 @@ function updateSpeshuls(dt) {
 const nooks = [];
 {
   const rockMat = new THREE.MeshLambertMaterial({ color: 0xb8a6b4 }), rockMat2 = new THREE.MeshLambertMaterial({ color: 0xa89aa8 });
-  const darkMat = new THREE.MeshBasicMaterial({ color: 0x241b2a });
+  const darkMat = new THREE.MeshBasicMaterial({ color: 0x241b2a, side: THREE.DoubleSide });
   const okSpot = (x, z) => boboSpotOK(x, z) && !inRanchZone(x, z, 5) && nooks.every(n => Math.hypot(n.x - x, n.z - z) > 24)
     && bobos.every(b => Math.hypot(b.hx - x, b.hz - z) > 8) && Math.hypot(x - spawnX, z - spawnZ) > 10
     && beachPalms.every(p => Math.hypot(p.x - x, p.z - z) > 3.2);
@@ -2251,10 +2251,14 @@ const nooks = [];
     [[-1.05, 0.2, -0.3, 0.6], [1.0, 0.15, -0.2, 0.55], [0.3, 0.9, -0.5, 0.5], [-0.6, 0.05, 0.75, 0.32], [0.75, 0.05, 0.8, 0.28]].forEach(([bx, by, bz, r], i) => {
       const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), i % 2 ? rockMat : rockMat2); b.position.set(bx, by + r * 0.4, bz); b.rotation.set(i, i * 2, 0); b.castShadow = true; g.add(b);
     });
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20, 0, Math.PI), darkMat); hole.position.set(0, 0.0, 1.27); hole.rotation.x = -0.12; g.add(hole);
-    const sill = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.06, 0.25), rockMat2); sill.position.set(0, 0.0, 1.32); g.add(sill);
+    // doorway: a dark tunnel mouth set proud of the rock, framed by a stone arch so nothing cuts into it
+    const tunnel = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.7, 24, 1, true, Math.PI / 2, Math.PI), darkMat); tunnel.rotation.x = Math.PI / 2; tunnel.position.set(0, 0, 1.15); g.add(tunnel);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.44, 24, 0, Math.PI), darkMat); hole.position.set(0, 0, 1.505); g.add(hole);
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.09, 8, 20, Math.PI), rockMat2); arch.position.set(0, 0, 1.5); arch.castShadow = true; g.add(arch);
+    [-1, 1].forEach(s => { const k = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16, 0), rockMat); k.position.set(s * 0.55, 0.05, 1.5); g.add(k); });
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.06, 0.35), rockMat2); sill.position.set(0, 0.0, 1.62); g.add(sill);
     scene.add(g);
-    nooks.push({ x, z, y, dx, dz, ex: x + dx * 1.9, ez: z + dz * 1.9, hx: x + dx * 1.15, hz: z + dz * 1.15, g });
+    nooks.push({ x, z, y, dx, dz, ex: x + dx * 2.1, ez: z + dz * 2.1, hx: x + dx * 1.2, hz: z + dz * 1.2, g });
   });
 }
 function collideNooks(x, z) {
