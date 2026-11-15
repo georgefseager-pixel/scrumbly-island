@@ -62,40 +62,24 @@
   #pause { position: fixed; inset: 0; z-index: 18; display: grid; place-items: center; background: rgba(44,37,82,.25); cursor: pointer; }
   #pause div { font-family: var(--display); font-weight: 700; font-size: 1.6rem; color: var(--cream); background: var(--pink); padding: 14px 26px; border-radius: 18px; box-shadow: 0 5px 0 var(--pink-deep); }
 
-  /* touch controls */
-  #joy { position: fixed; z-index: 12; left: calc(28px + env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-         width: 120px; height: 120px; border-radius: 50%; background: rgba(255,250,246,.3); border: 3px solid rgba(255,250,246,.7); pointer-events: none; }
-  #joy i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255,250,246,.9); }
-  #jumpBtn { position: fixed; z-index: 13; right: calc(28px + env(safe-area-inset-right, 0px)); bottom: calc(36px + env(safe-area-inset-bottom, 0px));
-             width: 84px; height: 84px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: 1.1rem;
-             background: var(--pink); color: var(--cream); box-shadow: 0 5px 0 var(--pink-deep); }
-  #netBtn { position: fixed; z-index: 13; right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
-            width: 68px; height: 68px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: 1rem;
-            background: var(--lagoon); color: var(--cream); box-shadow: 0 5px 0 #0d7f7b; }
-  #grabBtn { position: fixed; z-index: 13; right: calc(40px + env(safe-area-inset-right, 0px)); bottom: calc(136px + env(safe-area-inset-bottom, 0px));
-             width: 64px; height: 64px; border-radius: 50%; border: 0; font-family: var(--display); font-weight: 700; font-size: .95rem;
-             background: #ffd23f; color: var(--ink); box-shadow: 0 5px 0 #e59a2f; }
   #prompt { left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-weight: 800; font-size: .95rem; background: rgba(255,250,246,.9);
             padding: 6px 12px; border-radius: 12px; box-shadow: 0 3px 0 rgba(44,37,82,.18); white-space: nowrap; }
   @keyframes pop { 30% { transform: scale(1.25) rotate(-4deg); } }
   @keyframes nope { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 
-  /* inventory hotbar (bottom centre; top centre on touch so it clears the thumbs) */
+  /* inventory hotbar (bottom centre) */
   #hotbar { position: fixed; z-index: 14; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
             display: flex; gap: 6px; padding: 6px; border-radius: 18px; background: rgba(44,37,82,.35); backdrop-filter: blur(4px); }
-  .touch #hotbar { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); }
   .slot { --s: clamp(46px, 7vw, 58px); position: relative; width: var(--s); height: var(--s); padding: 5px; border: 0; border-radius: 13px; cursor: pointer;
-          background: rgba(255,250,246,.82); box-shadow: inset 0 -3px 0 rgba(44,37,82,.15); transition: transform .15s, background .15s; touch-action: manipulation; }
+          background: rgba(255,250,246,.82); box-shadow: inset 0 -3px 0 rgba(44,37,82,.15); transition: transform .15s, background .15s; }
   .slot svg { width: 100%; height: 100%; display: block; }
   .slot.empty { background: rgba(255,250,246,.28); box-shadow: inset 0 0 0 2px rgba(255,250,246,.4); cursor: default; }
   .slot.dim svg { opacity: .35; filter: grayscale(1); }
   .slot.active { background: #fff3a8; box-shadow: inset 0 0 0 3px var(--pink), 0 4px 0 var(--pink-deep); transform: translateY(-5px); }
   .slot .key { position: absolute; left: 5px; top: 3px; font-family: var(--display); font-weight: 700; font-size: .7rem; color: rgba(44,37,82,.55); }
-  .touch .slot .key { display: none; }
   .slot .count { position: absolute; right: 4px; bottom: 2px; font-family: var(--display); font-weight: 700; font-size: .95rem; color: var(--ink); text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
   .slot .name { position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%); font-family: var(--display); font-weight: 600; font-size: .8rem;
                 color: var(--cream); background: var(--ink); padding: 2px 8px; border-radius: 8px; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
-  .touch .slot .name { bottom: auto; top: calc(100% + 9px); }
   .slot.active .name { opacity: 1; }
   .slot.bump { animation: pop .4s; }
   .slot.nope { animation: nope .35s; }
@@ -147,10 +131,6 @@
 <div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–5 / scroll swap item · E pick up rock · Walk into a palm to climb · M music · Esc pause</div>
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
-<div id="joy" hidden><i></i></div>
-<button id="jumpBtn" hidden>Jump</button>
-<button id="netBtn" hidden>Net</button>
-<button id="grabBtn" hidden>Grab</button>
 <div class="hud" id="prompt" hidden></div>
 <div id="hotbar" hidden></div>
 <div id="party" hidden></div>
@@ -887,8 +867,6 @@ const player = { x: spawnX, z: spawnZ, y: heightAt(spawnX, spawnZ), vx: 0, vz: 0
 { const fx = Math.cos(spawnTheta + 0.55), fz = Math.sin(spawnTheta + 0.55); player.yaw = Math.atan2(-fx, -fz); }
 const keys = {};
 let playing = false, paused = false, dragLook = false, jumpQueued = false;
-const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
-const joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, lx: 0, ly: 0 };
 
 function walkable(x, z) { return heightAt(x, z) >= -MAX_DEPTH && inland(x, z) <= INLAND_LIMIT; }
 const toastEl = document.getElementById('toast');
@@ -953,7 +931,7 @@ function startClimb(p) {
   player.climb = { p, ang: Math.atan2(player.z - tk.z, player.x - tk.x), phase: 0, face: 0.35, lastStep: 0 };
   player.vx = player.vz = player.vy = 0; player.grounded = false;
   swing.t = -1; sfxGrab();
-  if (!climbHintShown) { climbHintShown = true; toast(isTouch ? 'Up and down to climb · Jump to leap off' : 'W / S to climb · A / D to shimmy round · Space to leap off'); }
+  if (!climbHintShown) { climbHintShown = true; toast('W / S to climb · A / D to shimmy round · Space to leap off'); }
 }
 function endClimb(jump) {
   const c = player.climb; player.climb = null; climbCooldown = jump ? 0.5 : 0.35;
@@ -1005,7 +983,6 @@ function updatePlayer(dt) {
   if (keys.KeyD || keys.ArrowRight) ix += 1;
   let run = keys.ShiftLeft || keys.ShiftRight || pad.run;
   ix += pad.mx; iz -= pad.my;
-  if (joy.active) { ix += joy.x; iz += -joy.y; if (Math.hypot(joy.x, joy.y) > 0.85) run = true; }
   const il = Math.hypot(ix, iz); if (il > 1) { ix /= il; iz /= il; }
   fwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
   right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
@@ -1114,7 +1091,7 @@ window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; }
 
 const pauseEl = document.getElementById('pause');
 function lockPointer() {
-  if (isTouch || dragLook) return;
+  if (dragLook) return;
   try {
     const p = canvas.requestPointerLock();
     if (p && p.catch) p.catch(enableDragLook);
@@ -1145,32 +1122,6 @@ function toggleMusic() {
 }
 musicBtn.addEventListener('click', e => { e.stopPropagation(); toggleMusic(); canvas.focus(); });
 
-// touch controls
-if (isTouch) {
-  document.documentElement.classList.add('touch');
-  document.getElementById('controlsList').innerHTML = '<li><kbd>Left thumb</kbd>walk, push far to run</li><li><kbd>Right thumb</kbd>look</li><li><kbd>Jump</kbd>button</li><li><kbd>Net</kbd>use item</li><li><kbd>Grab</kbd>pick up rock</li><li><kbd>Tap a slot</kbd>swap item</li><li><kbd>Walk into a palm</kbd>climb</li>';
-}
-const joyEl = document.getElementById('joy'), knob = joyEl.querySelector('i'), jumpBtn = document.getElementById('jumpBtn');
-jumpBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); jumpQueued = true; }, { passive: false });
-canvas.addEventListener('touchstart', e => {
-  if (!playing) return;
-  e.preventDefault();
-  for (const t of e.changedTouches) {
-    if (t.clientX < window.innerWidth * 0.45 && joy.id === null) { joy.id = t.identifier; joy.active = true; joy.ox = t.clientX; joy.oy = t.clientY; joy.x = joy.y = 0; }
-    else if (look.id === null) { look.id = t.identifier; look.lx = t.clientX; look.ly = t.clientY; }
-  }
-}, { passive: false });
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  for (const t of e.changedTouches) {
-    if (t.identifier === joy.id) {
-      let dx = (t.clientX - joy.ox) / 55, dy = (t.clientY - joy.oy) / 55; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
-      joy.x = dx; joy.y = dy; knob.style.transform = `translate(${dx * 35}px, ${dy * 35}px)`;
-    } else if (t.identifier === look.id) { onLook(t.clientX - look.lx, t.clientY - look.ly, 0.005); look.lx = t.clientX; look.ly = t.clientY; }
-  }
-}, { passive: false });
-const endTouch = e => { for (const t of e.changedTouches) { if (t.identifier === joy.id) { joy.id = null; joy.active = false; joy.x = joy.y = 0; knob.style.transform = ''; } if (t.identifier === look.id) look.id = null; } };
-canvas.addEventListener('touchend', endTouch); canvas.addEventListener('touchcancel', endTouch);
 
 function startGame() {
   if (playing) return;
@@ -1180,9 +1131,8 @@ function startGame() {
   document.getElementById('title').hidden = true;
   musicBtn.hidden = false; partyEl.hidden = false; hotbarEl.hidden = false;
   setTimeout(() => document.getElementById('hint').classList.add('fade'), 20000);
-  setTimeout(() => toast(isTouch ? 'A Bobo! Stun it from above or with a rock, then net it.' : 'Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
-  if (isTouch) { joyEl.hidden = false; jumpBtn.hidden = false; document.getElementById('netBtn').hidden = false; }
-  else { document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer(); }
+  setTimeout(() => toast('Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
+  document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer();
   player.pitch = -0.05;
   const area = document.getElementById('area'); area.style.opacity = 1; setTimeout(() => area.style.opacity = 0, 4200);
   canvas.focus();
@@ -1291,7 +1241,7 @@ function stunBobo(b) {
   if (!canStun(b)) return false;
   if (b.state !== 'stunned') sfx.stun();
   setState(b, 'stunned'); b.sink = 0; b.ex.visible = false;
-  if (!b.stunHint) { b.stunHint = true; toast(isTouch ? 'It\'s dizzy! Get close and tap Net!' : 'It\'s dizzy! Get close and swing your net!'); }
+  if (!b.stunHint) { b.stunHint = true; toast('It\'s dizzy! Get close and swing your net!'); }
   return true;
 }
 function boboNoticesPlayer(b) {
@@ -1482,13 +1432,13 @@ inv.slots.forEach((id, i) => {
   b.innerHTML = `<span class="key">${i + 1}</span>${id ? ITEM_DEFS[id].icon : ''}<span class="count"></span><span class="name">${id ? ITEM_DEFS[id].name : ''}</span>`;
   if (!id) b.classList.add('empty');
   const pick = e => { e.preventDefault(); e.stopPropagation(); selectSlot(i); canvas.focus(); };
-  b.addEventListener('touchstart', pick, { passive: false }); b.addEventListener('mousedown', pick);
+  b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
 function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || (id === 'rock' && inv.rocks > 0); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
-  if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'.replace('press E', isTouch ? 'tap Grab' : 'press E')); } return; }
+  if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
   inv.active = i; sfx.pickup(); renderHotbar();
 }
 function cycleSlot(dir) {
@@ -1532,7 +1482,7 @@ function pickUpRock() {
   targetRock.state = 'inv'; targetRock.mesh.visible = false; targetRock = null;
   inv.rocks++; renderHotbar(); sfx.pickup();
   const el = hotbarEl.children[inv.slots.indexOf('rock')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-  if (!pickHintShown && activeItem() !== 'rock') { pickHintShown = true; toast(isTouch ? 'Got a rock! Tap the rock slot to get it out.' : 'Got a rock! Press 2 or scroll to get it out.'); }
+  if (!pickHintShown && activeItem() !== 'rock') { pickHintShown = true; toast('Got a rock! Press 2 or scroll to get it out.'); }
 }
 let pickHintShown = false;
 function throwRock() {
@@ -1675,15 +1625,11 @@ function netSlam() {
   shake = 0.09;
   tryNetCatch();
 }
-const promptEl = document.getElementById('prompt'), grabBtn = document.getElementById('grabBtn');
+const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  const t = targetRock && !isTouch ? '<kbd>E</kbd>pick up rock' : '';
+  const t = targetRock ? '<kbd>E</kbd>pick up rock' : '';
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
-  if (isTouch) {
-    grabBtn.hidden = !targetRock;
-    netBtn.textContent = activeItem() === 'rock' ? 'Throw' : 'Net';
-  }
 }
 let shake = 0;
 
@@ -1769,9 +1715,6 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyQ') cycleSlot(1);
 });
 canvas.addEventListener('wheel', e => { if (!playing || paused) return; e.preventDefault(); if (Math.abs(e.deltaY) > 2) cycleSlot(e.deltaY > 0 ? 1 : -1); }, { passive: false });
-const netBtn = document.getElementById('netBtn');
-netBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); swingQueued = true; }, { passive: false });
-grabBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); pickQueued = true; }, { passive: false });
 
 /* =========================================================
    Main loop
