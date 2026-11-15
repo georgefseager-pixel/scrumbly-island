@@ -1142,7 +1142,7 @@ function endClimb(jump) {
   const c = player.climb; player.climb = null; climbCooldown = jump ? 0.5 : 0.35;
   trunkAt(c.p, player.y + 0.9, tk);
   const ox = Math.cos(c.ang), oz = Math.sin(c.ang);
-  if (jump) { player.vx = ox * 4.2 + fwd.x * 1.5; player.vz = oz * 4.2 + fwd.z * 1.5; player.vy = 6.2; sfxJump(); }
+  if (jump) { player.vx = ox * 4.2 + fwd.x * 1.5; player.vz = oz * 4.2 + fwd.z * 1.5; player.vy = 6.2; sfxJump(); player.ambushT = 0; }
   else { player.vx = ox * 1.5; player.vz = oz * 1.5; }
 }
 const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
@@ -1245,6 +1245,7 @@ function updatePlayer(dt) {
   if (jumpQueued && player.grounded) { player.vy = 7.6 * (1 - 0.3 * wet); player.grounded = false; sfxJump(); if (depth > 0.1) splash(player.x, player.z, 10, 0.7); }
   jumpQueued = false;
   player.vy -= 22 * dt;
+  if (player.ambushT !== undefined) { player.ambushT += dt; if (player.grounded && player.ambushT > 0.2) player.ambushT = Math.max(player.ambushT, AMBUSH_T - 0.45); }
   player.y += player.vy * dt;
   boboPlayerContact();
   const g = heightAt(player.x, player.z), depthNow = Math.max(0, wy - g);
@@ -1468,22 +1469,33 @@ function boboNoticesPlayer(b) {
   return Math.hypot(player.x - b.x, player.z - b.z) < ALERT_R;
 }
 function startBurrow(b) { setState(b, 'burrow'); b.ex.visible = false; sandPuff(b.x, b.z, 30); sfx.burrow(); }
+// shared catch: respects the party limit, names it, records it in the dex
+function catchScrumbly(species, size, ambush) {
+  if (party.length >= PARTY_MAX) { sfx.wriggle(); toast('Your party is full! Leave some with Professor Loveopolis at the ranch before catching more.'); return false; }
+  caughtCount++; sfx.caught();
+  dexMarkCaught(species);
+  const p = addToParty(species, null, false, size);
+  const lead = ambush ? 'Ambush! ' : '';
+  toast(party.length === 1 ? `${lead}You caught ${fullName(p)}! It's your partner now.` : `${lead}You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
+  return true;
+}
+// leaping out of a palm tree buys a moment of surprise: a quick swing nets a Bobo before it can dive
+const AMBUSH_T = 1.8;
+const inNetZone = (x, y, z) => { const dx = x - player.x, dzz = z - player.z, along = dx * fwd.x + dzz * fwd.z, lat = Math.abs(dx * fwd.z - dzz * fwd.x); return along >= -0.4 && along <= 3.0 && lat <= 1.15 && Math.abs(y - player.y) <= 1.6; };
 function tryNetCatch() {
   let got = false;
+  const ambush = (player.ambushT ?? 99) < AMBUSH_T;
   for (const b of bobos) {
     if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried') continue;
-    const dx = b.x - player.x, dzz = b.z - player.z, along = dx * fwd.x + dzz * fwd.z, lat = Math.abs(dx * fwd.z - dzz * fwd.x);
-    if (along < -0.4 || along > 3.0 || lat > 1.15 || Math.abs(b.y - player.y) > 1.6) continue;
-    if (b.state === 'stunned' && party.length >= PARTY_MAX) { sfx.wriggle(); toast(`Your party is full! Leave some with Professor Loveopolis at the ranch before catching more.`); setState(b, 'idle'); startBurrow(b); }
-    else if (b.state === 'stunned') {
-      setState(b, 'caught'); caughtCount++; sfx.caught();
-      dexMarkCaught('bobo');
-      const p = addToParty('bobo', null, false, b.size);
-      toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
-      got = true;
+    if (!inNetZone(b.x, b.y, b.z)) continue;
+    const surprised = ambush && (b.state === 'idle' || b.state === 'alert' || b.state === 'emerge' || (b.state === 'burrow' && b.t < 0.3));
+    if (b.state === 'stunned' || surprised) {
+      if (catchScrumbly('bobo', b.size, surprised && b.state !== 'stunned')) { setState(b, 'caught'); got = true; }
+      else { setState(b, 'idle'); startBurrow(b); }
     }
-    else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first.'); startBurrow(b); }
+    else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first, or take it by surprise from a tree.'); startBurrow(b); }
   }
+  if (typeof netSpeshuls === 'function' && netSpeshuls()) got = true;
   return got;
 }
 
