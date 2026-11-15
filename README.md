@@ -15,6 +15,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Click | Use the item in hand (swing the net, throw a rock) |
 | 1–5 / scroll wheel / Q | Swap item |
 | E | Pick up a rock you're looking at |
+| (rocks out) | A dotted arc shows the throw and a ring marks where it lands; both turn pink with a bracket when you'd hit a scrumbly |
 | Walk or jump into a palm | Grab on; W/S climb, A/D shimmy round, Space leap off |
 | M | Music on/off |
 

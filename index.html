@@ -100,6 +100,14 @@
   .pslot .pname { position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); font-family: var(--display); font-weight: 600; font-size: .78rem;
                   background: rgba(255,250,246,.85); padding: 1px 7px; border-radius: 7px; white-space: nowrap; }
   .pslot .pname:empty { display: none; }
+  /* bracket drawn round a scrumbly you're about to hit / scan */
+  .target { left: 0; top: 0; width: 64px; height: 64px; }
+  .target i { position: absolute; width: 16px; height: 16px; border: 4px solid var(--pink); filter: drop-shadow(0 2px 0 rgba(44,37,82,.35)); animation: tpulse .8s ease-in-out infinite alternate; }
+  .target i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 6px 0 0 0; }
+  .target i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-radius: 0 6px 0 0; }
+  .target i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 6px; }
+  .target i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 6px 0; }
+  @keyframes tpulse { to { margin: -4px; } }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
@@ -132,6 +140,7 @@
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div class="hud" id="prompt" hidden></div>
+<div class="hud target" id="aimTarget" hidden><i></i><i></i><i></i><i></i></div>
 <div id="hotbar" hidden></div>
 <div id="party" hidden></div>
 
@@ -1760,16 +1769,71 @@ function pickUpRock() {
   if (!pickHintShown && activeItem() !== 'rock') { pickHintShown = true; toast('Got a rock! Press 2 or scroll to get it out.'); }
 }
 let pickHintShown = false;
+const ROCK_SPEED = 17, ROCK_LOFT = 3, ROCK_G = 18;
+function rockLaunch(o) {
+  camera.getWorldDirection(_dir);
+  _to.set(0.25, -0.25, -0.5).applyQuaternion(camera.quaternion);
+  o.x = camera.position.x + _to.x; o.y = camera.position.y + _to.y; o.z = camera.position.z + _to.z;
+  o.vx = _dir.x * ROCK_SPEED + player.vx * 0.5; o.vy = _dir.y * ROCK_SPEED + ROCK_LOFT; o.vz = _dir.z * ROCK_SPEED + player.vz * 0.5;
+  return o;
+}
 function throwRock() {
   const r = rocks.find(x => x.state === 'inv');
   if (!r || player.climb) return;
   inv.rocks--; renderHotbar();
-  camera.getWorldDirection(_dir);
-  _to.set(0.25, -0.25, -0.5).applyQuaternion(camera.quaternion);
-  r.x = camera.position.x + _to.x; r.y = camera.position.y + _to.y; r.z = camera.position.z + _to.z;
-  r.vx = _dir.x * 17 + player.vx * 0.5; r.vy = _dir.y * 17 + 3; r.vz = _dir.z * 17 + player.vz * 0.5;
+  rockLaunch(r);
   r.state = 'flying'; r.bounces = 0; r.mesh.visible = true; r.wet = false;
   throwAnim = 0; sfx.throw();
+}
+
+let dexOpen = false; function updateDex() {}  // DEX-STUB
+
+/* ---------- aim preview: dotted arc + landing ring while rocks are out ---------- */
+const AIM_DOTS = 48;
+const aimDots = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x19b3ae }), AIM_DOTS);
+aimDots.frustumCulled = false; scene.add(aimDots);
+const _m4 = new THREE.Matrix4(), _zero = new THREE.Matrix4().makeScale(0, 0, 0);
+const aimRing = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.42, 36).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x19b3ae, side: THREE.DoubleSide }));
+const aimDot = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16).rotateX(-Math.PI / 2), aimRing.material);
+aimRing.add(aimDot); aimRing.renderOrder = 3; scene.add(aimRing);
+const aimTarget = document.getElementById('aimTarget');
+const sim = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 }, _sp = new THREE.Vector3();
+function updateAim() {
+  const show = playing && !paused && !dexOpen && activeItem() === 'rock' && inv.eq < 0.05 && inv.rocks > 0 && !player.climb && throwAnim < 0;
+  aimDots.visible = aimRing.visible = show;
+  if (!show) { aimTarget.hidden = true; return; }
+  rockLaunch(sim);
+  const dt = 1 / 60;
+  let n = 0, hit = null, land = null;
+  for (let i = 0; i < 240 && !land; i++) {
+    sim.vy -= ROCK_G * dt; sim.x += sim.vx * dt; sim.y += sim.vy * dt; sim.z += sim.vz * dt;
+    for (const b of bobos) {
+      if (!b.root.visible || b.sink > 0.6 || !canStun(b)) continue;
+      if (Math.hypot(sim.x - b.x, sim.y - (b.y + 0.3), sim.z - b.z) < BOBO_R + 0.25) { hit = b; land = { x: b.x, y: b.y, z: b.z }; }
+    }
+    for (const m of mermigglies) {
+      if (!m.root.visible || m.under > 0.5 || m.state === 'angry' || m.state === 'leave') continue;
+      const base = water.position.y + m.rise - 0.15;
+      if (Math.hypot(sim.x - m.x, sim.z - m.z) < 0.55 && sim.y > base && sim.y < base + 1.05) { hit = m; land = { x: m.x, y: water.position.y, z: m.z }; }
+    }
+    if (land) break;
+    const g = heightAt(sim.x, sim.z), floor = Math.max(g + 0.07, water.position.y);
+    if (sim.y <= floor) land = { x: sim.x, y: floor, z: sim.z };
+    if (i > 3 && i % 3 === 0 && n < AIM_DOTS) { const ds = Math.max(1, Math.hypot(sim.x - camera.position.x, sim.y - camera.position.y, sim.z - camera.position.z) / 5); _m4.makeScale(ds, ds, ds).setPosition(sim.x, sim.y, sim.z); aimDots.setMatrixAt(n++, _m4); }
+  }
+  for (let i = n; i < AIM_DOTS; i++) aimDots.setMatrixAt(i, _zero);
+  aimDots.instanceMatrix.needsUpdate = true;
+  if (!land) land = sim;
+  const pulse = 1 + Math.sin(time * 8) * 0.08;
+  aimRing.position.set(land.x, land.y + 0.04, land.z);
+  aimRing.scale.setScalar((hit ? 1.6 : 1) * pulse);
+  aimRing.material.color.setHex(hit ? 0xff3d8b : 0x19b3ae);
+  aimDots.material.color.setHex(hit ? 0xff3d8b : 0x19b3ae);
+  // a bracket on the scrumbly you'd hit
+  if (hit) {
+    _sp.set(hit.root.position.x, hit.root.position.y + 0.45, hit.root.position.z).project(camera);
+    if (_sp.z < 1) { aimTarget.hidden = false; aimTarget.style.transform = `translate(${(_sp.x * 0.5 + 0.5) * innerWidth}px, ${(-_sp.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -50%)`; }
+  } else aimTarget.hidden = true;
 }
 function updateRocks(dt) {
   for (const r of rocks) {
@@ -2016,6 +2080,8 @@ function tick(dt) {
   updateBobos(dt);
   updateMermigglies(dt);
   updateRocks(dt);
+  updateAim();
+  updateDex(dt);
 
   water.position.y = Math.sin(time * 0.5) * 0.05;
   waterUniforms.uTime.value = time;
