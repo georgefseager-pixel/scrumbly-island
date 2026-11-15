@@ -1217,6 +1217,7 @@ function updatePlayer(dt) {
   const hit = collideTrunks(nx, nz, player.y);
   nx = hit.px; nz = hit.pz;
   { const rp = collideRanch(nx, nz); nx = rp[0]; nz = rp[1]; }
+  { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
     // cancel velocity into the trunk
     const vn = player.vx * hit.nx + player.vz * hit.nz;
@@ -2028,7 +2029,7 @@ function makeSpeshulMesh() {
   scene.add(root);
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
-function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : makeBoboMesh(); }
+function makeSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 4;
 const speshuls = [];
@@ -2225,11 +2226,187 @@ function updateSpeshuls(dt) {
   }
 }
 
+/* =========================================================
+   Scrumblies: the Pengin (a very shy little green penguin)
+   Waddles about the sand; if it spots you it bolts for the
+   nearest rock nook and hides. Trap the nook's doorway!
+   ========================================================= */
+const nooks = [];
+{
+  const rockMat = new THREE.MeshLambertMaterial({ color: 0xb8a6b4 }), rockMat2 = new THREE.MeshLambertMaterial({ color: 0xa89aa8 });
+  const darkMat = new THREE.MeshBasicMaterial({ color: 0x241b2a });
+  const okSpot = (x, z) => boboSpotOK(x, z) && !inRanchZone(x, z, 5) && nooks.every(n => Math.hypot(n.x - x, n.z - z) > 24)
+    && bobos.every(b => Math.hypot(b.hx - x, b.hz - z) > 8) && Math.hypot(x - spawnX, z - spawnZ) > 10
+    && beachPalms.every(p => Math.hypot(p.x - x, p.z - z) > 3.2);
+  const spots = [];
+  // one in sight of the start, then more around the island
+  for (let i = 0; i < 200 && !spots.length; i++) { const th = spawnTheta + 0.08 + Math.random() * 0.12, [x, z] = polar(th, 14 + Math.random() * 18); if (okSpot(x, z)) { spots.push([x, z, th]); nooks.push({ x, z }); } }
+  for (let i = 0; i < 3000 && spots.length < 9; i++) { const th = Math.random() * Math.PI * 2, [x, z] = polar(th, 12 + Math.random() * 40); if (okSpot(x, z)) { spots.push([x, z, th]); nooks.push({ x, z }); } }
+  nooks.length = 0;
+  spots.forEach(([x, z, th]) => {
+    // opening faces roughly out to sea, give or take
+    const a = th + (Math.random() - 0.5) * 1.4, dx = Math.cos(a), dz = Math.sin(a);
+    const y = heightAt(x, z), g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = Math.atan2(dx, dz);
+    const dome = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 1), rockMat); dome.scale.set(1.45, 1.0, 1.25); dome.position.y = 0.35; dome.castShadow = dome.receiveShadow = true; g.add(dome);
+    [[-1.05, 0.2, -0.3, 0.6], [1.0, 0.15, -0.2, 0.55], [0.3, 0.9, -0.5, 0.5], [-0.6, 0.05, 0.75, 0.32], [0.75, 0.05, 0.8, 0.28]].forEach(([bx, by, bz, r], i) => {
+      const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), i % 2 ? rockMat : rockMat2); b.position.set(bx, by + r * 0.4, bz); b.rotation.set(i, i * 2, 0); b.castShadow = true; g.add(b);
+    });
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20, 0, Math.PI), darkMat); hole.position.set(0, 0.0, 1.27); hole.rotation.x = -0.12; g.add(hole);
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.06, 0.25), rockMat2); sill.position.set(0, 0.0, 1.32); g.add(sill);
+    scene.add(g);
+    nooks.push({ x, z, y, dx, dz, ex: x + dx * 1.9, ez: z + dz * 1.9, hx: x + dx * 1.15, hz: z + dz * 1.15, g });
+  });
+}
+function collideNooks(x, z) {
+  for (const n of nooks) { const dx = x - n.x, dz = z - n.z, d = Math.hypot(dx, dz), R = 1.5 + PLAYER_R; if (d < R) { const k = R / Math.max(d, 1e-3); x = n.x + dx * k; z = n.z + dz * k; } }
+  return [x, z];
+}
+function makePenginMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const green = new THREE.MeshLambertMaterial({ color: 0xc6e09a, emissive: 0x2c3a18 }), white = new THREE.MeshLambertMaterial({ color: 0xfbfbf4, emissive: 0x3a3a36 });
+  const peach = new THREE.MeshLambertMaterial({ color: 0xf8c79a, emissive: 0x3a2414 }), brown = new THREE.MeshBasicMaterial({ color: 0x4a2a18 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  add(new THREE.SphereGeometry(0.25, 24, 18), green, 0, 0.3, 0, 1, 1.22, 0.92);
+  add(new THREE.SphereGeometry(0.17, 18, 14), white, 0, 0.2, 0.15, 0.95, 1.05, 0.55);
+  const eyes = [-1, 1].map(s => add(new THREE.SphereGeometry(0.022, 10, 8), brown, s * 0.115, 0.46, 0.2, 1, 1.1, 0.6));
+  add(new THREE.SphereGeometry(0.062, 14, 10), peach, 0, 0.415, 0.215, 1.35, 0.72, 0.8);
+  add(new THREE.BoxGeometry(0.11, 0.006, 0.02), new THREE.MeshBasicMaterial({ color: 0xc89a6a }), 0, 0.415, 0.262);
+  const flippers = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.17, 0.36, 0.08); body.add(piv);
+    add(new THREE.SphereGeometry(0.1, 14, 10), green, -s * 0.06, -0.06, 0.08, 0.85, 0.5, 0.45, piv);
+    return piv;
+  });
+  [-1, 1].forEach(s => add(new THREE.SphereGeometry(0.07, 12, 8), peach, s * 0.085, 0.02, 0.09, 1.05, 0.45, 1.35));
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.position.y = 0.95; ex.scale.setScalar(0.42); ex.visible = false; ex.renderOrder = 5; root.add(ex);
+  scene.add(root);
+  return { root, body, eyes, flippers, ex };
+}
+
+const PENGIN_COUNT = 4, PENGIN_SEE = 8;
+const pengins = [];
+const nearestNook = (x, z) => nooks.reduce((a, n) => (!a || Math.hypot(n.x - x, n.z - z) < Math.hypot(a.x - x, a.z - z) ? n : a), null);
+function penginSpotOK(x, z) { return boboSpotOK(x, z) && nooks.every(n => Math.hypot(n.x - x, n.z - z) > 2.2); }
+function newPengin(n) {
+  const q = Object.assign(makePenginMesh(), { state: 'waddle', t: 0, home: n, x: n.ex, z: n.ez, y: 0, face: Math.random() * 6.28, tx: n.ex, tz: n.ez, wait: 1, phase: Math.random() * 6, peepT: 2 + Math.random() * 6, nook: null });
+  applySize(q, rollSize()); q.y = heightAt(q.x, q.z);
+  pengins.push(q);
+  return q;
+}
+nooks.slice(0, PENGIN_COUNT).forEach(newPengin);
+function penginVol(q) { return clamp(1 - Math.hypot(player.x - q.x, player.z - q.z) / 35, 0, 1); }
+const penginSfx = {
+  peep(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 1700, 2100, 0.06, 0.04 * v, 'sine'); tone(t + 0.09, 1900, 2300, 0.06, 0.035 * v, 'sine'); },
+  panic(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) tone(t + i * 0.07, 2000 + i * 120, 2500 + i * 120, 0.05, 0.05 * v, 'square'); },
+  hide(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 900, 400, 0.18, 0.06 * v, 'sine'); noiseHit(t, 'lowpass', 900, 0.1 * v, 0.15, sfxBus); }
+};
+let penginHints = { seen: false, hid: false };
+function startPenginFlee(q, fromTrap) {
+  q.nook = nearestNook(q.x, q.z);
+  q.state = fromTrap ? 'flee' : 'notice'; q.t = 0; q.ex.visible = !fromTrap;
+  penginSfx.panic(penginVol(q) + 0.3);
+}
+function updatePengins(dt) {
+  for (const q of pengins) {
+    q.t += dt;
+    const dxp = player.x - q.x, dzp = player.z - q.z, dist = Math.hypot(dxp, dzp);
+    const sees = dist < PENGIN_SEE && !player.climb && player.y - q.y < 2.5;
+    let speed = 0, waddle = 0, flap = 0, hopY = 0;
+    switch (q.state) {
+      case 'waddle': {
+        if (!penginHints.seen && dist < 22 && playing) { penginHints.seen = true; toast('A little green penguin is waddling about... it looks awfully shy.'); }
+        const mx = q.tx - q.x, mz = q.tz - q.z, md = Math.hypot(mx, mz);
+        if (md > 0.15) { speed = 0.8; waddle = 1; q.face += angDiff(q.face, Math.atan2(mx, mz)) * Math.min(1, dt * 5); }
+        else {
+          q.wait -= dt;
+          if (q.wait <= 0) { q.wait = 1.5 + Math.random() * 3.5; for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = 2 + Math.random() * 8, x = q.home.ex + Math.cos(a) * r, z = q.home.ez + Math.sin(a) * r; if (penginSpotOK(x, z)) { q.tx = x; q.tz = z; break; } } }
+        }
+        q.peepT -= dt; if (q.peepT <= 0) { q.peepT = 4 + Math.random() * 6; penginSfx.peep(penginVol(q)); }
+        if (sees) startPenginFlee(q);
+        break;
+      }
+      case 'notice': {
+        q.face += angDiff(q.face, Math.atan2(dxp, dzp)) * Math.min(1, dt * 14);
+        hopY = Math.sin(Math.min(1, q.t / 0.25) * Math.PI) * 0.18; flap = 1;
+        if (q.t > 0.4) { q.state = 'flee'; q.t = 0; }
+        break;
+      }
+      case 'flee': {
+        // straight for its nook's doorway, flippers going like mad
+        if (q.t > 0.5) q.ex.visible = false;
+        const n = q.nook, mx = n.ex - q.x, mz = n.ez - q.z, md = Math.hypot(mx, mz);
+        q.face += angDiff(q.face, Math.atan2(mx, mz)) * Math.min(1, dt * 10);
+        speed = 3.4; waddle = 2.2; flap = 1;
+        if (md < 0.25) { q.state = 'enter'; q.t = 0; }
+        break;
+      }
+      case 'enter': {
+        const n = q.nook, k = Math.min(1, q.t / 0.45);
+        q.x = lerp(n.ex, n.hx, k); q.z = lerp(n.ez, n.hz, k); q.face = Math.atan2(-n.dx, -n.dz); waddle = 1.5;
+        q.body.scale.setScalar(1 - k * 0.6);
+        if (k >= 1) { q.state = 'hiding'; q.t = 0; q.root.visible = false; q.body.scale.setScalar(1); penginSfx.hide(penginVol(q)); if (!penginHints.hid && dist < 30) { penginHints.hid = true; toast('It squeezed into its rock nook! Maybe a trap by the doorway would help...'); } }
+        break;
+      }
+      case 'hiding': {
+        const n = q.nook;
+        if (q.t > 5 && Math.hypot(player.x - n.x, player.z - n.z) > 13) { q.state = 'emerge'; q.t = 0; q.root.visible = true; q.home = n; }
+        break;
+      }
+      case 'emerge': {
+        const n = q.nook, k = Math.min(1, q.t / 0.6);
+        q.x = lerp(n.hx, n.ex, k); q.z = lerp(n.hz, n.ez, k); q.face = Math.atan2(n.dx, n.dz); waddle = 1;
+        q.body.scale.setScalar(0.4 + k * 0.6);
+        if (k >= 1) { q.state = 'waddle'; q.t = 0; q.tx = q.x + n.dx * 1.5; q.tz = q.z + n.dz * 1.5; q.wait = 1; q.body.scale.setScalar(1); }
+        if (sees && k > 0.5) startPenginFlee(q);
+        break;
+      }
+      case 'trapped': { waddle = 3; flap = 1; break; }
+      case 'caught': {
+        const k = Math.min(1, q.t / 0.45); camera.getWorldDirection(_cv);
+        q.x = lerp(q.x, camera.position.x + _cv.x * 1.2, k * 0.35); q.z = lerp(q.z, camera.position.z + _cv.z * 1.2, k * 0.35); q.y = lerp(q.y, camera.position.y - 0.6, k * 0.35);
+        q.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { q.state = 'gone'; q.t = 0; q.root.visible = false; q.respawn = 30 + Math.random() * 30; }
+        break;
+      }
+      case 'gone': {
+        if (q.t > q.respawn) {
+          const free = nooks.filter(n => Math.hypot(n.x - player.x, n.z - player.z) > 25 && !pengins.some(o => o !== q && o.home === n));
+          if (free.length) { const n = free[Math.floor(Math.random() * free.length)]; q.home = q.nook = n; applySize(q, rollSize()); q.state = 'emerge'; q.t = 0; q.root.visible = true; q.body.scale.setScalar(1); }
+          else q.t = q.respawn - 3;
+        }
+        break;
+      }
+    }
+    if (speed > 0) {
+      const nx = q.x + Math.sin(q.face) * speed * dt, nz = q.z + Math.cos(q.face) * speed * dt;
+      if (q.state === 'flee' || walkable(nx, nz)) { q.x = nx; q.z = nz; } else q.wait = 0, q.tx = q.x, q.tz = q.z;
+    }
+    if (!q.root.visible) continue;
+    if (q.state !== 'caught' && q.state !== 'trapped') q.y = heightAt(q.x, q.z);
+    q.phase += dt * (waddle ? 9 * waddle : 2);
+    const w = Math.sin(q.phase);
+    q.root.position.set(q.x, q.y + (hopY + (waddle ? Math.abs(w) * 0.03 * waddle : 0)) * q.s, q.z);
+    q.root.rotation.set(0, q.face, 0);
+    q.body.rotation.z = waddle ? w * 0.16 : Math.sin(time * 1.3 + q.phase) * 0.03;
+    q.body.rotation.x = q.state === 'flee' ? 0.18 : 0;
+    // flippers held together in front, or flapping in a panic
+    q.flippers.forEach((f, i) => { const s = i ? 1 : -1; if (flap) f.rotation.set(0, 0, s * (0.9 + Math.sin(time * 28 + i) * 0.5)); else f.rotation.set(0.25, -s * 0.7, -s * 0.15); });
+  }
+}
+// rocks just send a Pengin scurrying for cover
+function rockHitsPengin(r) {
+  for (const q of pengins) {
+    if (!q.root.visible || !['waddle', 'notice', 'emerge'].includes(q.state)) continue;
+    if (Math.hypot(r.x - q.x, r.y - (q.y + 0.3 * q.s), r.z - q.z) < 0.32 * q.s + 0.2) { startPenginFlee(q); return q; }
+  }
+  return null;
+}
+
 /* ---------- throwable rocks ---------- */
 const rocks = [];
 const rockGeo = (() => { const g = new THREE.DodecahedronGeometry(0.15, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 0.72); g.computeVertexNormals(); return g; })();
 const ROCK_COLORS = [0x9d8f9a, 0xb4a2a9, 0x8c8496, 0xa99487];
 function addRock(x, z) {
+  if (nooks.some(n => Math.hypot(n.x - x, n.z - z) < 2.4)) return;
   const mesh = new THREE.Mesh(rockGeo, new THREE.MeshLambertMaterial({ color: ROCK_COLORS[rocks.length % ROCK_COLORS.length] }));
   mesh.castShadow = true; mesh.rotation.set(Math.random() * 3, Math.random() * 6, 0);
   scene.add(mesh);
@@ -2402,6 +2579,7 @@ function updateRocks(dt) {
       const m = rockHitsMerm(r);
       if (m) { sfx.thud(); const nx = r.x - m.x, nz = r.z - m.z, nl = Math.hypot(nx, nz) || 1; r.vx = nx / nl * 2; r.vz = nz / nl * 2; r.vy = 3; r.bounces = 2; }
     }
+    if (r.bounces <= 1 && rockHitsPengin(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     // knock a Speshul out of its tree?
     if (r.bounces <= 1 && rockHitsSpeshul(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     // trunks block rocks too
@@ -2626,6 +2804,12 @@ SPECIES.speshul = {
   fact: 'Speshuls are utterly convinced they\'re the most special monkey in the world, and frankly nobody has the heart to argue. Rumour has it they can also be found on the shores of Crete, lounging on the fishing boats and stealing olives.',
   hint: 'Clings near the tops of palm trees and leaps to the next tree the moment you start climbing after it. Knock it out of its tree with a well-aimed rock instead, then net it while it runs about the sand in a panic. Be quick: it soon scampers back up a tree.'
 };
+SPECIES.pengin = {
+  name: 'Pengin', num: 4, where: 'Pinksand Shore · near the little rock nooks',
+  icon: '<svg viewBox="0 0 48 48"><ellipse cx="24" cy="25" rx="15" ry="18" fill="#c6e09a"/><ellipse cx="24" cy="31" rx="9.5" ry="10" fill="#fbfbf4"/><circle cx="17.5" cy="20" r="1.6" fill="#4a2a18"/><circle cx="30.5" cy="20" r="1.6" fill="#4a2a18"/><ellipse cx="24" cy="23" rx="4.6" ry="2.6" fill="#f8c79a"/><path d="M19.6 23h8.8" stroke="#c89a6a" stroke-width=".8"/><path d="M15 27 Q20 25 24 29 Q28 25 33 27 Q30 32 24 30.5 Q18 32 15 27Z" fill="#b9d68a"/><ellipse cx="19" cy="43" rx="4" ry="2" fill="#f8c79a"/><ellipse cx="29" cy="43" rx="4" ry="2" fill="#f8c79a"/></svg>',
+  fact: 'A Pengin\'s favourite thing in the whole world is a small, dark, cosy gap. They can fold themselves into spaces you\'d swear were far too small, and they always know exactly where the nearest one is.',
+  hint: 'Terribly shy: the moment it spots you, it waddles flat out to its nearest rock nook and hides inside. Set a cage trap right in front of a nook\'s doorway, then step out where it can see you and let it run straight in.'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -2699,6 +2883,7 @@ function scrumblyCandidates() {
   for (const b of bobos) if (b.root.visible && b.sink < 0.5 && b.state !== 'caught') out.push({ o: b, id: 'bobo', y: 0.35 * b.s });
   for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
   for (const m of speshuls) if (m.root.visible && m.state !== 'caught') out.push({ o: m, id: 'speshul', y: 0.4 * m.s });
+  for (const q of pengins) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'pengin', y: 0.3 * q.s });
   return out;
 }
 function findScanTarget(slack = 1) {
@@ -3358,6 +3543,7 @@ const BOND_SPECIES_LINES = {
   bobo: ['{name} is glowing just a tiny bit.', '{name} hasn\'t felt like hiding in the sand all day.', '{name} is puffed up with pride. Literally.', '{name} feels squishy-soft and safe.'],
   mermiggly: ['{name} waved at you. Then waved again, just in case.', '{name} blew you a little bubble.', '{name} did a happy ribbit.']
   ,speshul: ['{name} is utterly convinced it’s the most special monkey alive. It might be right.', '{name} is eyeing up that palm tree. It’ll stay with you, though.', '{name} did a little cartwheel to impress you.', '{name} is wondering whether you’d like to see Crete one day.', '{name} chattered something that definitely meant "you’re great".']
+  ,pengin: ['{name} found a cosy little gap to sit in. It’s very proud of it.', '{name} peeked out from behind you and decided you’re safe.', '{name} is a tiny bit less shy today.', '{name} waddled right up close. That’s a big deal for a Pengin.']
 };
 let bondTimer = 70 + Math.random() * 50, bondBag = [];
 const bondEl = document.getElementById('bond');
@@ -3542,6 +3728,7 @@ function tick(dt) {
   updateBobos(dt);
   updateMermigglies(dt);
   updateSpeshuls(dt);
+  updatePengins(dt);
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -3595,6 +3782,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, traps, inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, nooks, traps, inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
