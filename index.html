@@ -1401,6 +1401,281 @@ function boboPlayerContact() {
   }
 }
 
+/* =========================================================
+   Scrumblies: the Mermiggly (half frog, half mermaid)
+   Splashes about in the shallows, waves from a distance,
+   bolts when you get close, storms off if you hit it.
+   ========================================================= */
+const scaleTex = (() => {
+  const t = spriteTex((g, s) => {
+    g.fillStyle = '#bfe3ff'; g.fillRect(0, 0, s, s);
+    const blobs = ['#8fd0ff', '#f7a8d8', '#b9f0c4', '#cdb8ff', '#ffc4e6', '#9be3e0'];
+    for (let i = 0; i < 26; i++) {
+      const x = hash2(i, 3) * s, y = hash2(i, 7) * s, r = s * (0.12 + hash2(i, 11) * 0.2);
+      for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) {
+        const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+        gr.addColorStop(0, blobs[i % blobs.length]); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = gr; g.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
+      }
+    }
+    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2.2;
+    const w = s / 8;
+    for (let row = 0; row < 10; row++) for (let col = -1; col < 9; col++) {
+      const cx = col * w + (row % 2 ? w / 2 : 0), cy = row * w * 0.62;
+      g.beginPath(); g.arc(cx, cy, w / 2, 0.1, Math.PI - 0.1); g.stroke();
+    }
+  }, 256);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1.4);
+  return t;
+})();
+const angerTex = spriteTex((g, s) => {
+  g.strokeStyle = '#ff3d5e'; g.lineWidth = s * 0.11; g.lineCap = 'round';
+  const c = s / 2, o = s * 0.14, r = s * 0.2;
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => {
+    g.beginPath(); const x = c + sx * (o + r), y = c + sy * (o + r);
+    g.arc(x, y, r, Math.atan2(-sy, -sx) - 0.9, Math.atan2(-sy, -sx) + 0.9); g.stroke();
+  });
+});
+const FROG_GREEN = 0xa8de8c;
+const mermMats = () => ({
+  fur: new THREE.MeshLambertMaterial({ color: FROG_GREEN, emissive: 0x2c4a22 }),
+  dark: new THREE.MeshBasicMaterial({ color: 0x4d7a3e }),
+  black: new THREE.MeshBasicMaterial({ color: 0x1d1b22 }),
+  tail: new THREE.MeshPhongMaterial({ map: scaleTex, shininess: 70, specular: 0x8899bb, side: THREE.DoubleSide })
+});
+function makeMermMesh() {
+  const m = mermMats(), root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  // tail: two bendy segments and a fluke
+  const tail1 = new THREE.Group(); body.add(tail1);
+  add(new THREE.CylinderGeometry(0.205, 0.165, 0.4, 18), m.tail, 0, -0.2, 0, 1, 1, 0.9, tail1);
+  const tail2 = new THREE.Group(); tail2.position.y = -0.4; tail1.add(tail2);
+  add(new THREE.CylinderGeometry(0.165, 0.07, 0.36, 18), m.tail, 0, -0.18, 0, 1, 1, 0.85, tail2);
+  const fin = new THREE.Group(); fin.position.y = -0.36; tail2.add(fin);
+  [-1, 1].forEach(s => { const f = add(new THREE.SphereGeometry(0.2, 18, 12), m.tail, s * 0.14, -0.06, 0, 1, 0.42, 0.14, fin); f.rotation.z = s * 0.55; });
+  // furry frog top half
+  add(new THREE.SphereGeometry(0.25, 20, 14), m.fur, 0, 0.17, 0, 1, 1.05, 0.85);
+  const head = new THREE.Group(); head.position.y = 0.54; body.add(head);
+  add(new THREE.SphereGeometry(0.27, 24, 16), m.fur, 0, 0, 0, 1.18, 0.78, 1, head);
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.1, 16, 12), m.fur, s * 0.17, 0.17, 0.04, 1, 0.95, 0.95, head);
+    add(new THREE.SphereGeometry(0.036, 12, 8), m.black, s * 0.18, 0.2, 0.13, 1, 1, 0.7, head);
+    add(new THREE.SphereGeometry(0.018, 8, 6), m.dark, s * 0.045, 0.05, 0.26, 1, 0.7, 0.6, head);
+  });
+  // wide frog smile wrapping round the front of the head
+  const MOUTH_ARC = Math.PI * 0.62, mouthGeo = new THREE.TorusGeometry(0.262, 0.013, 6, 28, MOUTH_ARC);
+  mouthGeo.rotateX(Math.PI / 2); mouthGeo.rotateY(MOUTH_ARC / 2 - Math.PI / 2);
+  const mouth = add(mouthGeo, m.dark, 0, -0.05, 0, 1.17, 1, 1, head);
+  mouth.rotation.x = 0.16;
+  // arms on shoulder pivots
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.21, 0.3, 0.02); body.add(piv);
+    add(new THREE.CylinderGeometry(0.06, 0.075, 0.28, 12), m.fur, 0, -0.13, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.085, 14, 10), m.fur, 0, -0.29, 0.01, 1, 1.1, 0.8, piv);
+    piv.rotation.z = s * 0.5; return piv;
+  });
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.position.y = 1.2; ex.scale.setScalar(0.5); ex.visible = false; ex.renderOrder = 5; root.add(ex);
+  const mad = new THREE.Sprite(new THREE.SpriteMaterial({ map: angerTex, depthTest: false })); mad.position.set(0.25, 1.05, 0); mad.scale.setScalar(0.42); mad.visible = false; mad.renderOrder = 5; root.add(mad);
+  scene.add(root);
+  return { root, body, head, tail1, tail2, fin, arms, ex, mad, fur: m.fur };
+}
+
+const MERM_COUNT = 3, MERM_ALERT_R = 9;
+const mermigglies = [];
+const depthAt = (x, z) => water.position.y - heightAt(x, z);
+function waterSpot(cx, cz, rMin, rMax, dMin, dMax, awayFrom, awayDist) {
+  for (let i = 0; i < 120; i++) {
+    const a = Math.random() * 6.28, r = rMin + Math.random() * (rMax - rMin), x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    const d = depthAt(x, z);
+    if (d < dMin || d > dMax || inland(x, z) > 0) continue;
+    if (awayFrom && Math.hypot(x - awayFrom.x, z - awayFrom.z) < awayDist) continue;
+    return { x, z };
+  }
+  return null;
+}
+function shoreSpot(theta) { const [x, z] = polar(theta, -6 - Math.random() * 10); return { x, z }; }
+function newMerm(x, z) {
+  const m = Object.assign(makeMermMesh(), { x, z, face: Math.random() * 6.28, state: 'swim', t: 0, tx: x, tz: z, under: 0, lean: 0, rise: 0, splashT: 1, waveCD: 4 + Math.random() * 6, leap: -1, spin: 0, playT: 0, ribbitT: 3 + Math.random() * 5, red: 0 });
+  pickSwimTarget(m);
+  mermigglies.push(m);
+  return m;
+}
+function pickSwimTarget(m) {
+  const s = waterSpot(m.x, m.z, 4, 14, 0.35, 2.3);
+  if (s) { m.tx = s.x; m.tz = s.z; }
+}
+{
+  // one in view of the start (to the side, out in the shallows), the rest spread round the island
+  const a0 = spawnTheta + 0.12;
+  for (let i = 0; i < MERM_COUNT; i++) {
+    const th = i === 0 ? a0 : a0 + i * (Math.PI * 2 / MERM_COUNT) + (Math.random() - 0.5) * 0.4;
+    const c = shoreSpot(th), s = waterSpot(c.x, c.z, 0, 6, 0.4, 1.6) || c;
+    newMerm(s.x, s.z);
+  }
+}
+function mermVol(m) { return clamp(1 - Math.hypot(player.x - m.x, player.z - m.z) / 45, 0, 1); }
+const mermSfx = {
+  ribbit(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 330, 250, 0.07, 0.07 * v, 'square'); tone(t + 0.13, 360, 270, 0.09, 0.07 * v, 'square'); },
+  giggle(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; [0, 0.09, 0.18, 0.27].forEach((d, i) => tone(t + d, 720 + i * 60, 980 + i * 60, 0.07, 0.06 * v, 'triangle')); },
+  splash(v, big) { if (!actx || v < 0.05) return; const t = actx.currentTime; noiseHit(t, 'lowpass', big ? 1500 : 2200, (big ? 0.35 : 0.14) * v, big ? 0.4 : 0.18, sfxBus, 0.5); },
+  yelp(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 500, 1200, 0.12, 0.08 * v, 'triangle'); },
+  angry(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 190, 120, 0.3, 0.14 * v, 'sawtooth'); tone(t + 0.32, 200, 110, 0.35, 0.12 * v, 'sawtooth'); noiseHit(t, 'bandpass', 700, 0.12 * v, 0.3, sfxBus, 2); }
+};
+let mermHints = { seen: false, wave: false, flee: false, angry: false };
+function mermSplash(m, n, power, big) {
+  const bx = m.x - Math.sin(m.face) * 0.5, bz = m.z - Math.cos(m.face) * 0.5;
+  splash(bx, bz, n, power); spawnRipple(bx, bz, big ? 1.6 : 0.9); mermSfx.splash(mermVol(m), big);
+}
+function angerMerm(m) {
+  if (m.state === 'angry' || m.state === 'leave' || m.state === 'gone' || m.under > 0.6) return false;
+  m.state = 'angry'; m.t = 0; m.ex.visible = false; m.mad.visible = true; m.leap = -1;
+  mermSfx.angry(mermVol(m) + 0.3);
+  if (!mermHints.angry) { mermHints.angry = true; toast('Ouch! That Mermiggly is NOT impressed. Off it goes in a huff.'); }
+  return true;
+}
+function updateMermigglies(dt) {
+  for (const m of mermigglies) {
+    m.t += dt;
+    const dxp = player.x - m.x, dzp = player.z - m.z, dist = Math.hypot(dxp, dzp);
+    const facePlayer = Math.atan2(dxp, dzp);
+    let speed = 0, wantLean = 0, wantRise = 0, armWave = 0, armMad = 0, tailAmp = 0.25, tailRate = 3;
+    const notices = dist < MERM_ALERT_R && !player.climb;
+    switch (m.state) {
+      case 'swim': {
+        const mx = m.tx - m.x, mz = m.tz - m.z, md = Math.hypot(mx, mz);
+        if (md < 0.5) {
+          if (Math.random() < 0.5) { m.state = 'play'; m.t = 0; m.playT = 2 + Math.random() * 3; } else pickSwimTarget(m);
+        } else {
+          speed = 1.9; wantLean = 0.55; tailAmp = 0.5; tailRate = 7;
+          m.face += angDiff(m.face, Math.atan2(mx, mz)) * Math.min(1, dt * 3);
+          if (m.leap < 0 && Math.random() < dt * 0.12) { m.leap = 0; mermSplash(m, 12, 0.8, false); }
+        }
+        if (!mermHints.seen && dist < 28) { mermHints.seen = true; toast('Is that... a frog mermaid? A Mermiggly!'); }
+        if (dist < 24 && dist > MERM_ALERT_R && m.waveCD <= 0 && m.leap < 0 && Math.random() < dt * 0.6) { m.state = 'wave'; m.t = 0; mermSfx.giggle(mermVol(m) + 0.2); }
+        break;
+      }
+      case 'play': {
+        // spin about and slap the water
+        m.spin += dt * 2.2; m.face += dt * 2.2; tailAmp = 0.6; tailRate = 5;
+        if (m.t > m.playT) { m.state = 'swim'; m.t = 0; pickSwimTarget(m); }
+        if (dist < 24 && dist > MERM_ALERT_R && m.waveCD <= 0 && Math.random() < dt * 0.8) { m.state = 'wave'; m.t = 0; mermSfx.giggle(mermVol(m) + 0.2); }
+        break;
+      }
+      case 'wave': {
+        m.face += angDiff(m.face, facePlayer) * Math.min(1, dt * 6);
+        wantRise = 0.16; armWave = 1; tailAmp = 0.15; tailRate = 2;
+        if (!mermHints.wave && m.t > 0.3) { mermHints.wave = true; toast('The Mermiggly is waving at you! Aww.'); }
+        if (m.t > 2.8) { m.state = 'swim'; m.t = 0; m.waveCD = 12 + Math.random() * 10; pickSwimTarget(m); }
+        break;
+      }
+      case 'flee': {
+        // startled: zoom away, then dive
+        if (m.t < 0.35) { m.face += angDiff(m.face, facePlayer) * Math.min(1, dt * 14); wantRise = 0.25; m.ex.visible = true; }
+        else {
+          m.ex.visible = m.t < 0.7;
+          m.face += angDiff(m.face, Math.atan2(m.tx - m.x, m.tz - m.z)) * Math.min(1, dt * 8);
+          speed = 6; wantLean = 0.8; tailAmp = 0.7; tailRate = 13;
+          m.splashT -= dt; if (m.splashT <= 0) { m.splashT = 0.12; splash(m.x - Math.sin(m.face) * 0.5, m.z - Math.cos(m.face) * 0.5, 4, 0.7); }
+          if (m.t > 1.2) { m.under = Math.min(1, m.under + dt * 2.2); if (m.under >= 1) { m.state = 'under'; m.t = 0; m.root.visible = false; } }
+          if (m.t > 1.15 && m.t - dt <= 1.15) mermSplash(m, 18, 1, true);
+        }
+        break;
+      }
+      case 'under': {
+        const mx = m.tx - m.x, mz = m.tz - m.z, md = Math.hypot(mx, mz);
+        if (md > 0.4) { m.x += mx / md * Math.min(md, 8 * dt); m.z += mz / md * Math.min(md, 8 * dt); }
+        else if (m.t > 2.5 && dist > 14) { m.state = 'surface'; m.t = 0; m.root.visible = true; m.face = facePlayer + Math.PI + (Math.random() - 0.5); mermSplash(m, 16, 0.9, true); }
+        break;
+      }
+      case 'surface': {
+        m.under = Math.max(0, 1 - m.t / 0.5); wantRise = 0.1;
+        if (m.t > 0.6) { m.state = 'swim'; m.t = 0; m.waveCD = Math.max(m.waveCD, 3); pickSwimTarget(m); }
+        break;
+      }
+      case 'angry': {
+        m.face += angDiff(m.face, facePlayer) * Math.min(1, dt * 8);
+        m.red = Math.min(1, m.red + dt * 4); armMad = 1; wantRise = 0.2 + Math.abs(Math.sin(m.t * 18)) * 0.04;
+        m.mad.scale.setScalar(0.42 * (1 + Math.abs(Math.sin(m.t * 9)) * 0.25));
+        if (m.t > 1.7) {
+          m.state = 'leave'; m.t = 0; m.mad.visible = false;
+          const s = waterSpot(m.x, m.z, 25, 50, 1.4, 6, player, 25) || { x: m.x, z: m.z }; m.tx = s.x; m.tz = s.z;
+        }
+        break;
+      }
+      case 'leave': {
+        m.face += angDiff(m.face, Math.atan2(m.tx - m.x, m.tz - m.z)) * Math.min(1, dt * 6);
+        speed = 4; wantLean = 0.7; tailAmp = 0.6; tailRate = 10;
+        if (m.t > 0.9) { m.under = Math.min(1, m.under + dt * 2); if (m.under >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 45 + Math.random() * 35; } }
+        if (m.t > 0.85 && m.t - dt <= 0.85) mermSplash(m, 18, 1, true);
+        break;
+      }
+      case 'gone': {
+        if (m.t > m.respawn) {
+          const c = shoreSpot(Math.random() * 6.28), s = waterSpot(c.x, c.z, 0, 8, 0.4, 1.8, player, 30);
+          if (s) { m.x = s.x; m.z = s.z; m.red = 0; m.state = 'surface'; m.t = 0; m.root.visible = true; mermSplash(m, 14, 0.9, true); }
+          else m.t = m.respawn - 2;
+        }
+        break;
+      }
+    }
+    // getting too close spooks it (unless it's already off)
+    if (notices && (m.state === 'swim' || m.state === 'play' || m.state === 'wave' || m.state === 'surface')) {
+      m.state = 'flee'; m.t = 0; mermSfx.yelp(mermVol(m) + 0.3);
+      const ax = -dxp / (dist || 1), az = -dzp / (dist || 1);
+      const s = waterSpot(m.x + ax * 16, m.z + az * 16, 0, 10, 1.3, 4, player, 18) || waterSpot(m.x, m.z, 15, 35, 1.3, 4, player, 18) || { x: m.x + ax * 12, z: m.z + az * 12 };
+      m.tx = s.x; m.tz = s.z;
+      if (!mermHints.flee) { mermHints.flee = true; setTimeout(() => toast('Too quick! You\'ll need a cleverer plan to catch a Mermiggly.'), 1300); }
+    }
+    m.waveCD -= dt;
+    if (m.state !== 'angry' && m.state !== 'leave') m.red = Math.max(0, m.red - dt * 0.5);
+
+    if (speed > 0) {
+      const nx = m.x + Math.sin(m.face) * speed * dt, nz = m.z + Math.cos(m.face) * speed * dt;
+      if (depthAt(nx, nz) > 0.3) { m.x = nx; m.z = nz; } else if (m.state === 'swim') pickSwimTarget(m);
+    }
+    if (m.state === 'swim' || m.state === 'play') {
+      m.splashT -= dt; if (m.splashT <= 0) { m.splashT = 0.5 + Math.random() * 1.1; mermSplash(m, m.state === 'play' ? 10 : 5, m.state === 'play' ? 0.8 : 0.5, false); }
+      m.ribbitT -= dt; if (m.ribbitT <= 0) { m.ribbitT = 4 + Math.random() * 6; mermSfx.ribbit(mermVol(m)); }
+    }
+    if (!m.root.visible) continue;
+
+    // leaping arc (dolphin hop)
+    let leapY = 0, leapPitch = 0;
+    if (m.leap >= 0) {
+      m.leap += dt / 1.0; const k = Math.min(1, m.leap);
+      leapY = Math.sin(k * Math.PI) * 1.2; leapPitch = lerp(-0.9, 1.1, k); speed = 0;
+      if (m.leap >= 1) { m.leap = -1; mermSplash(m, 22, 1, true); }
+    }
+    m.lean = lerp(m.lean, wantLean, Math.min(1, dt * 4));
+    m.rise = lerp(m.rise, wantRise, Math.min(1, dt * 6));
+    const bob = Math.sin(time * 2.4 + m.tx) * 0.04;
+    m.root.position.set(m.x, water.position.y - 0.02 + bob + m.rise + leapY - m.under * 1.5, m.z);
+    m.root.rotation.set(0, m.face, 0);
+    m.body.rotation.x = m.leap >= 0 ? leapPitch : m.lean + m.under * 1.3;
+    m.body.rotation.z = Math.sin(time * 1.7 + m.tz) * 0.05;
+    const tw = Math.sin(time * tailRate + m.tx);
+    m.tail1.rotation.x = tw * tailAmp * 0.45 - m.lean * 0.4;
+    m.tail2.rotation.x = Math.sin(time * tailRate + m.tx - 0.9) * tailAmp * 0.7 - m.lean * 0.3;
+    m.fin.rotation.x = Math.sin(time * tailRate + m.tx - 1.8) * tailAmp * 0.6;
+    // arms: paddle, wave hello, or shake a fist
+    const [aL, aR] = m.arms;
+    if (armMad) { aR.rotation.set(-0.3, 0, 2.6 + Math.sin(m.t * 22) * 0.25); aL.rotation.set(0, 0, -0.9); }
+    else if (armWave) { aR.rotation.set(0, 0, 2.5 + Math.sin(m.t * 9) * 0.45); aL.rotation.set(0, 0, -0.45); }
+    else { const p = Math.sin(time * (speed > 0 ? 6 : 2.2) + m.tz) * (speed > 0 ? 0.6 : 0.2); aL.rotation.set(p, 0, -0.55); aR.rotation.set(-p, 0, 0.55); }
+    m.fur.color.setHex(FROG_GREEN).lerp(new THREE.Color(0xff7a6b), m.red * 0.75);
+  }
+}
+// rocks thrown at a Mermiggly just make it cross
+function rockHitsMerm(r) {
+  for (const m of mermigglies) {
+    if (!m.root.visible || m.under > 0.5) continue;
+    // upright capsule round its body and head
+    const base = water.position.y + m.rise - 0.15, top = base + 1.05 + (m.leap >= 0 ? 1.2 : 0);
+    if (Math.hypot(r.x - m.x, r.z - m.z) < 0.55 && r.y > base && r.y < top && angerMerm(m)) return m;
+  }
+  return null;
+}
+
 /* ---------- throwable rocks ---------- */
 const rocks = [];
 const rockGeo = (() => { const g = new THREE.DodecahedronGeometry(0.15, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 0.72); g.computeVertexNormals(); return g; })();
@@ -1510,6 +1785,11 @@ function updateRocks(dt) {
         const nx = r.x - b.x, nz = r.z - b.z, nl = Math.hypot(nx, nz) || 1;
         r.vx = nx / nl * 2.5; r.vz = nz / nl * 2.5; r.vy = 3.5; r.bounces = 2;
       }
+    }
+    // hit a Mermiggly?
+    if (r.bounces <= 1 && !r.wet) {
+      const m = rockHitsMerm(r);
+      if (m) { sfx.thud(); const nx = r.x - m.x, nz = r.z - m.z, nl = Math.hypot(nx, nz) || 1; r.vx = nx / nl * 2; r.vz = nz / nl * 2; r.vy = 3; r.bounces = 2; }
     }
     // trunks block rocks too
     for (const p of beachPalms) {
@@ -1734,6 +2014,7 @@ function tick(dt) {
   if (shake > 0) { shake = Math.max(0, shake - dt * 0.5); camera.position.y -= shake * Math.sin(time * 60) * 0.3; camera.rotation.x -= shake * 0.25; }
   if (playing) updateViewmodel(dt);
   updateBobos(dt);
+  updateMermigglies(dt);
   updateRocks(dt);
 
   water.position.y = Math.sin(time * 0.5) * 0.05;
@@ -1781,6 +2062,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, water, target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>

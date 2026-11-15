@@ -27,6 +27,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 - A big catching net in first person: swing it to slam it into the sand (or splash the shallows)
 - Gamepad support: left stick move, right stick look, A jump, RT/X use item, LB/RB or d-pad swap item, B pick up rock, Y music
 - The first scrumbly, the Bobo: a shy dumpling that pops a "!" and burrows into the sand when you get within about 6 m, then resurfaces once you're 12 m away or up a palm tree. Stun it by jumping off a palm onto its head or by hitting it with a thrown rock, then net it within 5 seconds. New ones turn up elsewhere later
-- Inventory hotbar along the bottom (top on touchscreens): the net and a stack of up to 10 rocks
+- Inventory hotbar along the bottom: the net and a stack of up to 10 rocks
 - A party of up to five scrumblies down the left; the first slot is your PARTNER
+- The Mermiggly, half frog and half mermaid: splashes, spins and leaps about in the shallows and may stop to wave at you, but bolts and dives within about 9 m. Hit one with a rock and it gets cross and leaves for a while. There's no way to catch one yet
 - Procedural calypso music and ocean sounds, made with Web Audio
