@@ -15,6 +15,8 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Click | Use the item in hand (swing the net, throw a rock) |
 | 1–5 / scroll wheel / Q | Swap item |
 | E | Pick up a rock you're looking at |
+| Click (Scrumblydex out) | Scan the scrumbly in your sights |
+| Tab (Scrumblydex out) | Open / close the Scrumblydex list (arrows browse, Esc closes) |
 | (rocks out) | A dotted arc shows the throw and a ring marks where it lands; both turn pink with a bracket when you'd hit a scrumbly |
 | Walk or jump into a palm | Grab on; W/S climb, A/D shimmy round, Space leap off |
 | M | Music on/off |
@@ -26,9 +28,10 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 - A placeholder jungle in the middle, closed for now
 - Palm trunks are solid and climbable
 - A big catching net in first person: swing it to slam it into the sand (or splash the shallows)
-- Gamepad support: left stick move, right stick look, A jump, RT/X use item, LB/RB or d-pad swap item, B pick up rock, Y music
+- Gamepad support: left stick move, right stick look, A jump, RT/X use item, LB/RB or d-pad swap item, B pick up rock, Y Scrumblydex list, Back music
 - The first scrumbly, the Bobo: a shy dumpling that pops a "!" and burrows into the sand when you get within about 6 m, then resurfaces once you're 12 m away or up a palm tree. Stun it by jumping off a palm onto its head or by hitting it with a thrown rock, then net it within 5 seconds. New ones turn up elsewhere later
-- Inventory hotbar along the bottom: the net and a stack of up to 10 rocks
+- Inventory hotbar along the bottom: the net, a stack of up to 10 rocks and the Scrumblydex
 - A party of up to five scrumblies down the left; the first slot is your PARTNER
 - The Mermiggly, half frog and half mermaid: splashes, spins and leaps about in the shallows and may stop to wave at you, but bolts and dives within about 9 m. Hit one with a rock and it gets cross and leaves for a while. There's no way to catch one yet
+- The Scrumblydex: a red handheld scanner. Point it at a scrumbly and click to scan it, which pops up its entry with a cute fact and a catching tip. Tab opens the full list of 60 entries (2 real, the rest placeholders): unseen ones are blacked-out silhouettes, scanned ones show their info, and caught ones get a badge
 - Procedural calypso music and ocean sounds, made with Web Audio

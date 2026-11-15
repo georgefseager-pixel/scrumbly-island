@@ -108,6 +108,75 @@
   .target i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 6px; }
   .target i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 6px 0; }
   @keyframes tpulse { to { margin: -4px; } }
+  .target.scan i { border-color: #19b3ae; }
+  .target.scan.scanning i { border-color: #e8384f; animation-duration: .18s; }
+  .target.scan b { position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); font-family: var(--display); font-weight: 600; font-size: .8rem;
+                   color: var(--cream); background: #19b3ae; padding: 1px 8px; border-radius: 8px; white-space: nowrap; }
+  .target.scan.scanning b { background: linear-gradient(90deg, #e8384f calc(var(--p) * 100%), #a81f37 0); }
+
+  /* scan result card */
+  #dexCard { right: calc(16px + env(safe-area-inset-right, 0px)); top: 64px; width: min(300px, calc(100vw - 32px)); background: var(--cream); border-radius: 18px;
+             border: 4px solid #e8384f; box-shadow: 0 5px 0 #a81f37; padding: 12px 14px 10px; font-size: .86rem; line-height: 1.35;
+             transform: translateX(calc(100% + 40px)); transition: transform .45s cubic-bezier(.2,1.4,.4,1); }
+  #dexCard.in { transform: none; }
+  #dexCard header { display: flex; align-items: center; gap: 8px; }
+  #dexCard h3 { margin: 0; font-family: var(--display); font-size: 1.3rem; }
+  #dexCard .num { font-family: var(--display); font-weight: 600; color: #a81f37; }
+  #dexCard .new, #dexCard .got { margin-left: auto; font-family: var(--display); font-weight: 700; font-size: .72rem; color: var(--cream); background: var(--pink); padding: 2px 8px; border-radius: 8px; }
+  #dexCard .got { background: var(--lagoon); }
+  #dexCard .new + .got { margin-left: 0; }
+  #dexCard .pic { width: 84px; height: 84px; margin: 4px auto 0; }
+  #dexCard .pic svg { width: 100%; height: 100%; }
+  #dexCard .where { text-align: center; margin: 0 0 6px; font-weight: 700; color: rgba(44,37,82,.6); font-size: .78rem; }
+  #dexCard h4 { margin: 8px 0 2px; font-family: var(--display); font-weight: 600; color: #a81f37; font-size: .85rem; }
+  #dexCard p { margin: 0; }
+  #dexCard footer { margin-top: 8px; font-size: .75rem; font-weight: 700; color: rgba(44,37,82,.6); }
+
+  /* the Scrumblydex list */
+  #dex { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(44,37,82,.45); padding: 16px; }
+  .dex-shell { width: min(980px, 100%); height: min(640px, calc(100vh - 32px)); display: grid; grid-template-rows: auto 1fr auto; gap: 12px;
+               background: #e8384f; border-radius: 28px; padding: 14px 16px 12px; box-shadow: inset 0 -8px 0 #a81f37, inset 0 4px 0 #ff7088, 0 18px 40px rgba(44,37,82,.4); }
+  .dex-top { display: flex; align-items: center; gap: 10px; color: var(--cream); }
+  .dex-top h2 { margin: 0 0 0 6px; font-family: var(--display); font-weight: 700; font-size: 1.6rem; letter-spacing: .02em; text-shadow: 0 3px 0 #a81f37; }
+  .dex-top .lens { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff 0 12%, #8ef0e8 14% 55%, #19b3ae 58%); box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #a81f37; }
+  .dex-top .led { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
+  .led.a { background: #ff9aa9; } .led.b { background: #ffd23f; } .led.c { background: #7ee08a; }
+  #dexCount { margin-left: auto; font-weight: 800; font-size: .9rem; background: rgba(0,0,0,.18); padding: 4px 10px; border-radius: 10px; }
+  #dexCount b { font-family: var(--display); color: #fff3a8; }
+  #dexClose { border: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--cream); color: #a81f37; font-size: 1rem; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 #a81f37; }
+  .dex-body { display: grid; grid-template-columns: 1fr minmax(240px, 300px); gap: 14px; min-height: 0; }
+  .dex-screen { background: #2b3550; border-radius: 16px; padding: 10px; box-shadow: inset 0 0 0 4px #5a2236, inset 0 6px 14px rgba(0,0,0,.35); overflow-y: auto; min-height: 0; }
+  .dex-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .dexe { position: relative; aspect-ratio: 1 / 1.12; border: 0; border-radius: 12px; padding: 4px 4px 3px; cursor: pointer; display: grid; grid-template-rows: auto 1fr auto;
+          background: #3b4766; color: #1a1f30; font-family: var(--display); transition: transform .1s; }
+  .dexe.known { background: #c9f3ef; }
+  .dexe.sel { box-shadow: 0 0 0 3px #ffd23f, 0 0 14px rgba(255,210,63,.6); transform: scale(1.05); z-index: 1; }
+  .dexe .n { font-size: .65rem; font-weight: 600; color: rgba(255,255,255,.5); text-align: left; }
+  .dexe.known .n { color: rgba(44,37,82,.55); }
+  .dexe .ic { display: grid; place-items: center; min-height: 0; }
+  .dexe .ic svg { width: 78%; height: auto; max-height: 100%; }
+  .dexe.unknown .ic svg { filter: brightness(0); opacity: .75; }
+  .dexe .nm { font-size: .7rem; font-weight: 600; color: rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dexe.known .nm { color: var(--ink); }
+  .dexe .caught { position: absolute; right: 4px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: #e8384f; box-shadow: inset 0 -6px 0 #fff, 0 0 0 2px #2c2552; }
+  .dex-detail { background: var(--cream); border-radius: 16px; padding: 14px; overflow-y: auto; min-height: 0; font-size: .86rem; line-height: 1.38; box-shadow: inset 0 -4px 0 rgba(44,37,82,.1); }
+  .dex-detail .big { width: 120px; height: 120px; margin: 0 auto; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, #c9f3ef 0 60%, transparent 62%); }
+  .dex-detail .big svg { width: 82%; height: 82%; }
+  .dex-detail .big.unknown { background: radial-gradient(circle, #3b4766 0 60%, transparent 62%); }
+  .dex-detail .big.unknown svg { filter: brightness(0); opacity: .8; }
+  .dex-detail .dnum { text-align: center; font-family: var(--display); font-weight: 600; color: #a81f37; margin-top: 6px; }
+  .dex-detail h3 { text-align: center; margin: 0; font-family: var(--display); font-size: 1.5rem; }
+  .dex-detail .chips { display: flex; justify-content: center; gap: 6px; margin: 8px 0; }
+  .dex-detail .chips span { font-family: var(--display); font-weight: 600; font-size: .72rem; padding: 2px 9px; border-radius: 8px; background: rgba(44,37,82,.12); color: rgba(44,37,82,.6); }
+  .dex-detail .chips span.on { background: var(--lagoon); color: var(--cream); }
+  .dex-detail .chips span.on + span.on { background: var(--pink); }
+  .dex-detail .where { text-align: center; font-weight: 700; color: rgba(44,37,82,.6); font-size: .78rem; margin: 0 0 6px; }
+  .dex-detail h4 { margin: 10px 0 2px; font-family: var(--display); font-weight: 600; color: #a81f37; }
+  .dex-detail p { margin: 0; }
+  .dex-detail .nodata { text-align: center; color: rgba(44,37,82,.6); font-weight: 700; margin-top: 12px; }
+  .dex-foot { color: var(--cream); font-weight: 700; font-size: .8rem; text-align: center; }
+  .dex-foot kbd { background: rgba(0,0,0,.25); }
+  @media (max-width: 720px) { .dex-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } .dex-grid { grid-template-columns: repeat(4, 1fr); } .dex-detail { max-height: 40vh; } }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
@@ -126,6 +195,7 @@
       <li><kbd>Click</kbd>use item</li>
       <li><kbd>1–5</kbd>swap item</li>
       <li><kbd>E</kbd>pick up rock</li>
+      <li><kbd>3</kbd>Scrumblydex: click to scan, <kbd>Tab</kbd>to browse</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
     </ul>
@@ -136,11 +206,27 @@
 <div id="pause" hidden><div>Paused. Click to keep exploring</div></div>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–5 / scroll swap item · E pick up rock · Walk into a palm to climb · M music · Esc pause</div>
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–5 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div>
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div class="hud" id="prompt" hidden></div>
 <div class="hud target" id="aimTarget" hidden><i></i><i></i><i></i><i></i></div>
+<div class="hud target scan" id="scanTarget" hidden><i></i><i></i><i></i><i></i><b></b></div>
+<aside class="hud" id="dexCard" hidden></aside>
+<div id="dex" hidden>
+  <div class="dex-shell" role="dialog" aria-label="Scrumblydex">
+    <div class="dex-top">
+      <span class="lens"></span><span class="led a"></span><span class="led b"></span><span class="led c"></span>
+      <h2>Scrumblydex</h2><span id="dexCount"></span>
+      <button id="dexClose" aria-label="Close">✕</button>
+    </div>
+    <div class="dex-body">
+      <div class="dex-screen"><div class="dex-grid" id="dexGrid"></div></div>
+      <div class="dex-detail" id="dexDetail"></div>
+    </div>
+    <div class="dex-foot"><kbd>Arrows</kbd>browse · <kbd>Tab</kbd>/<kbd>Esc</kbd>close · Controller: d-pad browse, <kbd>B</kbd> close</div>
+  </div>
+</div>
 <div id="hotbar" hidden></div>
 <div id="party" hidden></div>
 
@@ -865,6 +951,13 @@ const sfx = {
   rockLand(inWater) { if (!actx) return; const t = actx.currentTime; if (inWater) noiseHit(t, 'lowpass', 1500, 0.25, 0.25, sfxBus, 0.5); else noiseHit(t, 'lowpass', 700, 0.18, 0.08, sfxBus); },
   caught() { if (!actx) return; const t = actx.currentTime; [72, 76, 79, 84, 88].forEach((m, i) => { tone(t + i * 0.08, mtof(m), mtof(m) * 1.002, 0.35, 0.09, 'triangle'); tone(t + i * 0.08, mtof(m + 12), mtof(m + 12), 0.2, 0.03, 'sine'); }); },
   wriggle() { if (!actx) return; const t = actx.currentTime; tone(t, 500, 1100, 0.1, 0.07, 'square'); tone(t + 0.1, 1100, 400, 0.14, 0.05, 'square'); }
+  ,
+  dexScan() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 6; i++) tone(t + i * 0.13, 900 + i * 120, 1000 + i * 120, 0.06, 0.05, 'square'); },
+  dexDone(isNew) { if (!actx) return; const t = actx.currentTime; (isNew ? [76, 81, 84, 88] : [81, 88]).forEach((m, i) => tone(t + i * 0.09, mtof(m), mtof(m), 0.22, 0.08, 'square')); },
+  dexNope() { if (!actx) return; const t = actx.currentTime; tone(t, 330, 300, 0.09, 0.07, 'square'); tone(t + 0.11, 260, 220, 0.12, 0.07, 'square'); },
+  dexTick() { if (!actx) return; tone(actx.currentTime, 1500, 1500, 0.025, 0.035, 'square'); },
+  dexOpen() { if (!actx) return; const t = actx.currentTime; tone(t, 600, 1200, 0.1, 0.06, 'triangle'); tone(t + 0.08, 900, 1600, 0.1, 0.05, 'triangle'); },
+  dexClose() { if (!actx) return; const t = actx.currentTime; tone(t, 1200, 600, 0.1, 0.05, 'triangle'); }
 };
 function sfxClimbStep() { if (!actx) return; noiseHit(actx.currentTime, 'bandpass', 1500 + Math.random() * 700, 0.1, 0.07, sfxBus, 1.8); }
 function sfxSplash() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 1800, 0.35, 0.45, sfxBus, 0.4); noiseHit(t + 0.05, 'bandpass', 3000, 0.1, 0.25, sfxBus, 1); }
@@ -903,13 +996,20 @@ function pollPad() {
   pad.run = b(10) || b(6) || Math.hypot(pad.mx, pad.my) > 0.95; // L3 / LT / full tilt
   const now = gp.buttons.map(x => x.pressed);
   const tap = i => now[i] && !pad.prev[i];
-  if (playing && !paused) {
+  if (playing && dexOpen) {                           // browsing the Scrumblydex list
+    if (tap(1) || tap(3) || tap(9)) closeDex();
+    if (tap(12)) dexMove(0, -1); if (tap(13)) dexMove(0, 1); if (tap(14)) dexMove(-1, 0); if (tap(15)) dexMove(1, 0);
+    const sy = ax[1] || 0, sx = ax[0] || 0;
+    if (Math.abs(sx) < 0.5 && Math.abs(sy) < 0.5) pad.stickReady = true;
+    else if (pad.stickReady) { pad.stickReady = false; if (Math.abs(sx) > Math.abs(sy)) dexMove(Math.sign(sx), 0); else dexMove(0, Math.sign(sy)); }
+  } else if (playing && !paused) {
     if (tap(0)) jumpQueued = true;                    // A / Cross
     if (tap(7) || tap(2)) swingQueued = true;          // RT / X / Square: use the item in hand
     if (tap(1)) pickQueued = true;                     // B / Circle: pick up rock
     if (tap(5) || tap(15)) cycleSlot(1);               // RB / d-pad right: next item
     if (tap(4) || tap(14)) cycleSlot(-1);              // LB / d-pad left: previous item
-    if (tap(3)) toggleMusic();                        // Y / Triangle
+    if (tap(3)) dexToggleQueued = true;                // Y / Triangle: open the Scrumblydex (when holding it)
+    if (tap(8)) toggleMusic();                        // Back / View: music
   } else if (!playing && (tap(0) || tap(9))) startGame();
   pad.prev = now;
 }
@@ -983,7 +1083,6 @@ function updateClimb(dt, ix, iz) {
 
 const fwd = new THREE.Vector3(), right = new THREE.Vector3();
 function updatePlayer(dt) {
-  pollPad();
   if (pad.lx || pad.ly) onLook(pad.lx * 900 * dt, pad.ly * 650 * dt, 0.0035);
   let ix = 0, iz = 0;
   if (keys.KeyW || keys.ArrowUp) iz += 1;
@@ -1083,13 +1182,15 @@ function onLook(dx, dy, k) {
   player.pitch = clamp(player.pitch, -1.45, 1.45);
 }
 document.addEventListener('mousemove', e => {
-  if (!playing || paused) return;
+  if (!playing || paused || dexOpen) return;
   if (document.pointerLockElement === canvas) onLook(e.movementX, e.movementY, 0.0022);
   else if (dragLook && (e.buttons & 1)) onLook(e.movementX, e.movementY, 0.004);
 });
 const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight'];
 window.addEventListener('keydown', e => {
   if (!playing) { if (e.code === 'Enter') startGame(); return; }
+  if (e.code === 'Tab') { e.preventDefault(); if (!e.repeat) dexToggleQueued = true; return; }
+  if (dexOpen) { dexKey(e); return; }
   if (GAME_KEYS.includes(e.code)) e.preventDefault();
   keys[e.code] = true;
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
@@ -1109,13 +1210,14 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  document.getElementById('hint').textContent = 'Drag to look · Click use item · 1–5 / scroll swap item · E pick up rock · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
+  document.getElementById('hint').textContent = 'Drag to look · Click use item · 1–5 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (!playing || dragLook) return;
+  if (dexOpen && !locked) return;                     // released on purpose to browse the dex
   paused = !locked; pauseEl.hidden = locked;
   document.getElementById('crosshair').hidden = !locked;
   if (!locked) for (const k in keys) keys[k] = false;
@@ -1269,6 +1371,7 @@ function tryNetCatch() {
     else if (b.state === 'stunned') {
       setState(b, 'caught'); caughtCount++; sfx.caught();
       addToParty('bobo');
+      dexMarkCaught('bobo');
       toast(party.length === 1 ? 'You caught a Bobo! It\'s your partner now.' : `Caught a Bobo! Party: ${party.length}/${PARTY_MAX}`);
       got = true;
     }
@@ -1708,8 +1811,9 @@ const MAX_ROCKS = 10;
 const ITEM_DEFS = {
   net: { name: 'Net', icon: '<svg viewBox="0 0 48 48"><path d="M10 40 L24 24" stroke="#e0b07a" stroke-width="4.5" stroke-linecap="round"/><path d="M8 42 L13 37" stroke="#ff6fa5" stroke-width="6" stroke-linecap="round"/><ellipse cx="31" cy="16" rx="11" ry="11" fill="rgba(255,255,255,.55)" stroke="#19b3ae" stroke-width="4"/><path d="M23 9 L39 23 M21 16 L34 28 M27 6 L41 18 M22 22 L28 27 M39 9 L25 25 M41 15 L31 26 M35 6 L22 19" stroke="#fff" stroke-width="1.6" opacity=".9"/></svg>' },
   rock: { name: 'Rocks', icon: '<svg viewBox="0 0 48 48"><path d="M9 32 C7 24 13 15 22 14 C31 12 40 18 41 27 C42 35 34 38 25 38 C16 38 10 37 9 32 Z" fill="#a99487" stroke="#7d6d70" stroke-width="2.5"/><path d="M15 22 C18 19 22 18 26 18" stroke="#cbb9b3" stroke-width="3" stroke-linecap="round" fill="none"/></svg>' }
+  , dex: { name: 'Scrumblydex', icon: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="37" rx="6" fill="#e8384f" stroke="#a81f37" stroke-width="2.5"/><rect x="15" y="17" width="18" height="13" rx="2.5" fill="#8ef0e8" stroke="#5a2236" stroke-width="1.8"/><circle cx="18" cy="11.5" r="3.4" fill="#ffd23f" stroke="#a81f37" stroke-width="1.5"/><circle cx="25" cy="11" r="1.4" fill="#fff"/><circle cx="29.5" cy="11" r="1.4" fill="#7ee08a"/><path d="M18 36h6M21 33v6" stroke="#5a2236" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="36" r="2.3" fill="#5a2236"/></svg>' }
 };
-const inv = { slots: ['net', 'rock', null, null, null], active: 0, shown: 0, eq: 0, rocks: 0 };
+const inv = { slots: ['net', 'rock', 'dex', null, null], active: 0, shown: 0, eq: 0, rocks: 0 };
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
   const b = document.createElement('button'); b.className = 'slot'; b.dataset.i = i;
@@ -1719,7 +1823,7 @@ inv.slots.forEach((id, i) => {
   b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
-function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || (id === 'rock' && inv.rocks > 0); }
+function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || id === 'dex' || (id === 'rock' && inv.rocks > 0); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
   if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
@@ -1741,6 +1845,7 @@ function useItem() {
   if (inv.eq > 0.05 || player.climb) return;             // mid-swap or hands full of tree
   if (activeItem() === 'net') { if (swing.t < 0) startSwing(); }
   else if (activeItem() === 'rock' && throwAnim < 0) throwRock();
+  else if (activeItem() === 'dex') startScan();
 }
 
 let targetRock = null, throwAnim = -1, pickQueued = false;
@@ -1785,8 +1890,6 @@ function throwRock() {
   r.state = 'flying'; r.bounces = 0; r.mesh.visible = true; r.wet = false;
   throwAnim = 0; sfx.throw();
 }
-
-let dexOpen = false; function updateDex() {}  // DEX-STUB
 
 /* ---------- aim preview: dotted arc + landing ring while rocks are out ---------- */
 const AIM_DOTS = 48;
@@ -1972,7 +2075,8 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  const t = targetRock ? '<kbd>E</kbd>pick up rock' : '';
+  let t = targetRock ? '<kbd>E</kbd>pick up rock' : '';
+  if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
 }
 let shake = 0;
@@ -2005,7 +2109,9 @@ function updateViewmodel(dt) {
   // ----- hands -----
   if (climbBlend < 0.5) {
     handL.g.visible = handL.arm.visible = false;
-    if (item === 'net') {
+    dexModel.visible = false;
+    if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
+    else if (item === 'net') {
       // right hand grips the handle
       heldRockMesh.visible = false;
       net.updateMatrixWorld();
@@ -2029,7 +2135,7 @@ function updateViewmodel(dt) {
     handR.g.visible = handR.arm.visible = climbBlend < 0.99;
   } else {
     // climbing: hands reach up the trunk one after another (any held rock is pocketed)
-    throwAnim = -1; heldRockMesh.visible = false;
+    throwAnim = -1; heldRockMesh.visible = false; dexModel.visible = false;
     const ph = player.climb ? player.climb.phase : 0, lift = (1 - cbk) * 0.9;
     [[handL, -1, 0], [handR, 1, Math.PI]].forEach(([h, s, off]) => {
       const c = Math.sin(ph + off);
@@ -2040,6 +2146,198 @@ function updateViewmodel(dt) {
       h.g.visible = h.arm.visible = true;
     });
   }
+}
+
+/* =========================================================
+   Scrumblydex: scan scrumblies, browse entries
+   ========================================================= */
+SPECIES.bobo.num = 1;
+SPECIES.bobo.where = 'Pinksand Shore · near palm trees';
+SPECIES.bobo.fact = 'Bobos glow softly after dark, like little paper lanterns. Nobody knows what they\'re filled with, and nobody has been brave enough to check.';
+SPECIES.bobo.hint = 'Very shy: it dives into the sand if you walk up to it, and only pops back out once you\'re far away or up a tree. Bonk it from above by leaping off a palm, or stun it with a thrown rock, then net it while it\'s dizzy.';
+SPECIES.mermiggly = {
+  name: 'Mermiggly', num: 2, where: 'Pinksand Shore · the shallows',
+  icon: '<svg viewBox="0 0 48 48"><defs><linearGradient id="mgt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset=".5" stop-color="#f7a8d8"/><stop offset="1" stop-color="#b9f0c4"/></linearGradient></defs><path d="M17 25 C15 32 19 37 22 40 L14 45 C19 46.5 23 44.5 24 43 C25 44.5 29 46.5 34 45 L26 40 C29 37 33 32 31 25 Z" fill="url(#mgt)" stroke="#9ab7d6" stroke-width="1.2"/><ellipse cx="24" cy="25" rx="9" ry="6" fill="#a8de8c"/><circle cx="15.5" cy="9.5" r="5" fill="#a8de8c"/><circle cx="32.5" cy="9.5" r="5" fill="#a8de8c"/><ellipse cx="24" cy="16" rx="13.5" ry="8.5" fill="#a8de8c"/><circle cx="15.5" cy="9" r="2.1" fill="#1d1b22"/><circle cx="32.5" cy="9" r="2.1" fill="#1d1b22"/><path d="M13.5 18 Q24 24.5 34.5 18" stroke="#4d7a3e" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="22" cy="14" r=".9" fill="#4d7a3e"/><circle cx="26" cy="14" r=".9" fill="#4d7a3e"/></svg>',
+  fact: 'Mermigglies can\'t decide whether they\'re frogs or fish, so they ribbit underwater and blow bubbles on land. They wave at absolutely everyone.',
+  hint: 'Friendly from afar, but it zooms off and dives if you come close. Throwing rocks only makes it cross. Maybe there\'s a way to get it to come to you instead...'
+};
+const DEX_SIZE = 60;
+const SILHOUETTES = [
+  '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
+  '<ellipse cx="22" cy="29" rx="13" ry="10"/><circle cx="31" cy="16" r="7.5"/><path d="M37 15 l8 2 -8 3 z M9 27 l-6 -6 2 10 z"/>',
+  '<ellipse cx="21" cy="25" rx="15" ry="9.5"/><path d="M34 25 l11 -9 v18 z"/><path d="M17 16 q4 -7 9 0 z"/>',
+  '<path d="M6 25 C6 12 42 12 42 25 Z"/><rect x="18" y="24" width="12" height="17" rx="5"/>',
+  '<path d="M24 5 l5.5 12 13 1.5 -9.7 8.8 2.8 13 -11.6 -6.7 -11.6 6.7 2.8 -13 -9.7 -8.8 13 -1.5 z"/>',
+  '<ellipse cx="24" cy="29" rx="10.5" ry="13"/><path d="M20 17 q-6 -10 -10 -9 M28 17 q6 -10 10 -9" stroke="currentColor" stroke-width="2.6" fill="none"/><circle cx="10" cy="8" r="3"/><circle cx="38" cy="8" r="3"/>',
+  '<path d="M8 40 C4 30 10 20 18 22 C18 12 30 10 32 20 C40 18 46 30 40 40 Z"/>',
+  '<ellipse cx="24" cy="26" rx="16" ry="13"/><path d="M10 18 l-4 -12 10 8 z M38 18 l4 -12 -10 8 z"/>'
+];
+const DEX_ENTRIES = Array.from({ length: DEX_SIZE }, (_, i) => {
+  const id = Object.keys(SPECIES).find(k => SPECIES[k].num === i + 1);
+  return id ? { num: i + 1, id } : { num: i + 1, id: null, sil: SILHOUETTES[(i * 5 + 3) % SILHOUETTES.length] };
+});
+const dexState = { scanned: new Set(), caught: new Set(), sel: 0 };
+const pad3 = n => String(n).padStart(3, '0');
+function dexMarkCaught(id) { dexState.caught.add(id); dexState.scanned.add(id); if (dexOpen) renderDex(); }
+
+/* ---------- the device in your hand ---------- */
+const dexModel = new THREE.Group();
+const dexScreenMat = new THREE.MeshBasicMaterial({ color: 0x8ef0e8 }), dexLensMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+{
+  const red = new THREE.MeshLambertMaterial({ color: 0xe8384f, emissive: 0x3a0610 }), dark = new THREE.MeshLambertMaterial({ color: 0x5a2236 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.21, 0.04), red); dexModel.add(body);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.152, 0.05, 0.046), new THREE.MeshLambertMaterial({ color: 0xc92640 })); lid.position.y = 0.085; dexModel.add(lid);
+  const bezel = new THREE.Mesh(new THREE.PlaneGeometry(0.118, 0.088), dark); bezel.position.set(0, 0.01, 0.0205); dexModel.add(bezel);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.104, 0.074), dexScreenMat); screen.position.set(0, 0.01, 0.0215); dexModel.add(screen);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 20), dexLensMat); lens.rotation.x = Math.PI / 2; lens.position.set(-0.042, 0.085, 0.026); dexModel.add(lens);
+  [[0.005, 0xffffff], [0.025, 0x7ee08a], [0.045, 0xff9a3c]].forEach(([x, c]) => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 8, 6), new THREE.MeshBasicMaterial({ color: c })); l.position.set(x, 0.088, 0.024); dexModel.add(l); });
+  const dh = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.011, 0.008), dark), dv = dh.clone(); dv.rotation.z = Math.PI / 2;
+  [dh, dv].forEach(d => { d.position.set(-0.03, -0.062, 0.022); dexModel.add(d); });
+  [0.022, 0.044].forEach((x, i) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.008, 14), dark); b.rotation.x = Math.PI / 2; b.position.set(x, -0.055 - i * 0.012, 0.022); dexModel.add(b); });
+}
+dexModel.visible = false; dexModel.scale.setScalar(0.85); viewScene.add(dexModel);
+function poseDexHand(bx, by, eqDrop, cbk) {
+  const sc = scan ? Math.sin(Math.min(1, scan.t / SCAN_T) * Math.PI) : 0;
+  dexModel.position.set(0.21 + bx, -0.2 + by - eqDrop - cbk * 1.2 + sc * 0.03, -0.6 - sc * 0.04);
+  dexModel.rotation.set(-0.12 - sc * 0.15, -0.32, -0.08);
+  dexModel.visible = climbBlend < 0.5;
+  // screen shows a pulse while scanning, otherwise a gentle shimmer
+  const flash = scan ? 0.5 + 0.5 * Math.sin(time * 30) : 0.15 + 0.1 * Math.sin(time * 2.5);
+  dexScreenMat.color.setHex(0x8ef0e8).lerp(new THREE.Color(0xffffff), flash);
+  dexLensMat.color.setHex(scan ? 0xfff8b0 : 0xffd23f);
+  _a.set(0.012, -0.135, 0.015).multiplyScalar(dexModel.scale.x).applyQuaternion(dexModel.quaternion).add(dexModel.position);
+  handR.g.position.copy(_a);
+  handR.g.quaternion.copy(dexModel.quaternion); handR.g.rotateX(-0.3); handR.g.rotateZ(-0.15);
+}
+
+/* ---------- scanning ---------- */
+const SCAN_T = 0.9, SCAN_RANGE = 45;
+let scan = null, scanTarget = null, dexToggleQueued = false;
+const scanEl = document.getElementById('scanTarget'), scanLabel = scanEl.querySelector('b');
+function scrumblyCandidates() {
+  const out = [];
+  for (const b of bobos) if (b.root.visible && b.sink < 0.5 && b.state !== 'caught') out.push({ o: b, id: 'bobo', y: 0.35 });
+  for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 });
+  return out;
+}
+function findScanTarget(slack = 1) {
+  camera.getWorldDirection(_dir);
+  let best = null, bestAng = Infinity;
+  for (const c of scrumblyCandidates()) {
+    _to.set(c.o.root.position.x - camera.position.x, c.o.root.position.y + c.y - camera.position.y, c.o.root.position.z - camera.position.z);
+    const d = _to.length(); if (d > SCAN_RANGE) continue;
+    const ang = Math.acos(clamp(_to.normalize().dot(_dir), -1, 1));
+    if (ang < (Math.atan2(0.9, d) + 0.04) * slack && ang < bestAng) { bestAng = ang; best = c; }
+  }
+  return best;
+}
+function startScan() {
+  if (scan) return;
+  if (!scanTarget) { sfx.dexNope(); toast('Point the Scrumblydex at a scrumbly to scan it.'); return; }
+  scan = { target: scanTarget, t: 0 }; sfx.dexScan();
+}
+function finishScan() {
+  const id = scan.target.id, isNew = !dexState.scanned.has(id);
+  dexState.scanned.add(id); scan = null;
+  sfx.dexDone(isNew); showDexCard(id, isNew);
+}
+
+/* ---------- info card after a scan ---------- */
+const cardEl = document.getElementById('dexCard');
+let cardTimer = 0;
+function showDexCard(id, isNew) {
+  const s = SPECIES[id];
+  cardEl.innerHTML = `<header><span class="num">#${pad3(s.num)}</span><h3>${s.name}</h3>${isNew ? '<span class="new">NEW!</span>' : ''}${dexState.caught.has(id) ? '<span class="got">Caught</span>' : ''}</header>
+    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>
+    <h4>Did you know?</h4><p>${s.fact}</p><h4>Catching tip</h4><p>${s.hint}</p><footer><kbd>Tab</kbd>open Scrumblydex</footer>`;
+  cardEl.hidden = false; cardEl.classList.remove('in'); void cardEl.offsetWidth; cardEl.classList.add('in');
+  clearTimeout(cardTimer); cardTimer = setTimeout(() => cardEl.classList.remove('in'), 9000);
+}
+
+/* ---------- the list ---------- */
+let dexOpen = false;
+const dexEl = document.getElementById('dex'), dexGrid = document.getElementById('dexGrid'), dexDetail = document.getElementById('dexDetail');
+DEX_ENTRIES.forEach((e, i) => {
+  const b = document.createElement('button'); b.className = 'dexe'; b.dataset.i = i;
+  b.addEventListener('click', () => { dexState.sel = i; renderDex(); });
+  dexGrid.appendChild(b);
+});
+document.getElementById('dexClose').addEventListener('click', () => closeDex());
+function entryIcon(e) {
+  if (!e.id) return `<svg viewBox="0 0 48 48" fill="currentColor">${e.sil}</svg>`;
+  return SPECIES[e.id].icon;
+}
+function renderDex() {
+  const known = id => id && dexState.scanned.has(id);
+  [...dexGrid.children].forEach((b, i) => {
+    const e = DEX_ENTRIES[i], k = known(e.id), c = e.id && dexState.caught.has(e.id);
+    b.className = 'dexe' + (k ? ' known' : ' unknown') + (i === dexState.sel ? ' sel' : '');
+    b.innerHTML = `<span class="n">${pad3(e.num)}</span><span class="ic">${entryIcon(e)}</span><span class="nm">${k ? SPECIES[e.id].name : '???'}</span>${c ? '<span class="caught" title="Caught"></span>' : ''}`;
+  });
+  const e = DEX_ENTRIES[dexState.sel], k = known(e.id), c = e.id && dexState.caught.has(e.id), s = e.id && SPECIES[e.id];
+  dexDetail.innerHTML = `<div class="big ${k ? 'known' : 'unknown'}">${entryIcon(e)}</div>
+    <div class="dnum">#${pad3(e.num)}</div><h3>${k ? s.name : '???'}</h3>
+    <div class="chips"><span class="${k ? 'on' : ''}">${k ? 'Scanned' : 'Not scanned'}</span><span class="${c ? 'on' : ''}">${c ? 'Caught' : 'Not caught'}</span></div>
+    ${k ? `<p class="where">${s.where}</p><h4>Did you know?</h4><p>${s.fact}</p><h4>Catching tip</h4><p>${s.hint}</p>`
+        : `<p class="nodata">${e.id ? 'You\'ve not scanned this one yet. Point your Scrumblydex at it and click!' : 'No data. This scrumbly hasn\'t been discovered yet.'}</p>`}`;
+  document.getElementById('dexCount').innerHTML = `Scanned <b>${dexState.scanned.size}</b> · Caught <b>${dexState.caught.size}</b> · ${DEX_SIZE} entries`;
+  const selEl = dexGrid.children[dexState.sel]; if (selEl && selEl.scrollIntoView) selEl.scrollIntoView({ block: 'nearest' });
+}
+const DEX_COLS = 6;
+function dexMove(dx, dy) {
+  dexState.sel = clamp(dexState.sel + dx + dy * DEX_COLS, 0, DEX_SIZE - 1); sfx.dexTick(); renderDex();
+}
+function dexKey(e) {
+  const k = e.code;
+  if (k === 'Escape') { closeDex(); return; }
+  if (k === 'ArrowLeft' || k === 'KeyA') { e.preventDefault(); dexMove(-1, 0); }
+  if (k === 'ArrowRight' || k === 'KeyD') { e.preventDefault(); dexMove(1, 0); }
+  if (k === 'ArrowUp' || k === 'KeyW') { e.preventDefault(); dexMove(0, -1); }
+  if (k === 'ArrowDown' || k === 'KeyS') { e.preventDefault(); dexMove(0, 1); }
+}
+function openDex() {
+  if (dexOpen) return;
+  dexOpen = true; for (const k in keys) keys[k] = false;
+  scan = null; renderDex(); dexEl.hidden = false; sfx.dexOpen();
+  document.getElementById('crosshair').hidden = true;
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
+}
+function closeDex() {
+  if (!dexOpen) return;
+  dexOpen = false; dexEl.hidden = true; sfx.dexClose();
+  if (dragLook) return;
+  document.getElementById('crosshair').hidden = false;
+  // grab the mouse again; if the browser says no, fall back to the click-to-resume screen
+  try {
+    const p = canvas.requestPointerLock();
+    if (p && p.catch) p.catch(() => { paused = true; pauseEl.hidden = false; });
+  } catch (e) { paused = true; pauseEl.hidden = false; }
+}
+
+function updateDex(dt) {
+  if (dexToggleQueued) {
+    dexToggleQueued = false;
+    if (dexOpen) closeDex();
+    else if (playing && !paused && activeItem() === 'dex' && inv.eq < 0.05) { if (player.climb) toast('Hands full! Climb down first.'); else openDex(); }
+  }
+  const holding = playing && !paused && !dexOpen && activeItem() === 'dex' && inv.eq < 0.05 && !player.climb;
+  scanTarget = holding ? findScanTarget(scan ? 1.8 : 1) : null;
+  if (scan) {
+    scan.t += dt;
+    if (!holding || !scanTarget || scanTarget.o !== scan.target.o) { scan = null; sfx.dexNope(); toast('Lost it! Keep it in your sights while scanning.'); }
+    else if (scan.t >= SCAN_T) finishScan();
+  }
+  const t = scan ? scan.target : scanTarget;
+  if (t) {
+    _sp.set(t.o.root.position.x, t.o.root.position.y + t.y, t.o.root.position.z).project(camera);
+    const dist = Math.hypot(t.o.root.position.x - camera.position.x, t.o.root.position.z - camera.position.z);
+    const size = clamp(900 / Math.max(dist, 1), 46, 150);
+    scanEl.hidden = false; scanEl.classList.toggle('scanning', !!scan);
+    scanEl.style.width = scanEl.style.height = size + 'px';
+    scanEl.style.transform = `translate(${(_sp.x * 0.5 + 0.5) * innerWidth}px, ${(-_sp.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -50%)`;
+    scanLabel.textContent = scan ? 'Scanning…' : (dexState.scanned.has(t.id) ? SPECIES[t.id].name : '???');
+    scanEl.style.setProperty('--p', scan ? Math.min(1, scan.t / SCAN_T) : 0);
+  } else scanEl.hidden = true;
 }
 
 /* ---------- swing input ---------- */
@@ -2072,7 +2370,8 @@ function frame() {
 }
 function tick(dt) {
   time += dt;
-  if (playing && !paused) updatePlayer(dt);
+  if (playing) pollPad();
+  if (playing && !paused && !dexOpen) updatePlayer(dt);
   else if (!playing) { player.yaw += dt * 0.04; camera.position.set(player.x, player.y + 1.65, player.z); }
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (shake > 0) { shake = Math.max(0, shake - dt * 0.5); camera.position.y -= shake * Math.sin(time * 60) * 0.3; camera.rotation.x -= shake * 0.25; }
@@ -2128,6 +2427,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, water, target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, water, dexState, openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
