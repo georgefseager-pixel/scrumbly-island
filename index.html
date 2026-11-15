@@ -81,6 +81,18 @@
   .slotrow.armed { background: #fff3a8 !important; }
   .slotrow .confirm { position: absolute; right: 10px; top: -9px; font-size: .7rem; background: var(--pink); color: var(--cream); padding: 1px 8px; border-radius: 8px; }
   .file-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .file-row button[hidden] { display: none; } .file-row:has(button[hidden]) { grid-template-columns: 1fr; }
+  #panel { position: fixed; inset: 0; z-index: 33; display: grid; place-items: center; background: rgba(44,37,82,.4); padding: 16px; }
+  .menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .setrow { display: grid; grid-template-columns: 1fr 1.2fr 74px; align-items: center; gap: 10px; font-weight: 800; padding: 6px 4px; }
+  .setrow input[type=range] { width: 100%; accent-color: var(--pink-deep); }
+  .setrow input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--pink-deep); justify-self: start; }
+  .setrow output { font-family: var(--display); font-weight: 600; color: var(--pink-deep); font-size: .9rem; }
+  .ctrl-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .ctrl-cols table { border-collapse: collapse; font-size: .85rem; width: 100%; }
+  .ctrl-cols caption { font-family: var(--display); font-weight: 600; color: var(--pink-deep); text-align: left; padding-bottom: 4px; }
+  .ctrl-cols td { padding: 4px 4px; border-bottom: 1px solid rgba(44,37,82,.08); font-weight: 700; vertical-align: top; }
+  .ctrl-cols td:first-child { white-space: nowrap; color: rgba(44,37,82,.75); }
+   (max-width: 620px) { .ctrl-cols { grid-template-columns: 1fr; } }
   .title-btns { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .ghost { font-family: var(--display); font-weight: 600; font-size: 1.05rem; border: 0; border-radius: 14px; padding: 10px 16px; cursor: pointer; background: rgba(255,250,246,.9); color: var(--ink); box-shadow: 0 3px 0 rgba(44,37,82,.2); }
   .ghost:hover, .ghost:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
@@ -336,6 +348,7 @@
     <button data-act="resume" class="primary">Keep exploring</button>
     <button data-act="save">Save game</button>
     <button data-act="load">Load game</button>
+    <div class="menu-row"><button data-act="settings">Settings</button><button data-act="controls">Controls</button></div>
     <button data-act="new" class="quiet">New game</button>
     <p class="menu-tip">Your progress also autosaves as you play.</p>
   </div>
@@ -347,6 +360,13 @@
     <div class="file-row"><button id="fileExport">Download save file</button><button id="fileImport">Load from a save file…</button></div>
     <p class="menu-tip" id="savesNote"></p>
     <button id="savesBack" class="quiet">Back</button>
+  </div>
+</div>
+<div id="panel" hidden>
+  <div class="menu wide" role="dialog" aria-labelledby="panelTitle">
+    <h2 id="panelTitle">Settings</h2>
+    <div id="panelBody"></div>
+    <button id="panelBack" class="quiet">Back</button>
   </div>
 </div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
@@ -978,6 +998,10 @@ function sandPuff(x, z, n) {
    Audio: procedural island groove + ocean + footsteps
    ========================================================= */
 const BPM = 104, STEP = 60 / BPM / 4;
+/* ---------- player settings (kept in this browser, separate from saves) ---------- */
+const SETTINGS_KEY = 'scrumbly-island-settings';
+const settings = Object.assign({ sens: 1, invertY: false, music: 1, sfx: 1, shadows: true }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { return {}; } })());
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
 let actx = null, musicBus, sfxBus, ambBus, panBus, noiseBuf, oceanGain, musicOn = true;
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 const CHORDS = [
@@ -1004,9 +1028,9 @@ function initAudio() {
   try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
   const comp = actx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3;
   const master = actx.createGain(); master.gain.value = 0.9; master.connect(comp); comp.connect(actx.destination);
-  musicBus = actx.createGain(); musicBus.gain.value = 0.5; musicBus.connect(master);
-  sfxBus = actx.createGain(); sfxBus.gain.value = 0.7; sfxBus.connect(master);
-  ambBus = actx.createGain(); ambBus.gain.value = 0.5; ambBus.connect(master);
+  musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.5 * settings.music : 0; musicBus.connect(master);
+  sfxBus = actx.createGain(); sfxBus.gain.value = 0.7 * settings.sfx; sfxBus.connect(master);
+  ambBus = actx.createGain(); ambBus.gain.value = 0.5 * settings.sfx; ambBus.connect(master);
   panBus = actx.createGain(); panBus.connect(musicBus);
   const delay = actx.createDelay(1); delay.delayTime.value = STEP * 3;
   const fb = actx.createGain(); fb.gain.value = 0.3; const wet = actx.createGain(); wet.gain.value = 0.3;
@@ -1211,14 +1235,16 @@ function pollPad() {
   const now = gp.buttons.map(x => x.pressed);
   const tap = i => now[i] && !pad.prev[i];
   if (tap(9) && playing && !menuOpen()) { if (paused) resumeGame(); else openPause(); pad.prev = now; return; }
-  if ((playing && paused) || !savesEl.hidden || !playing) {          // menus: d-pad moves between buttons, A presses, B backs out
-    const vis = [...document.querySelectorAll('#saves:not([hidden]) button:not([hidden]):not([disabled]), #pause:not([hidden]) button, #title:not([hidden]) button:not([hidden])')].filter(b => b.offsetParent && (savesEl.hidden || b.closest('#saves')));
+  if ((playing && paused) || !savesEl.hidden || !panelEl.hidden || !playing) {          // menus: d-pad moves between buttons, A presses, B backs out
+    const vis = [...document.querySelectorAll('#panel:not([hidden]) input, #panel:not([hidden]) button, #saves:not([hidden]) button:not([hidden]):not([disabled]), #pause:not([hidden]) button, #title:not([hidden]) button:not([hidden])')].filter(b => b.offsetParent && (panelEl.hidden ? (savesEl.hidden || b.closest('#saves')) : b.closest('#panel')));
     if (vis.length) {
       let i = vis.indexOf(document.activeElement);
-      if (tap(13) || tap(15)) vis[(i + 1) % vis.length].focus();
-      if (tap(12) || tap(14)) vis[(i - 1 + vis.length) % vis.length].focus();
+      const onRange = vis[i] && vis[i].type === 'range';
+      if (tap(13) || (!onRange && tap(15))) vis[(i + 1) % vis.length].focus();
+      if (tap(12) || (!onRange && tap(14))) vis[(i - 1 + vis.length) % vis.length].focus();
       if (tap(0)) { if (i < 0) vis[0].focus(); else vis[i].click(); }
-      if (tap(1)) { if (!savesEl.hidden) closeSaves(); else if (playing) resumeGame(); }
+      if (tap(1)) { if (!panelEl.hidden) closePanel(); else if (!savesEl.hidden) closeSaves(); else if (playing) resumeGame(); }
+      const cur = vis[i]; if (cur && cur.type === 'range') { if (tap(15)) { cur.stepUp(); cur.dispatchEvent(new Event('input')); } if (tap(14)) { cur.stepDown(); cur.dispatchEvent(new Event('input')); } }
     }
     pad.prev = now; return;
   }
@@ -1415,7 +1441,8 @@ function updatePlayer(dt) {
 }
 
 function onLook(dx, dy, k) {
-  player.yaw -= dx * k; player.pitch -= dy * k;
+  k *= settings.sens;
+  player.yaw -= dx * k; player.pitch -= dy * k * (settings.invertY ? -1 : 1);
   player.pitch = clamp(player.pitch, -1.45, 1.45);
 }
 document.addEventListener('mousemove', e => {
@@ -1427,6 +1454,7 @@ const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'Arro
 window.addEventListener('keydown', e => {
   if (!playing) { if (e.code === 'Enter' && savesEl.hidden && document.activeElement === document.body) playBtn.click(); return; }
   if (!savesEl.hidden && e.code === 'Escape') { closeSaves(); return; }
+  if (!panelEl.hidden && e.code === 'Escape') { closePanel(); return; }
   if (paused) { if (e.code === 'Escape' && savesEl.hidden && performance.now() - pausedAt > 400) resumeGame(); return; }
   if (e.code === 'Escape' && dragLook && !menuOpen()) { openPause(); return; }
   if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (!e.repeat) dexToggleQueued = true; return; }
@@ -1471,7 +1499,7 @@ canvas.addEventListener('click', () => { if (playing && !dragLook && document.po
 const musicBtn = document.getElementById('musicBtn');
 function toggleMusic() {
   musicOn = !musicOn;
-  if (musicBus) musicBus.gain.setTargetAtTime(musicOn ? 0.5 : 0, actx.currentTime, 0.15);
+  if (musicBus) musicBus.gain.setTargetAtTime(musicOn ? 0.5 * settings.music : 0, actx.currentTime, 0.15);
   musicBtn.textContent = 'Music: ' + (musicOn ? 'on' : 'off');
 }
 musicBtn.addEventListener('click', e => { e.stopPropagation(); toggleMusic(); canvas.focus(); });
@@ -1652,6 +1680,7 @@ function startBurrow(b) { setState(b, 'burrow'); b.ex.visible = false; sandPuff(
 function catchScrumbly(species, size, ambush) {
   if (party.length >= PARTY_MAX) { sfx.wriggle(); toast('Your party is full! Leave some with Professor Loveopolis at the ranch before catching more.'); return false; }
   caughtCount++; sfx.caught();
+  catchBurst();
   dexMarkCaught(species);
   const p = addToParty(species, null, false, size);
   tutOnCatch(p);
@@ -4601,6 +4630,8 @@ pauseEl.addEventListener('click', e => {
   if (act === 'resume') resumeGame();
   else if (act === 'save') openSaves('save', 'pause');
   else if (act === 'load') openSaves('load', 'pause');
+  else if (act === 'settings') openPanel('settings');
+  else if (act === 'controls') openPanel('controls');
   else if (act === 'new') {
     const b = pauseEl.querySelector('[data-act=new]');
     if (!newArmed) { newArmed = true; b.textContent = 'Start over? Click again'; return; }
@@ -4612,6 +4643,61 @@ pauseEl.addEventListener('click', e => {
 setInterval(() => { if (playing && !paused && !menuOpen()) saveGame(); }, 20000);
 addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
 addEventListener('pagehide', saveGame);
+
+/* ---------- settings + controls panels (from the pause menu) ---------- */
+const panelEl = document.getElementById('panel'), panelBody = document.getElementById('panelBody');
+function applySettings() {
+  if (actx) {
+    musicBus.gain.setTargetAtTime(musicOn ? 0.5 * settings.music : 0, actx.currentTime, 0.1);
+    sfxBus.gain.setTargetAtTime(0.7 * settings.sfx, actx.currentTime, 0.1);
+    ambBus.gain.setTargetAtTime(0.5 * settings.sfx, actx.currentTime, 0.1);
+  }
+  sun.castShadow = settings.shadows;
+}
+function openPanel(which) {
+  document.getElementById('panelTitle').textContent = which === 'settings' ? 'Settings' : 'Controls';
+  if (which === 'settings') {
+    const pct = v => Math.round(v * 100) + '%';
+    panelBody.innerHTML = `
+      <label class="setrow"><span>Look sensitivity</span><input type="range" id="setSens" min="0.3" max="2.5" step="0.05" value="${settings.sens}"><output>${settings.sens.toFixed(2)}×</output></label>
+      <label class="setrow"><span>Invert look up/down</span><input type="checkbox" id="setInvert" ${settings.invertY ? 'checked' : ''}><output></output></label>
+      <label class="setrow"><span>Music volume</span><input type="range" id="setMusic" min="0" max="1.5" step="0.05" value="${settings.music}"><output>${pct(settings.music)}</output></label>
+      <label class="setrow"><span>Sound effects</span><input type="range" id="setSfx" min="0" max="1.5" step="0.05" value="${settings.sfx}"><output>${pct(settings.sfx)}</output></label>
+      <label class="setrow"><span>Shadows</span><input type="checkbox" id="setShadows" ${settings.shadows ? 'checked' : ''}><output>${settings.shadows ? 'on' : 'off (faster)'}</output></label>`;
+    const bind = (id, key, fmt, num = true) => panelBody.querySelector('#' + id).addEventListener('input', e => {
+      settings[key] = num ? parseFloat(e.target.value) : e.target.checked;
+      e.target.nextElementSibling.textContent = fmt(settings[key]); applySettings(); saveSettings();
+      if (key === 'sfx' && actx) sfx.pickup();
+    });
+    bind('setSens', 'sens', v => v.toFixed(2) + '×'); bind('setInvert', 'invertY', () => '', false);
+    bind('setMusic', 'music', pct); bind('setSfx', 'sfx', pct); bind('setShadows', 'shadows', v => v ? 'on' : 'off (faster)', false);
+  } else {
+    const row = (k, a) => `<tr><td>${k}</td><td>${a}</td></tr>`;
+    panelBody.innerHTML = `<div class="ctrl-cols">
+      <table><caption>Keyboard &amp; mouse</caption>${[
+        ['<kbd>WASD</kbd>', 'walk'], ['<kbd>Shift</kbd>', 'run'], ['<kbd>Space</kbd>', 'jump / leap off a tree'], ['<kbd>Mouse</kbd>', 'look'],
+        ['<kbd>Click</kbd>', 'use item'], ['<kbd>1</kbd>–<kbd>5</kbd> / scroll', 'swap item'], ['<kbd>E</kbd>', 'pick up / talk / pet / collect'],
+        ['<kbd>Tab</kbd>', 'Scrumblydex list (when held)'], ['<kbd>M</kbd>', 'music on/off'], ['<kbd>Esc</kbd>', 'pause']].map(r => row(...r)).join('')}</table>
+      <table><caption>Controller</caption>${[
+        ['Left stick', 'walk (push all the way to run)'], ['Right stick', 'look'], ['<kbd>A</kbd>', 'jump'], ['<kbd>RT</kbd> / <kbd>X</kbd>', 'use item'],
+        ['<kbd>LB</kbd> <kbd>RB</kbd> / d-pad', 'swap item'], ['<kbd>B</kbd>', 'pick up / talk / pet / collect'], ['<kbd>Y</kbd>', 'Scrumblydex list'],
+        ['<kbd>L3</kbd> / <kbd>LT</kbd>', 'run'], ['<kbd>Back</kbd>', 'music on/off'], ['<kbd>Start</kbd>', 'pause']].map(r => row(...r)).join('')}</table></div>
+      <p class="menu-tip">Walk or jump into a palm tree to climb it.</p>`;
+  }
+  panelEl.hidden = false;
+  const f = panelEl.querySelector('input, #panelBack'); if (f) f.focus();
+}
+function closePanel() { panelEl.hidden = true; const b = pauseEl.querySelector('[data-act=resume]'); if (b) b.focus(); }
+document.getElementById('panelBack').addEventListener('click', closePanel);
+applySettings();
+
+// a happy little burst of hearts and stars where the net comes down
+function catchBurst() {
+  camera.getWorldDirection(_cv);
+  const x = camera.position.x + _cv.x * 1.6, y = camera.position.y - 0.4 + _cv.y * 1.6, z = camera.position.z + _cv.z * 1.6;
+  for (let i = 0; i < 5; i++) spawnHeart(x, y, z);
+  for (let i = 0; i < 14; i++) spawnSparkle(x, y, z);
+}
 
 /* ---------- title screen: Continue / New game / Load game ---------- */
 const playBtn = document.getElementById('playBtn'), newBtn = document.getElementById('newBtn'), titleLoad = document.getElementById('titleLoad');

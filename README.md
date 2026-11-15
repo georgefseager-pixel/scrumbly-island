@@ -12,7 +12,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Shift | Run |
 | Space | Jump |
 | Mouse | Look (click to capture the mouse) |
-| Esc (or controller Start) | Pause menu: keep exploring, save, load, new game |
+| Esc (or controller Start) | Pause menu: keep exploring, save, load, new game, settings, controls |
 | Click | Use the item in hand (swing the net, throw a rock) |
 | 1–5 / scroll wheel / Q | Swap item |
 | E | Pick up a rock you're looking at |
@@ -48,6 +48,8 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 - Cage traps: set one down and any scrumbly that walks over it is shut inside (Mermigglies stay in the water, so never). Collect it with E or your net before it rattles the cage and breaks out after about 24 seconds. Empty traps can be picked up and reused
 - Professor Loveopolis's Ranch, just along the beach from the start: a thatched hut and a fenced pen with an open gate. The Professor, a big bearded frog-man in a lab coat, stands in the gateway. Talk to him to open the Box (48 slots) and swap scrumblies between it and your party. With a full party you can't catch any more: leave some with the Professor first. Up to five boxed scrumblies live in the pen (water-lovers in its pond) and crowd round with hearts and happy coos when you visit. You must always keep at least one scrumbly in your party, so your Partner slot is never empty
 - Your Partner follows you around: it hops after you when you wander off, waits at the foot of trees you climb, floats in the shallows, and settles nearby to watch you. Look at it and press E to pet it for hearts, sparkles and a happy squint. Every few minutes it lets you know how it feels with a little note (about 70 different ones)
+- Settings (from the pause menu): look sensitivity, invert look up/down, music and sound volume, and shadows on/off. Kept in this browser. A Controls page lists every key and controller button
+- Performance: decoration and palms are culled in slices, scrumblies and the ranch are merged into few draw calls, far-off creatures aren't drawn, and the render resolution adapts to keep the frame rate smooth
 - Saving: the game autosaves as you play (party, Box, Scrumblydex, where you're standing, rocks and traps, placed traps, music). The title screen offers Continue, New game and Load game. The pause menu has three save slots, plus Download save file and Load from a save file for backups or moving between computers. Saves live in this browser; the save file works anywhere
 - The Mermiggly, half frog and half mermaid: splashes, spins and leaps about in the shallows and may stop to wave at you, but bolts and dives within about 9 m. Hit one with a rock and it gets cross and leaves for a while. There's no way to catch one yet
 - The Scrumblydex: a red handheld scanner. Point it at a scrumbly and click to scan it, which pops up its entry with a cute fact and a catching tip. Tab opens the full list of 60 entries (7 real, the rest placeholders): unseen ones are blacked-out silhouettes, scanned ones show their info, and caught ones get a badge
