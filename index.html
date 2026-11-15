@@ -264,6 +264,27 @@
   #bond p { margin: 0; }
   #bond b { color: var(--pink-deep); }
   #bond::after { content: '♥'; position: absolute; right: -8px; top: -12px; color: var(--pink); font-size: 1.4rem; text-shadow: 0 2px 0 #fff; }
+  /* tutorial: objective, dialogue, item gifts */
+  #objective { right: calc(14px + env(safe-area-inset-right, 0px)); top: calc(58px + env(safe-area-inset-top, 0px)); max-width: min(300px, calc(100vw - 120px));
+               background: rgba(255,250,246,.92); border-radius: 14px; padding: 7px 12px; font-weight: 800; font-size: .88rem; line-height: 1.3; box-shadow: 0 3px 0 rgba(44,37,82,.2); border-left: 5px solid #ffd23f; }
+  #objective .star { color: #e59a2f; margin-right: 6px; }
+  #objective small { color: rgba(44,37,82,.55); font-weight: 700; }
+  #dialog { position: fixed; z-index: 26; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); display: grid; gap: 10px; cursor: pointer; }
+  .dlg-card { position: relative; display: flex; gap: 14px; align-items: flex-start; background: var(--cream); border: 4px solid #8fcf6f; border-radius: 22px; padding: 14px 18px 18px 14px; box-shadow: 0 5px 0 #5f9e45, 0 14px 30px rgba(44,37,82,.3); }
+  .prof-pic.small { width: 62px; height: 62px; }
+  .dbody { flex: 1; min-height: 4.4em; }
+  .dbody b { font-family: var(--display); font-weight: 600; color: #5f9e45; }
+  .dtext { margin: 2px 0 0; font-weight: 700; font-size: 1.02rem; line-height: 1.4; }
+  .dnext { position: absolute; right: 16px; bottom: 6px; color: #5f9e45; opacity: 0; }
+  #dialog.ready .dnext { opacity: 1; animation: bob 1s ease-in-out infinite; }
+  #itemGet { order: -1; justify-self: center; display: flex; align-items: center; gap: 12px; background: #fff3a8; border: 4px solid #ffd23f; border-radius: 20px; padding: 8px 18px 8px 10px; box-shadow: 0 5px 0 #e59a2f; }
+  #itemGet .pic { width: 60px; height: 60px; background: var(--cream); border-radius: 50%; display: grid; place-items: center; }
+  #itemGet .pic svg { width: 78%; height: 78%; }
+  #itemGet span { display: grid; } #itemGet small { font-weight: 800; color: rgba(44,37,82,.6); } #itemGet b { font-family: var(--display); font-size: 1.4rem; color: #c97a12; } #itemGet em { font-style: normal; font-weight: 700; font-size: .82rem; }
+  #itemGet.pop { animation: pop .6s; }
+  .slot.locked svg, .slot.locked .name { visibility: hidden; }
+  .slot.locked { background: rgba(255,250,246,.28); box-shadow: inset 0 0 0 2px rgba(255,250,246,.4); }
+  #bond .pic.prof { background: #fff3a8; }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
   @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
 </style>
@@ -349,6 +370,15 @@
   </div>
 </div>
 <div class="hud" id="bond" hidden></div>
+<div class="hud" id="objective" hidden></div>
+<div id="dialog" hidden>
+  <div class="dlg-card">
+    <span class="prof-pic small"><svg viewBox="0 0 64 64"><circle cx="16" cy="18" r="9" fill="#8fcf6f"/><circle cx="48" cy="18" r="9" fill="#8fcf6f"/><ellipse cx="32" cy="32" rx="27" ry="19" fill="#8fcf6f"/><circle cx="17" cy="18" r="6.5" fill="none" stroke="#c9a227" stroke-width="2"/><circle cx="47" cy="18" r="6.5" fill="none" stroke="#c9a227" stroke-width="2"/><path d="M23.5 18h17" stroke="#c9a227" stroke-width="1.6"/><circle cx="17" cy="18" r="3" fill="#1d1b22"/><circle cx="47" cy="18" r="3" fill="#1d1b22"/><path d="M12 33 Q32 41 52 33" stroke="#3f6b30" stroke-width="2.4" fill="none" stroke-linecap="round"/><g fill="#f4f1ea" stroke="#ddd6cb" stroke-width="1"><circle cx="32" cy="45" r="9"/><circle cx="22" cy="43" r="7"/><circle cx="42" cy="43" r="7"/><circle cx="27" cy="52" r="7"/><circle cx="37" cy="52" r="7"/><circle cx="32" cy="58" r="5.5"/></g></svg></span>
+    <div class="dbody"><b>Professor Loveopolis</b><p class="dtext"></p></div>
+    <span class="dnext">▼</span>
+  </div>
+  <div id="itemGet" hidden></div>
+</div>
 <div id="hotbar" hidden></div>
 <div id="party" hidden></div>
 
@@ -1095,6 +1125,8 @@ const sfx = {
   love(v) { if (!actx) return; const t = actx.currentTime; tone(t, 620, 980, 0.13, 0.05 * v, 'sine'); tone(t + 0.15, 1000, 740, 0.22, 0.045 * v, 'sine'); tone(t + 0.15, 2000, 1480, 0.18, 0.012 * v, 'sine'); },
   profHello() { if (!actx) return; const t = actx.currentTime; tone(t, 150, 120, 0.16, 0.12, 'square'); tone(t + 0.2, 180, 230, 0.22, 0.11, 'square'); tone(t + 0.2, 360, 460, 0.22, 0.03, 'sine'); }
   ,
+  profTalk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 3; i++) tone(t + i * 0.09, 180 + Math.random() * 80, 150 + Math.random() * 60, 0.07, 0.07, 'square'); }
+  ,
   clank(v) { if (!actx) return; const t = actx.currentTime; tone(t, 900, 700, 0.12, 0.12 * v, 'square'); noiseHit(t, 'highpass', 3000, 0.2 * v, 0.15, sfxBus, 1); tone(t + 0.02, 1400, 1300, 0.25, 0.04 * v, 'triangle'); }
 };
 function sfxClimbStep() { if (!actx) return; noiseHit(actx.currentTime, 'bandpass', 1500 + Math.random() * 700, 0.1, 0.07, sfxBus, 1.8); }
@@ -1146,6 +1178,7 @@ function pollPad() {
     }
     pad.prev = now; return;
   }
+  if (playing && dialogOpen) { if (tap(0) || tap(1) || tap(2) || tap(7)) dialogAdvance(); pad.prev = now; return; }
   if (playing && boxOpen) {                           // shuffling scrumblies in the Box
     if (tap(1) || tap(9)) closeBox();
     if (tap(0)) boxActivate();
@@ -1298,7 +1331,7 @@ function updatePlayer(dt) {
   nearPartner = !nearProf && partnerInReach();
   nearTrap = nearProf || nearPartner ? null : findNearTrap();
   targetRock = nearProf || nearPartner || nearTrap ? null : findTargetRock();
-  if (pickQueued) { pickQueued = false; if (nearProf) openBox(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
+  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1353,6 +1386,7 @@ window.addEventListener('keydown', e => {
   if (paused) { if (e.code === 'Escape' && savesEl.hidden && performance.now() - pausedAt > 400) resumeGame(); return; }
   if (e.code === 'Escape' && dragLook && !menuOpen()) { openPause(); return; }
   if (e.code === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); if (boxOpen) closeBox(); else if (!e.repeat) dexToggleQueued = true; return; }
+  if (dialogOpen) { if (!e.repeat && ['KeyE', 'Space', 'Enter', 'KeyF'].includes(e.code)) { e.preventDefault(); dialogAdvance(); } e.stopImmediatePropagation(); return; }
   if (dexOpen) { dexKey(e); e.stopImmediatePropagation(); return; }
   if (boxOpen) { boxKey(e); e.stopImmediatePropagation(); return; }
   if (GAME_KEYS.includes(e.code)) e.preventDefault();
@@ -1407,7 +1441,7 @@ function startGame() {
   document.getElementById('title').hidden = true;
   musicBtn.hidden = false; partyEl.hidden = false; hotbarEl.hidden = false;
   setTimeout(() => document.getElementById('hint').classList.add('fade'), 20000);
-  setTimeout(() => toast('Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
+  if (tut.stage === 'done') setTimeout(() => toast('Spot the Bobo? Bonk it from a palm tree or with a rock, then net it!'), 4600);
   document.getElementById('hint').hidden = false; document.getElementById('crosshair').hidden = false; lockPointer();
   player.pitch = -0.05;
   const area = document.getElementById('area'); area.style.opacity = 1; setTimeout(() => area.style.opacity = 0, 4200);
@@ -1538,6 +1572,7 @@ function catchScrumbly(species, size, ambush) {
   caughtCount++; sfx.caught();
   dexMarkCaught(species);
   const p = addToParty(species, null, false, size);
+  tutOnCatch(p);
   const lead = ambush ? 'Ambush! ' : '';
   toast(party.length === 1 ? `${lead}You caught ${fullName(p)}! It's your partner now.` : `${lead}You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
   return true;
@@ -2498,7 +2533,8 @@ const ITEM_DEFS = {
   , dex: { name: 'Scrumblydex', icon: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="37" rx="6" fill="#e8384f" stroke="#a81f37" stroke-width="2.5"/><rect x="15" y="17" width="18" height="13" rx="2.5" fill="#8ef0e8" stroke="#5a2236" stroke-width="1.8"/><circle cx="18" cy="11.5" r="3.4" fill="#ffd23f" stroke="#a81f37" stroke-width="1.5"/><circle cx="25" cy="11" r="1.4" fill="#fff"/><circle cx="29.5" cy="11" r="1.4" fill="#7ee08a"/><path d="M18 36h6M21 33v6" stroke="#5a2236" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="36" r="2.3" fill="#5a2236"/></svg>' }
   , trap: { name: 'Cage traps', icon: '<svg viewBox="0 0 48 48"><rect x="7" y="35" width="34" height="5" rx="1.5" fill="#b98352"/><rect x="7" y="9" width="34" height="4" rx="1.5" fill="#b98352"/><path d="M10 13v22M16 13v22M22 13v22M28 13v22M34 13v22M39 13v22" stroke="#9aa6b8" stroke-width="2.4"/><circle cx="24" cy="33.5" r="3.5" fill="#ff6fa5"/></svg>' }
 };
-const inv = { slots: ['net', 'rock', 'dex', 'trap', null], active: 0, shown: 0, eq: 0, rocks: 0, traps: 3 };
+const inv = { slots: ['net', 'rock', 'dex', 'trap', null], active: 0, shown: 0, eq: 0, rocks: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
+const owns = id => id === 'rock' || (id === 'trap' ? inv.trapsOwned > 0 : !!(id && inv.owned[id]));
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
   const b = document.createElement('button'); b.className = 'slot'; b.dataset.i = i;
@@ -2508,7 +2544,7 @@ inv.slots.forEach((id, i) => {
   b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
-function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || id === 'dex' || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0); }
+function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
   if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
@@ -2519,6 +2555,7 @@ function cycleSlot(dir) {
 }
 function renderHotbar() {
   [...hotbarEl.children].forEach((el, i) => {
+    el.classList.toggle('locked', !!inv.slots[i] && !owns(inv.slots[i]));
     el.classList.toggle('active', i === inv.active);
     el.classList.toggle('dim', !!inv.slots[i] && !slotUsable(i));
     if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
@@ -2526,7 +2563,7 @@ function renderHotbar() {
   });
 }
 renderHotbar();
-const activeItem = () => inv.slots[inv.shown];
+const activeItem = () => { const id = inv.slots[inv.shown]; return owns(id) ? id : null; };
 function useItem() {
   if (inv.eq > 0.05 || player.climb) return;             // mid-swap or hands full of tree
   if (activeItem() === 'net') { if (swing.t < 0) startSwing(); }
@@ -2814,7 +2851,8 @@ function updateViewmodel(dt) {
     }
     heldTrapMesh.visible = false;
     dexModel.visible = false;
-    if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
+    if (!item) { heldRockMesh.visible = heldTrapMesh.visible = false; }
+    else if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
     else if (item === 'net') {
       // right hand grips the handle
       heldRockMesh.visible = false;
@@ -2839,7 +2877,7 @@ function updateViewmodel(dt) {
       if (item === 'trap') heldMesh.quaternion.copy(handR.g.quaternion);
     }
     placeArm(handR, SHOULDER_R);
-    handR.g.visible = handR.arm.visible = climbBlend < 0.99;
+    handR.g.visible = handR.arm.visible = !!item && climbBlend < 0.99;
   } else {
     // climbing: hands reach up the trunk one after another (any held rock is pocketed)
     throwAnim = -1; heldRockMesh.visible = false; dexModel.visible = false;
@@ -3266,7 +3304,7 @@ function updateProf(dt) {
   prof.belly.scale.set(1 + br * 0.02, 1.02 - br * 0.015, 0.92 + br * 0.02);
   prof.head.position.y = 2.0 + br * 0.015;
   prof.head.rotation.z = Math.sin(time * 0.7) * 0.05;
-  if (!prof.greeted && d < 11 && playing) { prof.greeted = true; prof.wave = 2.2; sfx.profHello(); toast('Professor Loveopolis: "Ribbit-ho! Come in, come in!"'); }
+  if (!prof.greeted && d < (tut.stage === 'intro' ? 22 : 11) && playing) { prof.greeted = true; prof.wave = 2.2; sfx.profHello(); toast(tut.stage === 'intro' ? 'Professor Loveopolis: "Ribbit-ho! Over here, dear! Come and say hello!"' : 'Professor Loveopolis: "Ribbit-ho! Come in, come in!"'); }
   if (prof.wave > 0) prof.wave -= dt;
   const [aL, aR] = prof.arms;
   aR.rotation.z = prof.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.35 : 0.35 + Math.sin(time * 1.8) * 0.03;
@@ -3274,7 +3312,7 @@ function updateProf(dt) {
   prof.blink -= dt; const blinking = prof.blink < 0.12;
   if (prof.blink < 0) prof.blink = 2.5 + Math.random() * 3;
   prof.head.children.forEach(c => { if (c.name === 'pupil') c.scale.y = blinking ? 0.15 : 1; });
-  prof.tag.visible = d < 12;
+  prof.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
   if (ranch.userData.heart) ranch.userData.heart.rotation.y = time * 1.2;
 }
 
@@ -3370,7 +3408,7 @@ function updateResidents(dt) {
 /* ---------- the Box screen ---------- */
 let boxOpen = false, boxCur = { area: 'party', i: 0 }, boxHeld = null, boxDirty = false;
 let metProf = false;
-function menuOpen() { return dexOpen || boxOpen; }
+function menuOpen() { return dexOpen || boxOpen || dialogOpen; }
 const boxEl = document.getElementById('box'), boxPartyEl = document.getElementById('boxParty'), boxGridEl = document.getElementById('boxGrid');
 const boxSpeech = document.getElementById('boxSpeech'), boxFoot = document.getElementById('boxFoot');
 const PROF_LINES = [
@@ -3475,6 +3513,7 @@ function closeBox() {
   if (!boxOpen) return;
   boxOpen = false; boxEl.hidden = true; boxHeld = null; sfx.dexClose();
   if (boxDirty) refreshResidents();
+  if (tut.stage === 'boxOpen') setTimeout(() => tutAfterBox(), 250);
   if (dragLook) return;
   document.getElementById('crosshair').hidden = false;
   try {
@@ -3767,7 +3806,7 @@ function snapshot() {
     party: party.map(packP), box: boxSlots.map(packP),
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
-    inv: { rocks: inv.rocks, traps: inv.traps }, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
+    inv: { rocks: inv.rocks, traps: inv.traps }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     music: musicOn
   };
 }
@@ -3793,6 +3832,12 @@ function applySnapshot(s) {
   (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
+  // older saves (from before the tutorial) start with everything
+  const fresh = typeof s.tutorial === 'string';
+  tut.stage = fresh ? s.tutorial : 'done';
+  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex } : { net: true, dex: true };
+  inv.trapsOwned = fresh ? clamp(+s.trapsOwned || 0, 0, 3) : 3;
+  prof.greeted = false; closeDialog(true); updateObjective();
   // where you were standing
   const P = s.player;
   if (P && isFinite(P.x) && isFinite(P.z) && walkable(P.x, P.z)) { player.x = P.x; player.z = P.z; player.yaw = isFinite(P.yaw) ? P.yaw : player.yaw; player.pitch = clamp(isFinite(P.pitch) ? P.pitch : 0, -1.2, 1.2); }
@@ -3801,8 +3846,8 @@ function applySnapshot(s) {
   // what's in your pockets, and traps left out on the sand
   traps.slice().forEach(t => { if (t.occupant) releaseTrap(t, true, true); scene.remove(t.g); });
   traps.length = 0;
-  (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, TRAP_TOTAL).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0); });
-  inv.traps = clamp(s.inv && isFinite(s.inv.traps) ? s.inv.traps : TRAP_TOTAL - traps.length, 0, TRAP_TOTAL - traps.length);
+  (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, inv.trapsOwned).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0); });
+  inv.traps = clamp(s.inv && isFinite(s.inv.traps) ? s.inv.traps : inv.trapsOwned - traps.length, 0, Math.max(0, inv.trapsOwned - traps.length));
   setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
@@ -3905,7 +3950,7 @@ pauseEl.addEventListener('click', e => {
     const b = pauseEl.querySelector('[data-act=new]');
     if (!newArmed) { newArmed = true; b.textContent = 'Start over? Click again'; return; }
     newArmed = false; b.textContent = 'New game';
-    applySnapshot({}); saveGame(); resumeGame(); toast('A brand new adventure! Your save slots are still there.');
+    applySnapshot(NEW_GAME); saveGame(); resumeGame(); toast('A brand new adventure! Your save slots are still there.'); tutBegin();
   }
 });
 // keep the autosave fresh
@@ -3924,22 +3969,198 @@ function setupTitle() {
   newBtn.hidden = !auto; titleLoad.hidden = !any;
 }
 function beginGame() { autosaveOn = true; saveGame(); startGame(); }
-playBtn.addEventListener('click', () => { const s = readSave(SAVE_KEY); if (s) applySnapshot(s); beginGame(); });
+playBtn.addEventListener('click', () => { const s = readSave(SAVE_KEY); applySnapshot(s || NEW_GAME); beginGame(); if (!s) tutBegin(); });
 newBtn.addEventListener('click', () => {
   if (!titleNewArmed) { titleNewArmed = true; newBtn.textContent = 'Replace the autosave? Click again'; return; }
-  applySnapshot({}); beginGame();
+  applySnapshot(NEW_GAME); beginGame(); tutBegin();
 });
 titleLoad.addEventListener('click', () => openSaves('load', 'title'));
 setupTitle();
 
+/* =========================================================
+   Tutorial: Professor Loveopolis shows you the ropes
+   intro -> catchFirst -> returnFirst -> catchFive -> boxIntro -> boxOpen -> done
+   ========================================================= */
+const NEW_GAME = { tutorial: 'intro', owned: { net: false, dex: false }, trapsOwned: 0 };
+const tut = { stage: 'done', calledOver: false };
+const totalCaught = () => party.length + boxSlots.filter(Boolean).length;
+
+/* ---------- dialogue box ---------- */
+const dlgEl = document.getElementById('dialog'), dlgText = dlgEl.querySelector('.dtext'), dlgItem = document.getElementById('itemGet');
+let dialogOpen = false, dlgLines = [], dlgIdx = 0, dlgShown = 0, dlgDone = null, dlgTyping = false;
+function openDialog(lines, onDone) {
+  dlgLines = lines; dlgIdx = 0; dlgDone = onDone || null; dialogOpen = true;
+  for (const k in keys) keys[k] = false; swingQueued = pickQueued = false;
+  dlgEl.hidden = false; showLine(); prof.wave = 1.2;
+}
+function showLine() {
+  const L = dlgLines[dlgIdx];
+  dlgText.textContent = ''; dlgShown = 0; dlgTyping = true; dlgEl.classList.remove('ready');
+  dlgItem.hidden = true;
+  if (L.give) giveItem(L.give);
+  if (L.act) L.act();
+  if (dlgIdx === 0 || Math.random() < 0.5) sfx.profTalk();
+}
+function dialogAdvance() {
+  if (!dialogOpen) return;
+  if (dlgTyping) { dlgShown = dlgLines[dlgIdx].text.length; return; }
+  dlgIdx++;
+  if (dlgIdx >= dlgLines.length) { closeDialog(); return; }
+  sfx.dexTick(); showLine();
+}
+function closeDialog(silent) {
+  if (!dialogOpen) return;
+  dialogOpen = false; dlgEl.hidden = true; dlgItem.hidden = true; swingQueued = pickQueued = false;
+  const cb = dlgDone; dlgDone = null;
+  if (!silent && cb) cb();
+}
+function updateDialog(dt) {
+  if (!dialogOpen || !dlgTyping) return;
+  const full = dlgLines[dlgIdx].text;
+  dlgShown = Math.min(full.length, dlgShown + dt * 55);
+  dlgText.textContent = full.slice(0, Math.floor(dlgShown));
+  if (dlgShown >= full.length) { dlgTyping = false; dlgEl.classList.add('ready'); }
+}
+dlgEl.addEventListener('click', () => dialogAdvance());
+
+/* ---------- handing over items ---------- */
+const GIFT = {
+  net: { name: 'Catching Net', blurb: 'Click to swing it', give() { inv.owned.net = true; return 0; } },
+  dex: { name: 'Scrumblydex', blurb: 'Click to scan · Tab to browse', give() { inv.owned.dex = true; return 2; } },
+  trap: { name: 'Cage Trap', blurb: 'Click to set it down', give() { inv.trapsOwned = 1; inv.traps = Math.max(inv.traps, 1 - traps.length); return 3; } }
+};
+function giveItem(id) {
+  const g = GIFT[id], slot = g.give();
+  renderHotbar();
+  // pull the new thing out so you can see it
+  if (!player.climb) { inv.active = slot; inv.shown = slot; inv.eq = 1; renderHotbar(); }
+  dlgItem.innerHTML = `<span class="pic">${ITEM_DEFS[id === 'trap' ? 'trap' : id].icon}</span><span><small>You got the</small><b>${g.name}!</b><em>${g.blurb}</em></span>`;
+  dlgItem.hidden = false; dlgItem.classList.remove('pop'); void dlgItem.offsetWidth; dlgItem.classList.add('pop');
+  const el = hotbarEl.children[slot]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  sfx.caught(); saveGame();
+}
+
+/* ---------- what the Professor says ---------- */
+const pick1 = a => a[Math.floor(Math.random() * a.length)];
+function talkToProf() {
+  const P = party[0];
+  switch (tut.stage) {
+    case 'intro':
+      openDialog([
+        { text: 'Ribbit-ho! A new face on Pinksand Shore! Welcome, welcome! I\'m Professor Loveopolis: scrumbly scholar, ranch keeper and part-time beard enthusiast.' },
+        { text: 'This island is simply bursting with scrumblies. Squishy, silly, shy little things! I\'ve spent years and years studying them. Lovely years. Mostly sunburnt.' },
+        { text: 'And you, dear, have the look of a natural catcher about you. So I\'d like you to have this.' },
+        { text: 'My very own catching net! It\'s been gathering dust in the hut for far too long. Give it a swing with a click.', give: 'net' },
+        { text: 'Now then: off you pop and catch your very first scrumbly! The little dumpling ones are called Bobos. They\'re ever so shy, and they\'ll dive into the sand if you march straight up to them.' },
+        { text: 'Try leaping down on one from a palm tree, or bonking it with a pebble from the beach, then net it while it\'s dizzy. Come back and show me when you\'ve caught one!' }
+      ], () => setStage('catchFirst'));
+      break;
+    case 'catchFirst':
+      openDialog([{ text: pick1([
+        'Any luck, dear? Remember, Bobos can\'t bear being approached. Surprise one from the top of a palm tree!',
+        'Pebbles on the beach make lovely little projectiles. Look at one and press E to pick it up, then switch to it and click to throw.',
+        'A dizzy Bobo is a catchable Bobo! Bonk it first, then swing that net.',
+        'If one does spot you, don\'t fret. Wander off a little way and it\'ll pop back up again.'
+      ]) }]);
+      break;
+    case 'returnFirst': {
+      const name = P ? fullName(P) : 'scrumbly';
+      openDialog([
+        { text: `Is that... a real, live ${name}?! You caught one! Oh my stars and garters!` },
+        { text: 'Do you know, in all my years on this island, I have never once managed to catch a scrumbly. Not a single one! They see my beard coming and simply vanish.' },
+        { text: 'You are clearly the catcher this island has been waiting for. Which means you\'ll be needing this:' },
+        { text: 'The Scrumblydex! Point it at any scrumbly and click to scan it. You\'ll learn all sorts: cute facts, where they live, and tips on how to catch them.', give: 'dex' },
+        { text: 'While you\'re holding it, press Tab to flick through every entry. Scan everything you can, dear. There are so many I\'ve never even seen properly!' },
+        { text: 'Now, let\'s see how you get on. Catch five scrumblies, and I\'ll have something else to show you!' }
+      ], () => { setStage('catchFive'); tutOnCatch(); });
+      break;
+    }
+    case 'catchFive': {
+      const n = totalCaught();
+      openDialog([{ text: pick1([
+        `${n} caught already! Only ${5 - n} more to go, dear.`,
+        'Have you scanned them all with your Scrumblydex? The catching tips are ever so handy.',
+        `${P ? P.name : 'Your partner'} looks very happy following you about. Scrumblies love an adventure!`,
+        'Some scrumblies live up in the palm trees, you know. And some splash about in the shallows. Keep your eyes peeled!'
+      ]) }]);
+      break;
+    }
+    case 'boxIntro':
+      openDialog([
+        { text: 'Five scrumblies! Look at them all! You\'re an absolute marvel, dear.' },
+        { text: 'Now, you can only carry five at a time. Any more and they\'d be climbing all over you! So that\'s where I come in.' },
+        { text: 'This is the Box. Any scrumbly you leave with me lives here at the ranch. I feed them, cuddle them, and sing them sea shanties at bedtime.' },
+        { text: 'Some of them will even hop about in the pen behind me, so do pop in and say hello. Swap anyone you like in and out. Let\'s have a look now!' }
+      ], () => { setStage('boxOpen'); openBox(); });
+      break;
+    case 'boxOpen': openBox(); break;
+    default: openBox();
+  }
+}
+function tutAfterBox() {
+  openDialog([
+    { text: 'Wonderful! Come and see me whenever you want to shuffle your scrumblies about. Oh, and one more thing...' },
+    { text: 'Some scrumblies are far too clever for a net. For those, you\'ll want one of these:' },
+    { text: 'A cage trap! Set it down wherever a scrumbly is bound to wander, and it\'ll shut tight the moment one steps on the plate.', give: 'trap' },
+    { text: 'Just don\'t leave them waiting too long, or they\'ll rattle their way out! I\'ve only got the one to spare for now, mind. Happy catching, dear!' }
+  ], () => { setStage('done'); toast('That\'s everything the Professor has to teach you. Happy catching!'); });
+}
+function setStage(s) { tut.stage = s; tut.calledOver = false; updateObjective(); saveGame(); }
+function tutBegin() { tut.calledOver = false; updateObjective(); setTimeout(() => { if (tut.stage === 'intro') toast('Someone\'s waving at you from the ranch along the beach...'); }, 4800); }
+function tutOnCatch() {
+  if (tut.stage === 'catchFirst') setStage('returnFirst');
+  else if (tut.stage === 'catchFive' && totalCaught() >= 5) {
+    setStage('boxIntro');
+    // the Professor calls you over
+    setTimeout(() => {
+      bondEl.innerHTML = `<span class="pic prof">${document.querySelector('.prof-pic').innerHTML}</span><p><b>Professor Loveopolis:</b> "Yoo-hoo! Five scrumblies?! Come back to the ranch, dear, I've something to show you!"</p>`;
+      bondEl.hidden = false; bondEl.classList.remove('in'); void bondEl.offsetWidth; bondEl.classList.add('in');
+      clearTimeout(bondHide); bondHide = setTimeout(() => bondEl.classList.remove('in'), 7000);
+      sfx.profHello();
+    }, 2200);
+  }
+}
+
+/* ---------- objective tracker + a "!" over the Professor when he wants you ---------- */
+const objEl = document.getElementById('objective');
+const profMarker = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); profMarker.scale.setScalar(0.7); profMarker.renderOrder = 7; profMarker.position.y = 3.6; profMarker.visible = false; prof.root.add(profMarker);
+function objectiveText() {
+  switch (tut.stage) {
+    case 'intro': return 'Talk to Professor Loveopolis at the ranch';
+    case 'catchFirst': return 'Catch your first scrumbly';
+    case 'returnFirst': return 'Show your new scrumbly to Professor Loveopolis';
+    case 'catchFive': return `Catch five scrumblies (${Math.min(5, totalCaught())}/5)`;
+    case 'boxIntro': return 'Professor Loveopolis wants to see you';
+    case 'boxOpen': return 'Have a look in the Box';
+    default: return '';
+  }
+}
+let objLast = '';
+function updateObjective() {
+  const txt = objectiveText(), talk = ['intro', 'returnFirst', 'boxIntro'].includes(tut.stage);
+  let html = txt ? `<span class="star">★</span>${txt}` : '';
+  if (txt && talk) html += ` <small>${Math.round(profDistance())} m</small>`;
+  if (html !== objLast) { objLast = html; objEl.innerHTML = html; }
+  objEl.hidden = !txt || !playing;
+  profMarker.visible = talk;
+}
+function updateTutorial(dt) {
+  updateDialog(dt);
+  if (!playing) return;
+  updateObjective();
+  if (profMarker.visible) profMarker.position.y = 3.6 + Math.abs(Math.sin(time * 3)) * 0.25;
+}
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
+  if (dialogOpen && e.button === 0) { dialogAdvance(); return; }
   if (!playing || paused || e.button !== 0) return;
   if (document.pointerLockElement === canvas) swingQueued = true;
   downX = e.clientX; downY = e.clientY;
 });
 canvas.addEventListener('mouseup', e => {
+  if (dialogOpen) return;
   if (dragLook && playing && e.button === 0 && Math.hypot(e.clientX - downX, e.clientY - downY) < 6) swingQueued = true;
 });
 window.addEventListener('keydown', e => {
@@ -3975,6 +4196,7 @@ function tick(dt) {
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
+  updateTutorial(dt);
   updateTraps(dt);
   updateRocks(dt);
   updateAim();
@@ -4025,6 +4247,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, nooks, traps, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
