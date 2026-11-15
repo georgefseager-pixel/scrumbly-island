@@ -1462,17 +1462,12 @@ function tryNetCatch() {
     if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried') continue;
     const dx = b.x - player.x, dzz = b.z - player.z, along = dx * fwd.x + dzz * fwd.z, lat = Math.abs(dx * fwd.z - dzz * fwd.x);
     if (along < -0.4 || along > 3.0 || lat > 1.15 || Math.abs(b.y - player.y) > 1.6) continue;
-    if (b.state === 'stunned' && party.length >= PARTY_MAX && !boxSlots.includes(null)) { sfx.wriggle(); toast('Your party and the Box are both full! It wriggled free.'); setState(b, 'idle'); startBurrow(b); }
+    if (b.state === 'stunned' && party.length >= PARTY_MAX) { sfx.wriggle(); toast(`Your party is full! Leave some with Professor Loveopolis at the ranch before catching more.`); setState(b, 'idle'); startBurrow(b); }
     else if (b.state === 'stunned') {
       setState(b, 'caught'); caughtCount++; sfx.caught();
       dexMarkCaught('bobo');
-      if (party.length < PARTY_MAX) {
-        const p = addToParty('bobo', null, false, b.size);
-        toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
-      } else {
-        const p = makeScrumbly('bobo', null, b.size); addToBox(p); saveGame(); refreshResidents();
-        toast(`You caught ${fullName(p)}! Your party's full, so it went to Professor Loveopolis's Box.`);
-      }
+      const p = addToParty('bobo', null, false, b.size);
+      toast(party.length === 1 ? `You caught ${fullName(p)}! It's your partner now.` : `You caught ${fullName(p)}! Party: ${party.length}/${PARTY_MAX}`);
       got = true;
     }
     else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first.'); startBurrow(b); }
