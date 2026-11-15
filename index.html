@@ -1864,7 +1864,17 @@ const NAME_POOL = [
   'Heathcliff', 'Cathy', 'Earnshaw', 'Wuthering', 'Rochester', 'Bertha', 'Thornfield', 'Jane Eyre',                 // the Brontës
   'Rebecca', 'Manderley', 'Mrs Danvers', 'Manfred', 'Otranto', 'Udolpho', 'Montoni', 'Ambrosio', 'Matilda', 'Melmoth', 'Vathek',
   'Lenore', 'Annabel Lee', 'Usher', 'Ligeia', 'Berenice', 'Morella', 'Nevermore', 'The Raven', 'Amontillado', 'Fortunato', 'Prospero',   // Poe
-  'Dorian', 'Basil', 'Jekyll', 'Hyde', 'Utterson', 'Northanger', 'Tilney', 'Quint', 'Miss Jessel', 'Miles', 'Hill House', 'Merricat', 'Lady Audley', 'Varney'
+  'Dorian', 'Basil', 'Jekyll', 'Hyde', 'Utterson', 'Northanger', 'Tilney', 'Quint', 'Miss Jessel', 'Miles', 'Hill House', 'Merricat', 'Lady Audley', 'Varney',
+  // Danganronpa
+  'Makoto', 'Kyoko', 'Byakuya', 'Toko', 'Hina', 'Sakura', 'Celestia', 'Hifumi', 'Mondo', 'Taka', 'Chihiro', 'Leon', 'Sayaka', 'Mukuro', 'Junko',
+  'Monokuma', 'Monomi', 'Usami', 'Upupupu', 'Hajime', 'Nagito', 'Chiaki', 'Fuyuhiko', 'Peko', 'Sonia', 'Gundham', 'Kazuichi', 'Akane', 'Nekomaru',
+  'Teruteru', 'Ibuki', 'Hiyoko', 'Mahiru', 'Mikan', 'Kokichi', 'Shuichi', 'Kaede', 'Kaito', 'Maki', 'Kiibo', 'Rantaro', 'Tenko', 'Himiko', 'Angie',
+  'Korekiyo', 'Miu', 'Ryoma', 'Kirumi', 'Gonta', 'Tsumugi', 'Ultimate Lucky Student', 'Class Trial', 'Hope', 'Despair',
+  // The Lord of the Rings
+  'Frodo', 'Samwise', 'Merry', 'Pippin', 'Gandalf', 'Aragorn', 'Strider', 'Legolas', 'Gimli', 'Boromir', 'Faramir', 'Gollum', 'Smeagol', 'Bilbo',
+  'Elrond', 'Galadriel', 'Arwen', 'Eowyn', 'Eomer', 'Theoden', 'Treebeard', 'Saruman', 'Sauron', 'Shadowfax', 'Radagast', 'Tom Bombadil', 'Glorfindel',
+  'Haldir', 'Wormtongue', 'Balrog', 'Rosie Cotton', 'Barliman', 'Fatty Bolger', 'Precious', 'Mithril', 'Lembas', 'Second Breakfast', 'Elevenses',
+  'Rivendell', 'The Shire', 'Po-tay-toes', 'Mellon'
 ];
 function pickName() {
   const used = new Set(party.concat(typeof boxSlots === 'undefined' ? [] : boxSlots.filter(Boolean)).map(p => p.name));
