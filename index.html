@@ -1050,6 +1050,8 @@ const sfx = {
   ,
   love(v) { if (!actx) return; const t = actx.currentTime; tone(t, 620, 980, 0.13, 0.05 * v, 'sine'); tone(t + 0.15, 1000, 740, 0.22, 0.045 * v, 'sine'); tone(t + 0.15, 2000, 1480, 0.18, 0.012 * v, 'sine'); },
   profHello() { if (!actx) return; const t = actx.currentTime; tone(t, 150, 120, 0.16, 0.12, 'square'); tone(t + 0.2, 180, 230, 0.22, 0.11, 'square'); tone(t + 0.2, 360, 460, 0.22, 0.03, 'sine'); }
+  ,
+  clank(v) { if (!actx) return; const t = actx.currentTime; tone(t, 900, 700, 0.12, 0.12 * v, 'square'); noiseHit(t, 'highpass', 3000, 0.2 * v, 0.15, sfxBus, 1); tone(t + 0.02, 1400, 1300, 0.25, 0.04 * v, 'triangle'); }
 };
 function sfxClimbStep() { if (!actx) return; noiseHit(actx.currentTime, 'bandpass', 1500 + Math.random() * 700, 0.1, 0.07, sfxBus, 1.8); }
 function sfxSplash() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 1800, 0.35, 0.45, sfxBus, 0.4); noiseHit(t + 0.05, 'bandpass', 3000, 0.1, 0.25, sfxBus, 1); }
@@ -1237,8 +1239,9 @@ function updatePlayer(dt) {
 
   nearProf = profInReach();
   nearPartner = !nearProf && partnerInReach();
-  targetRock = nearProf || nearPartner ? null : findTargetRock();
-  if (pickQueued) { pickQueued = false; if (nearProf) openBox(); else if (nearPartner) petPartner(); else pickUpRock(); }
+  nearTrap = nearProf || nearPartner ? null : findNearTrap();
+  targetRock = nearProf || nearPartner || nearTrap ? null : findTargetRock();
+  if (pickQueued) { pickQueued = false; if (nearProf) openBox(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1486,7 +1489,7 @@ function tryNetCatch() {
   let got = false;
   const ambush = (player.ambushT ?? 99) < AMBUSH_T;
   for (const b of bobos) {
-    if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried') continue;
+    if (!b.root.visible || b.state === 'caught' || b.state === 'gone' || b.state === 'buried' || b.state === 'trapped') continue;
     if (!inNetZone(b.x, b.y, b.z)) continue;
     const surprised = ambush && (b.state === 'idle' || b.state === 'alert' || b.state === 'emerge' || (b.state === 'burrow' && b.t < 0.3));
     if (b.state === 'stunned' || surprised) {
@@ -1496,6 +1499,7 @@ function tryNetCatch() {
     else if (b.state !== 'burrow') { sfx.wriggle(); toast('It wriggled free! Stun it first, or take it by surprise from a tree.'); startBurrow(b); }
   }
   if (typeof netSpeshuls === 'function' && netSpeshuls()) got = true;
+  if (netTrapped()) got = true;
   return got;
 }
 
@@ -1640,6 +1644,7 @@ function updateBobos(dt) {
         }
         break;
       }
+      case 'trapped': { wob = Math.sin(b.t * 9) * 0.1; sy = 1 + Math.sin(b.t * 13) * 0.05; b.sink = 0; break; }
       case 'emerge': {
         b.sink = 1 - Math.min(1, b.t / 0.35); if (b.t > 0.35) { b.sink = 0; setState(b, 'idle'); b.wait = 0.8; }
         sy = 1 + Math.sin(Math.min(1, b.t / 0.35) * Math.PI) * 0.2;
@@ -2136,6 +2141,7 @@ function updateSpeshuls(dt) {
         if (m.y <= g) { m.y = g; m.state = 'dazed'; m.t = 0; sfx.thud(); sandPuff(m.x, m.z, 16); }
         break;
       }
+      case 'trapped': { pose = 'run'; flail = 1; break; }
       case 'dazed': {
         m.stunPhase += dt * 6; pose = 'sit'; sy = 1 - Math.abs(Math.sin(m.t * 4)) * 0.08;
         if (m.t > 1.0) { m.state = 'panic'; m.t = 0; m.panicT = 7 + Math.random() * 2; m.panicHome = { x: m.x, z: m.z }; m.retarget = 0; speshulSfx.eek(speshulVol(m) + 0.2); }
@@ -2243,8 +2249,9 @@ const ITEM_DEFS = {
   net: { name: 'Net', icon: '<svg viewBox="0 0 48 48"><path d="M10 40 L24 24" stroke="#e0b07a" stroke-width="4.5" stroke-linecap="round"/><path d="M8 42 L13 37" stroke="#ff6fa5" stroke-width="6" stroke-linecap="round"/><ellipse cx="31" cy="16" rx="11" ry="11" fill="rgba(255,255,255,.55)" stroke="#19b3ae" stroke-width="4"/><path d="M23 9 L39 23 M21 16 L34 28 M27 6 L41 18 M22 22 L28 27 M39 9 L25 25 M41 15 L31 26 M35 6 L22 19" stroke="#fff" stroke-width="1.6" opacity=".9"/></svg>' },
   rock: { name: 'Rocks', icon: '<svg viewBox="0 0 48 48"><path d="M9 32 C7 24 13 15 22 14 C31 12 40 18 41 27 C42 35 34 38 25 38 C16 38 10 37 9 32 Z" fill="#a99487" stroke="#7d6d70" stroke-width="2.5"/><path d="M15 22 C18 19 22 18 26 18" stroke="#cbb9b3" stroke-width="3" stroke-linecap="round" fill="none"/></svg>' }
   , dex: { name: 'Scrumblydex', icon: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="37" rx="6" fill="#e8384f" stroke="#a81f37" stroke-width="2.5"/><rect x="15" y="17" width="18" height="13" rx="2.5" fill="#8ef0e8" stroke="#5a2236" stroke-width="1.8"/><circle cx="18" cy="11.5" r="3.4" fill="#ffd23f" stroke="#a81f37" stroke-width="1.5"/><circle cx="25" cy="11" r="1.4" fill="#fff"/><circle cx="29.5" cy="11" r="1.4" fill="#7ee08a"/><path d="M18 36h6M21 33v6" stroke="#5a2236" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="36" r="2.3" fill="#5a2236"/></svg>' }
+  , trap: { name: 'Cage traps', icon: '<svg viewBox="0 0 48 48"><rect x="7" y="35" width="34" height="5" rx="1.5" fill="#b98352"/><rect x="7" y="9" width="34" height="4" rx="1.5" fill="#b98352"/><path d="M10 13v22M16 13v22M22 13v22M28 13v22M34 13v22M39 13v22" stroke="#9aa6b8" stroke-width="2.4"/><circle cx="24" cy="33.5" r="3.5" fill="#ff6fa5"/></svg>' }
 };
-const inv = { slots: ['net', 'rock', 'dex', null, null], active: 0, shown: 0, eq: 0, rocks: 0 };
+const inv = { slots: ['net', 'rock', 'dex', 'trap', null], active: 0, shown: 0, eq: 0, rocks: 0, traps: 3 };
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
   const b = document.createElement('button'); b.className = 'slot'; b.dataset.i = i;
@@ -2254,7 +2261,7 @@ inv.slots.forEach((id, i) => {
   b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
-function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || id === 'dex' || (id === 'rock' && inv.rocks > 0); }
+function slotUsable(i) { const id = inv.slots[i]; return id === 'net' || id === 'dex' || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
   if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
@@ -2268,6 +2275,7 @@ function renderHotbar() {
     el.classList.toggle('active', i === inv.active);
     el.classList.toggle('dim', !!inv.slots[i] && !slotUsable(i));
     if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
+    if (inv.slots[i] === 'trap') el.querySelector('.count').textContent = inv.traps ? inv.traps : '';
   });
 }
 renderHotbar();
@@ -2277,6 +2285,7 @@ function useItem() {
   if (activeItem() === 'net') { if (swing.t < 0) startSwing(); }
   else if (activeItem() === 'rock' && throwAnim < 0) throwRock();
   else if (activeItem() === 'dex') startScan();
+  else if (activeItem() === 'trap' && throwAnim < 0 && inv.traps > 0) placeTrap();
 }
 
 let targetRock = null, throwAnim = -1, pickQueued = false;
@@ -2512,7 +2521,8 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
+  let t = nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : '');
+  if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
   const pn = promptEl.querySelector('.pn'); if (pn && partner && pn.textContent !== partner.p.name) pn.textContent = partner.p.name;
@@ -2554,6 +2564,7 @@ function updateViewmodel(dt) {
       handL.g.rotation.set(-1.25, 0.2, 0.15);
       placeArm(handL, SHOULDER_L); handL.g.visible = handL.arm.visible = true;
     }
+    heldTrapMesh.visible = false;
     dexModel.visible = false;
     if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
     else if (item === 'net') {
@@ -2568,13 +2579,16 @@ function updateViewmodel(dt) {
       let k = 0, fwdK = 0;
       if (throwAnim >= 0) {
         throwAnim += dt / 0.45; k = Math.min(1, throwAnim); fwdK = Math.sin(Math.min(1, k * 1.6) * Math.PI);
-        if (throwAnim >= 1) { throwAnim = -1; if (inv.rocks === 0) selectSlot(0, true); }
+        if (throwAnim >= 1) { throwAnim = -1; if ((item === 'trap' ? inv.traps : inv.rocks) === 0) selectSlot(0, true); }
       }
       const reload = throwAnim >= 0 && k > 0.45 ? Math.sin((k - 0.45) / 0.55 * Math.PI) * 0.35 : 0;
       handR.g.position.set(0.27 - fwdK * 0.1 + bx, -0.27 + fwdK * 0.12 + by - eqDrop - cbk * 1.2 - reload, -0.6 - fwdK * 0.28);
       handR.g.rotation.set(-0.35 - fwdK * 0.7, -0.35, -0.25);
-      heldRockMesh.visible = inv.rocks > 0 && (throwAnim < 0 || k > 0.6);
-      heldRockMesh.position.set(0, 0.075, -0.06).applyQuaternion(handR.g.quaternion).add(handR.g.position);
+      const heldMesh = item === 'trap' ? heldTrapMesh : heldRockMesh, heldN = item === 'trap' ? inv.traps : inv.rocks;
+      (item === 'trap' ? heldRockMesh : heldTrapMesh).visible = false;
+      heldMesh.visible = heldN > 0 && (throwAnim < 0 || k > 0.6);
+      heldMesh.position.set(0, item === 'trap' ? 0.03 : 0.075, -0.06).applyQuaternion(handR.g.quaternion).add(handR.g.position);
+      if (item === 'trap') heldMesh.quaternion.copy(handR.g.quaternion);
     }
     placeArm(handR, SHOULDER_R);
     handR.g.visible = handR.arm.visible = climbBlend < 0.99;
@@ -3366,6 +3380,129 @@ function updateBond(dt) {
   if (bondTimer <= 0) { bondTimer = 120 + Math.random() * 120; showBond(); }
 }
 
+/* =========================================================
+   Cage traps: place one, and any scrumbly that walks over it
+   gets shut in. Collect it before it breaks out!
+   ========================================================= */
+const TRAP_W = 0.95, TRAP_H = 0.8, TRAP_HOLD = 24, TRAP_SHAKE = 14;
+function makeTrapMesh(ghostMat) {
+  const g = new THREE.Group();
+  const wood = ghostMat || lam(0xb98352), metal = ghostMat || new THREE.MeshLambertMaterial({ color: 0xd5dde8, emissive: 0x1a1f28 }), pink = ghostMat || lam(0xff6fa5);
+  const add = (geo, mat, x, y, z, parent = g) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = !ghostMat; parent.add(m); return m; };
+  add(new THREE.BoxGeometry(TRAP_W, 0.06, TRAP_W), wood, 0, 0.03, 0);
+  add(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 18), pink, 0, 0.07, 0);              // pressure plate
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(new THREE.BoxGeometry(0.06, TRAP_H, 0.06), wood, x * TRAP_W / 2, TRAP_H / 2, z * TRAP_W / 2);
+  add(new THREE.BoxGeometry(TRAP_W + 0.04, 0.05, TRAP_W + 0.04), wood, 0, TRAP_H, 0);
+  const bar = new THREE.CylinderGeometry(0.014, 0.014, TRAP_H - 0.06, 6);
+  for (const sx of [-1, 1]) for (let i = 1; i < 6; i++) add(bar, metal, sx * TRAP_W / 2, TRAP_H / 2, -TRAP_W / 2 + i * TRAP_W / 6);   // barred sides
+  for (let i = 1; i < 6; i++) add(new THREE.CylinderGeometry(0.014, 0.014, TRAP_W, 6), metal, 0, TRAP_H - 0.02, -TRAP_W / 2 + i * TRAP_W / 6).rotation.z = Math.PI / 2;
+  // two doors (front and back) hinged along the top edge; open = lifted up and out
+  const doors = [-1, 1].map(s => {
+    const d = new THREE.Group(); d.position.set(0, TRAP_H, s * TRAP_W / 2); g.add(d);
+    for (let i = 1; i < 6; i++) add(bar, metal, -TRAP_W / 2 + i * TRAP_W / 6, -(TRAP_H - 0.06) / 2, 0, d);
+    add(new THREE.BoxGeometry(TRAP_W - 0.04, 0.05, 0.05), wood, 0, -TRAP_H + 0.08, 0, d);
+    d.userData.s = s; return d;
+  });
+  g.userData.doors = doors;
+  return g;
+}
+function setDoors(g, open) { g.userData.doors.forEach(d => { d.rotation.x = d.userData.s * open * -1.45; }); }
+const traps = [];
+const ghostMat = new THREE.MeshBasicMaterial({ color: 0x7ee08a, transparent: true, opacity: 0.45, depthWrite: false });
+const trapGhost = makeTrapMesh(ghostMat); setDoors(trapGhost, 1); trapGhost.visible = false; scene.add(trapGhost);
+const heldTrapMesh = makeTrapMesh(); heldTrapMesh.scale.setScalar(0.13); setDoors(heldTrapMesh, 1); heldTrapMesh.visible = false; viewScene.add(heldTrapMesh);
+let trapSpot = null, nearTrap = null, trapHintShown = false;
+function trapPlacement() {
+  const x = player.x + fwd.x * 1.9, z = player.z + fwd.z * 1.9, y = heightAt(x, z);
+  let ok = walkable(x, z) && y > water.position.y - 0.15 && !inRanchZone(x, z, 1) && traps.every(t => Math.hypot(t.x - x, t.z - z) > 1.4);
+  if (ok) for (const p of beachPalms) { if (Math.abs(p.x - x) < 2 && Math.abs(p.z - z) < 2) { trunkAt(p, y + 0.4, tk); if (Math.hypot(tk.x - x, tk.z - z) < tk.r + 0.7) ok = false; } }
+  if (ok && typeof nooks !== 'undefined') for (const n of nooks) if (Math.hypot(n.x - x, n.z - z) < 1.5) ok = false;
+  return { x, y, z, ok, yaw: player.yaw };
+}
+function placeTrap() {
+  const s = trapPlacement();
+  if (!s.ok) { sfx.dexNope(); toast('Can\'t put a trap there. Try open sand, out of the water.'); return; }
+  const g = makeTrapMesh(); g.position.set(s.x, s.y, s.z); g.rotation.y = s.yaw; setDoors(g, 1); scene.add(g);
+  traps.push({ g, x: s.x, y: s.y, z: s.z, state: 'open', occupant: null, t: 0, open: 1 });
+  inv.traps--; renderHotbar(); throwAnim = 0; sfx.thud(); sandPuff(s.x, s.z, 8);
+  if (!trapHintShown) { trapHintShown = true; toast('Trap set! Any scrumbly that wanders over it gets shut in. Press E on an empty trap to pick it back up.'); }
+}
+// creatures a trap can grab (Mermigglies stay in the water, so never)
+function trappable() {
+  const out = [];
+  for (const b of bobos) if (b.root.visible && b.sink < 0.3 && ['idle', 'alert', 'emerge', 'stunned'].includes(b.state)) out.push({ o: b, id: 'bobo' });
+  for (const m of speshuls) if (m.root.visible && ['panic', 'return', 'dazed'].includes(m.state)) out.push({ o: m, id: 'speshul' });
+  if (typeof pengins !== 'undefined') for (const q of pengins) if (q.root.visible && ['waddle', 'flee', 'notice', 'emerge'].includes(q.state)) out.push({ o: q, id: 'pengin' });
+  return out;
+}
+function shutTrap(t, c) {
+  t.state = 'shut'; t.t = 0; t.occupant = c;
+  c.o.state = 'trapped'; c.o.t = 0; c.o.x = t.x; c.o.z = t.z; c.o.y = t.y + 0.06;
+  if (c.o.ex) c.o.ex.visible = false;
+  sfx.clank(clamp(1.2 - Math.hypot(player.x - t.x, player.z - t.z) / 40, 0.2, 1));
+  if (Math.hypot(player.x - t.x, player.z - t.z) < 60) toast(`Clang! Your trap caught a ${sizeWord(c.o.size)}${SPECIES[c.id].name}! Collect it before it breaks out.`);
+}
+function releaseTrap(t, escaped) {
+  const c = t.occupant; t.state = escaped ? 'sprung' : 'open'; t.t = 0; t.occupant = null;
+  if (!escaped || !c) return;
+  const o = c.o;
+  o.x = t.x + Math.sin(t.g.rotation.y) * 0.9; o.z = t.z + Math.cos(t.g.rotation.y) * 0.9;
+  if (c.id === 'bobo') { o.y = heightAt(o.x, o.z); setState(o, 'idle'); startBurrow(o); }
+  else if (c.id === 'speshul') { o.state = 'panic'; o.t = 0; o.panicT = 1.5; o.panicHome = { x: o.x, z: o.z }; o.retarget = 0; }
+  else if (c.id === 'pengin') { startPenginFlee(o, true); }
+  sfx.wriggle();
+  if (Math.hypot(player.x - t.x, player.z - t.z) < 40) toast(`Oh no! The ${SPECIES[c.id].name} broke out of your trap!`);
+}
+function collectTrapped(t) {
+  const c = t.occupant;
+  if (!catchScrumbly(c.id, c.o.size)) return false;
+  if (c.id === 'bobo') setState(c.o, 'caught'); else { c.o.state = 'caught'; c.o.t = 0; }
+  t.occupant = null; t.state = 'open'; t.t = 0;
+  return true;
+}
+function findNearTrap() {
+  if (player.climb) return null;
+  let best = null, bd = 2.6;
+  camera.getWorldDirection(_dir);
+  for (const t of traps) {
+    const d = Math.hypot(t.x - player.x, t.z - player.z); if (d > bd) continue;
+    _to.set(t.x - camera.position.x, t.y + 0.4 - camera.position.y, t.z - camera.position.z).normalize();
+    if (_to.dot(_dir) > 0.75 || d < 1.1) { bd = d; best = t; }
+  }
+  return best;
+}
+function useTrapInteract(t) {
+  if (t.occupant) { collectTrapped(t); return; }
+  scene.remove(t.g); traps.splice(traps.indexOf(t), 1); inv.traps++; renderHotbar(); sfx.pickup();
+}
+function netTrapped() {
+  let got = false;
+  for (const t of traps) if (t.occupant && inNetZone(t.x, t.y, t.z) && collectTrapped(t)) got = true;
+  return got;
+}
+function updateTraps(dt) {
+  // placement preview
+  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner;
+  if (!holding) trapSpot = null;
+  trapGhost.visible = holding;
+  if (holding) { trapSpot = trapPlacement(); trapGhost.position.set(trapSpot.x, trapSpot.y, trapSpot.z); trapGhost.rotation.y = trapSpot.yaw; ghostMat.color.setHex(trapSpot.ok ? 0x7ee08a : 0xff6f7f); ghostMat.opacity = 0.35 + Math.sin(time * 5) * 0.1; }
+  for (const t of traps) {
+    t.t += dt;
+    if (t.state === 'open') {
+      for (const c of trappable()) if (Math.hypot(c.o.x - t.x, c.o.z - t.z) < 0.45) { shutTrap(t, c); break; }
+    } else if (t.state === 'shut') {
+      const o = t.occupant.o;
+      o.x = t.x; o.z = t.z; o.y = t.y + 0.06;
+      const shake = t.t > TRAP_SHAKE ? (t.t - TRAP_SHAKE) / (TRAP_HOLD - TRAP_SHAKE) : 0;
+      t.g.rotation.z = Math.sin(t.t * 30) * 0.05 * shake; t.g.rotation.x = Math.cos(t.t * 27) * 0.04 * shake;
+      if (t.t > TRAP_HOLD) { t.g.rotation.set(0, t.g.rotation.y, 0); releaseTrap(t, true); }
+    } else if (t.state === 'sprung' && t.t > 1.2) { t.state = 'open'; t.t = 0; }
+    const want = t.state === 'shut' ? 0 : 1;
+    t.open += (want - t.open) * Math.min(1, dt * (want ? 4 : 25));
+    setDoors(t.g, t.open);
+  }
+}
+
 /* ---------- swing input ---------- */
 let downX = 0, downY = 0;
 canvas.addEventListener('mousedown', e => {
@@ -3408,6 +3545,7 @@ function tick(dt) {
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
+  updateTraps(dt);
   updateRocks(dt);
   updateAim();
   updateDex(dt);
@@ -3457,6 +3595,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, traps, inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
