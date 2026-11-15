@@ -2901,6 +2901,37 @@ function updateDucksharks(dt) {
   }
 }
 
+/* ---------- scenery: an enormous Duckshark, paddling about far out to sea ---------- */
+const giant = (() => {
+  const c = compactCreature(makeDucksharkMesh());
+  const SCALE = 45, th = spawnTheta + 0.45, dist = shoreR(th) + 210;
+  c.root.scale.setScalar(SCALE);
+  c.root.traverse(o => { o.castShadow = false; });
+  c.ex.visible = false;
+  return Object.assign(c, { cx: Math.cos(th) * dist, cz: Math.sin(th) * dist, R: 70, ang: Math.random() * 6.28, dabble: 0, nextDabble: 20, quackT: 30 + Math.random() * 20, SCALE });
+})();
+function updateGiant(dt) {
+  const g = giant;
+  g.ang += dt * 0.02;                                         // a slow lap every five minutes or so
+  const x = g.cx + Math.cos(g.ang) * g.R, z = g.cz + Math.sin(g.ang) * g.R;
+  g.root.position.set(x, water.position.y - 1 + Math.sin(time * 0.5) * 0.9, z);
+  g.root.rotation.y = Math.atan2(-Math.sin(g.ang), Math.cos(g.ang));   // facing along its circle
+  g.nextDabble -= dt;
+  if (g.nextDabble <= 0) { g.dabble = 6; g.nextDabble = 35 + Math.random() * 30; }
+  g.dabble = Math.max(0, g.dabble - dt);
+  const dab = g.dabble > 0 ? Math.sin(Math.min(1, (6 - g.dabble) / 1.5) * Math.PI / 2) * Math.min(1, g.dabble / 1.5) : 0;
+  g.body.rotation.x = dab * 1.0;
+  g.body.rotation.z = Math.sin(time * 0.35) * 0.04;
+  g.tail.rotation.y = Math.sin(time * 0.9) * 0.25;
+  g.jaw.rotation.x = Math.max(0, Math.sin(time * 0.23)) * 0.25;
+  // a deep, far-off quack now and then
+  g.quackT -= dt;
+  if (g.quackT <= 0) {
+    g.quackT = 40 + Math.random() * 40;
+    if (actx && playing) { const v = clamp(1 - Math.hypot(player.x - x, player.z - z) / 700, 0, 1) * 0.8; if (v > 0.05) { const t = actx.currentTime; tone(t, 95, 60, 0.6, 0.12 * v, 'sawtooth'); tone(t + 0.7, 90, 55, 0.7, 0.1 * v, 'sawtooth'); noiseHit(t, 'lowpass', 300, 0.1 * v, 1.2, ambBus, 1); } }
+  }
+}
+
 /* =========================================================
    Scrumblies: the Weevil (a miniature sausage dog)
    Zooms round the same circuit forever. Too quick to net,
@@ -5168,6 +5199,7 @@ function tick(dt) {
   updatePengins(dt);
   updateDucksharks(dt);
   updateWeevils(dt);
+  updateGiant(dt);
   updateBeeappies(dt);
   updateRanch(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
@@ -5229,6 +5261,6 @@ window.addEventListener('resize', () => {
 
 // test hook (used only for automated screenshots)
 window.__scrumbly = { player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
-  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, renderer, scene, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
+  mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
