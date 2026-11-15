@@ -98,7 +98,7 @@
   .ghost:hover, .ghost:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   #titleGreet { position: fixed; z-index: 21; right: max(16px, 4vw); bottom: calc(46vh + 10px); max-width: min(300px, 40vw); background: var(--cream); border-radius: 20px; padding: 10px 16px 12px;
                 box-shadow: 0 5px 0 rgba(44,37,82,.18); font-weight: 800; line-height: 1.35; transform-origin: 80% 100%; }
-  #titleGreet::after { content: ''; position: absolute; right: 26%; bottom: -14px; border: 14px solid transparent; border-top-color: var(--cream); border-bottom: 0; }
+  #titleGreet::after { content: ''; position: absolute; left: var(--tail, 74%); bottom: -14px; border: 14px solid transparent; border-top-color: var(--cream); border-bottom: 0; }
   #titleGreet b { display: block; font-family: var(--display); font-weight: 600; font-size: .85rem; color: var(--pink-deep); }
   #titleGreet.in { animation: pop .6s; }
   .continue-info { margin: -4px 0 0; font-weight: 800; font-size: .9rem; background: rgba(255,250,246,.85); padding: 4px 10px; border-radius: 10px; width: fit-content; }
@@ -1275,7 +1275,7 @@ function placeSigns() {
   GAP_TH.map(g => g + 4.6 / (shoreR(g) - INLAND_LIMIT)).forEach(th => {
     const [x, z] = polar(th, INLAND_LIMIT - 2.5), y = heightAt(x, z), grp = new THREE.Group();
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.2, 0.18), new THREE.MeshLambertMaterial({ color: 0x8a5a33 }));
-    post.position.y = 1.1; post.castShadow = true;
+    post.position.set(0, 1.1, -0.15); post.castShadow = true;       // behind the board, so its painted front shows
     const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.1), [signMat, signMat, signMat, signMat, signMat, signMat].map((m, i) => i === 4 ? m : new THREE.MeshLambertMaterial({ color: 0xc38d58 })));
     board.position.y = 2.0; board.castShadow = true;
     grp.add(post, board);
@@ -2132,6 +2132,7 @@ function tryNetCatch() {
   if (netTrapped()) got = true;
   if (netDucksharks()) got = true;
   if (netBeeappies()) got = true;
+  if (netMermigglies()) got = true;
   if (netBink()) got = true;
   if (!got) netWeevils();
   return got;
@@ -2489,7 +2490,7 @@ function mermSplash(m, n, power, big) {
   splash(bx, bz, n, power); spawnRipple(bx, bz, big ? 1.6 : 0.9); mermSfx.splash(mermVol(m), big);
 }
 function angerMerm(m) {
-  if (m.state === 'angry' || m.state === 'leave' || m.state === 'gone' || m.under > 0.6) return false;
+  if (m.state === 'angry' || m.state === 'leave' || m.state === 'gone' || m.state === 'caught' || m.under > 0.6) return false;
   m.state = 'angry'; m.t = 0; m.ex.visible = false; m.mad.visible = true; m.leap = -1;
   mermSfx.angry(mermVol(m) + 0.3);
   if (!mermHints.angry) { mermHints.angry = true; toast('Ouch! That Mermiggly is NOT impressed. Off it goes in a huff.'); }
@@ -2571,6 +2572,35 @@ function updateMermigglies(dt) {
         if (m.t > 0.85 && m.t - dt <= 0.85) mermSplash(m, 18, 1, true);
         break;
       }
+      case 'happy': {
+        // it ate your apple! happy little hops on the spot, with hearts and giggles
+        m.face += angDiff(m.face, facePlayer) * Math.min(1, dt * 5);
+        wantRise = 0.2 + Math.abs(Math.sin(m.t * 6.5)) * 0.55; armWave = 1; tailAmp = 0.7; tailRate = 9;
+        const hop = Math.floor(m.t * 6.5 / Math.PI);
+        if (hop !== m.hopN) { m.hopN = hop; mermSplash(m, 8, 0.6, false); spawnHeart(m.x, water.position.y + 1.3 * m.s, m.z); if (hop % 2) mermSfx.giggle(mermVol(m) + 0.3); }
+        if (m.t > 2.6) { m.state = 'friend'; m.t = 0; m.awayT = 0; if (!mermHints.friend) { mermHints.friend = true; toast('The Mermiggly has taken a real shine to you!'); } }
+        break;
+      }
+      case 'friend': {
+        // swims over and keeps close while you're out in the water (it waits at the water's edge if you're on land)
+        const inWater = depthAt(player.x, player.z) > 0.12;
+        if (dist > 1.6) { m.face += angDiff(m.face, facePlayer) * Math.min(1, dt * 5); speed = dist > 6 ? 3.6 : 2.2; wantLean = 0.5; tailAmp = 0.5; tailRate = 8; }
+        else { m.face += angDiff(m.face, facePlayer) * Math.min(1, dt * 4); wantRise = 0.12 + Math.sin(m.t * 3) * 0.04; tailAmp = 0.35; tailRate = 4; }
+        if (!inWater && Math.random() < dt * 0.4) armWave = 1;
+        m.splashT -= dt; if (m.splashT <= 0) { m.splashT = 0.8 + Math.random(); if (speed > 0) mermSplash(m, 5, 0.5, false); }
+        if (Math.random() < dt * 0.6) spawnHeart(m.x, water.position.y + 1.2 * m.s, m.z);
+        // it loses interest if you wander a long way off
+        m.awayT = dist > 40 ? m.awayT + dt : 0;
+        if (m.awayT > 12) { m.state = 'swim'; m.t = 0; pickSwimTarget(m); }
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, m.t / 0.45); camera.getWorldDirection(_cv);
+        m.x = lerp(m.x, camera.position.x + _cv.x * 1.2, k * 0.35); m.z = lerp(m.z, camera.position.z + _cv.z * 1.2, k * 0.35);
+        m.body.scale.setScalar(1 - k * 0.85); wantRise = k * 0.8;
+        if (k >= 1) { m.state = 'gone'; m.t = 0; m.root.visible = false; m.respawn = 35 + Math.random() * 20; m.body.scale.setScalar(1); }
+        break;
+      }
       case 'gone': {
         if (m.t > m.respawn) {
           const c = shoreSpot(Math.random() * 6.28), s = waterSpot(c.x, c.z, 0, 8, 0.4, 1.8, player, 30);
@@ -2626,6 +2656,17 @@ function updateMermigglies(dt) {
     else { const p = Math.sin(time * (speed > 0 ? 6 : 2.2) + m.tz) * (speed > 0 ? 0.6 : 0.2); aL.rotation.set(p, 0, -0.55); aR.rotation.set(-p, 0, 0.55); }
     m.fur.color.copy(m.furBase).lerp(MERM_CROSS, m.red * 0.75);
   }
+}
+// a Mermiggly that's made friends with you will let you net it (the water hides how high it sits, so only distance counts)
+function netMermigglies() {
+  let got = false;
+  for (const m of mermigglies) {
+    if (!m.root.visible || !['friend', 'happy'].includes(m.state)) continue;
+    const dx = m.x - player.x, dz = m.z - player.z, along = dx * fwd.x + dz * fwd.z, lat = Math.abs(dx * fwd.z - dz * fwd.x);
+    if (along < -0.4 || along > 3.2 || lat > 1.3 || player.y - water.position.y > 2.5) continue;
+    if (catchScrumbly('mermiggly', m.size, false, m.shiny)) { m.state = 'caught'; m.t = 0; got = true; }
+  }
+  return got;
 }
 // rocks thrown at a Mermiggly just make it cross
 function rockHitsMerm(r) {
@@ -4212,7 +4253,7 @@ SPECIES.mermiggly = {
   name: 'Mermiggly', num: 2, where: 'Pinksand Shore · the shallows',
   icon: '<svg viewBox="0 0 48 48"><defs><linearGradient id="mgt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset=".5" stop-color="#f7a8d8"/><stop offset="1" stop-color="#b9f0c4"/></linearGradient></defs><path d="M17 25 C15 32 19 37 22 40 L14 45 C19 46.5 23 44.5 24 43 C25 44.5 29 46.5 34 45 L26 40 C29 37 33 32 31 25 Z" fill="url(#mgt)" stroke="#9ab7d6" stroke-width="1.2"/><ellipse cx="24" cy="25" rx="9" ry="6" fill="#a8de8c"/><circle cx="15.5" cy="9.5" r="5" fill="#a8de8c"/><circle cx="32.5" cy="9.5" r="5" fill="#a8de8c"/><ellipse cx="24" cy="16" rx="13.5" ry="8.5" fill="#a8de8c"/><circle cx="15.5" cy="9" r="2.1" fill="#1d1b22"/><circle cx="32.5" cy="9" r="2.1" fill="#1d1b22"/><path d="M13.5 18 Q24 24.5 34.5 18" stroke="#4d7a3e" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="22" cy="14" r=".9" fill="#4d7a3e"/><circle cx="26" cy="14" r=".9" fill="#4d7a3e"/></svg>',
   fact: 'Mermigglies can\'t decide whether they\'re frogs or fish, so they ribbit underwater and blow bubbles on land. They wave at absolutely everyone.',
-  hint: 'Friendly from afar, but it zooms off and dives if you come close. Throwing rocks only makes it cross. Maybe there\'s a way to get it to come to you instead...'
+  hint: 'Friendly from afar, but it zooms off and dives if you come close. Throwing rocks only makes it cross. It has a terribly sweet tooth, though: win it over with a juicy treat from the forest and it might just come to you.'
 };
 SPECIES.speshul = {
   name: 'Speshul', num: 3, where: 'Pinksand Shore · up near the tops of palm trees',
@@ -4321,7 +4362,7 @@ const scanEl = document.getElementById('scanTarget'), scanLabel = scanEl.querySe
 function scrumblyCandidates() {
   const out = [];
   for (const b of bobos) if (b.root.visible && b.sink < 0.5 && b.state !== 'caught') out.push({ o: b, id: 'bobo', y: 0.35 * b.s });
-  for (const m of mermigglies) if (m.root.visible && m.under < 0.5) out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
+  for (const m of mermigglies) if (m.root.visible && m.under < 0.5 && m.state !== 'caught') out.push({ o: m, id: 'mermiggly', y: 0.5 * m.s });
   for (const m of speshuls) if (m.root.visible && m.state !== 'caught') out.push({ o: m, id: 'speshul', y: 0.4 * m.s });
   for (const q of pengins) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'pengin', y: 0.3 * q.s });
   for (const b of beeappies) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: b.state === 'angry' ? 'beeangy' : 'beeappy', y: 0 });
@@ -5487,7 +5528,18 @@ function updateTitlePartner(dt) {
   if (c.wings) c.wings.forEach((w, i) => { w.rotation.z = (i ? 1 : -1) * (0.15 + Math.sin(time * 45 + i) * 0.45); });
   if (c.arms && T.p.species === 'mermiggly') c.arms[1].rotation.z = 2.5 + Math.sin(time * 9) * 0.45;
   if (c.tail1) c.tail1.rotation.x = Math.sin(time * 3) * 0.12;
+  // keep the speech bubble just above the partner's head, wherever the screen shape puts them
+  if (!greetEl.hidden) {
+    c.root.updateMatrixWorld(true); _gBox.makeEmpty(); c.root.traverseVisible(o => { if (o.isMesh) _gBox.expandByObject(o); });   // ignore hidden marks above its head
+    _gPt.set(c.root.position.x, _gBox.max.y + 0.04, c.root.position.z).project(viewCam);
+    const ui = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')) || 1;
+    const sx = (_gPt.x * 0.5 + 0.5) * innerWidth / ui, sy = (-_gPt.y * 0.5 + 0.5) * innerHeight / ui, w = greetEl.offsetWidth, hgt = greetEl.offsetHeight;
+    const left = clamp(sx - w * 0.74 - 14, 8, innerWidth / ui - w - 8);
+    greetEl.style.left = left + 'px'; greetEl.style.top = Math.max(8, sy - hgt - 16 - T.hop * 6) + 'px'; greetEl.style.right = greetEl.style.bottom = 'auto';
+    greetEl.style.setProperty('--tail', clamp(sx - left - 14, 18, w - 34) + 'px');
+  }
 }
+const _gBox = new THREE.Box3(), _gPt = new THREE.Vector3();
 setupTitle();
 showTitlePartner();
 
@@ -6556,6 +6608,8 @@ function canWalk(x, z) {
   return true;
 }
 function collideForest(x, z) {
+  // the knights themselves
+  if (scrimHere()) for (const h of hops) { const dx = x - h.x, dz = z - h.z, d = Math.hypot(dx, dz), rr2 = 0.45 + PLAYER_R; if (d < rr2) { const k = (rr2 - d) / Math.max(d, 1e-3); x += dx * k; z += dz * k; } }
   if (!forestState.open) return [x, z];
   for (const c of forestColliders) {
     const dx = x - c.x, dz = z - c.z; if (Math.abs(dx) > 3 || Math.abs(dz) > 3) continue;
@@ -6628,8 +6682,9 @@ const hops = GAP_TH.map(g => {
 // stand in the gap, or (once you've paid) step aside to the edge of it
 function placeHops() {
   for (const h of hops) {
-    const g = h.gap, aside = forestState.open, d = INLAND_LIMIT + (aside ? 2.3 : 1.2);
-    const r = shoreR(g) - d, th = g + (aside ? 2.75 / r : 0), [x, z] = polar(th, d);
+    // once paid, he stands on the sand just beside the gap (clear of the hedge), not in it
+    const g = h.gap, aside = forestState.open, d = aside ? INLAND_LIMIT - 1.4 : INLAND_LIMIT + 1.2;
+    const r = shoreR(g) - d, th = g + (aside ? 3.4 / r : 0), [x, z] = polar(th, d);
     h.x = x; h.z = z; h.baseYaw = Math.atan2(Math.cos(th), Math.sin(th));            // facing out to sea
     h.root.position.set(x, heightAt(x, z), z);
   }
@@ -6742,7 +6797,13 @@ function scrumblyAt(x, y, z) {
 }
 const appleSfx = { munch() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) { noiseHit(t + i * 0.13, 'bandpass', 1200 + Math.random() * 900, 0.14, 0.07, sfxBus, 2.5); tone(t + i * 0.13, 180, 120, 0.05, 0.04, 'square'); } tone(t + 0.6, 520, 780, 0.12, 0.04, 'sine'); } };
 // a hook for scrumblies that care about being fed (filled in later)
-function onAppleEaten(c) { c.fed = (c.fed || 0) + 1; }
+function onAppleEaten(c) {
+  c.fed = (c.fed || 0) + 1;
+  // a Mermiggly that gets an apple becomes your friend
+  if (c.species === 'mermiggly' && ['swim', 'play', 'wave', 'surface', 'flee', 'friend', 'happy'].includes(c.state)) {
+    c.state = 'happy'; c.t = 0; c.hopN = -1; c.leap = -1; c.ex.visible = false; c.mad.visible = false; c.red = 0;
+  }
+}
 function updateApples(dt) {
   for (const a of appleShots) {
     if (a.state === 'ground') { a.t += dt; continue; }
