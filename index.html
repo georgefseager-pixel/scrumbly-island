@@ -3316,6 +3316,45 @@ const giant = (() => {
   c.ex.visible = false;
   return Object.assign(c, { cx: Math.cos(th) * dist, cz: Math.sin(th) * dist, R: 70, ang: Math.random() * 6.28, dabble: 0, nextDabble: 20, quackT: 30 + Math.random() * 20, SCALE });
 })();
+/* ---------- scenery: an enormous Mermiggly across the sea from the Duckshark, who now and then
+   rises out of the water, waves at the island, and sinks back down ---------- */
+const giantMerm = (() => {
+  const c = compactCreature(makeMermMesh());
+  const SCALE = 50, th = spawnTheta + 0.45 + Math.PI, dist = shoreR(th) + 190;
+  c.root.scale.setScalar(SCALE); c.root.traverse(o => { o.castShadow = false; });
+  c.ex.visible = false; c.mad.visible = false; c.root.visible = false;
+  const x = Math.cos(th) * dist, z = Math.sin(th) * dist;
+  c.root.position.set(x, -60, z); c.root.rotation.y = Math.atan2(-x, -z);       // facing the island
+  return Object.assign(c, { x, z, SCALE, phase: 'under', t: 0, next: 25 + Math.random() * 15, ribbit: 0 });
+})();
+function updateGiantMerm(dt) {
+  const g = giantMerm, wy = water.position.y, UP = wy + 0.12 * g.SCALE, DOWN = wy - 1.3 * g.SCALE;
+  g.t += dt;
+  let y = DOWN, wave = 0;
+  if (g.phase === 'under') { if (g.t > g.next) { g.phase = 'rise'; g.t = 0; g.root.visible = true; } }
+  else if (g.phase === 'rise') {
+    const k = Math.min(1, g.t / 4); y = lerp(DOWN, UP, 1 - Math.pow(1 - k, 3));
+    if (Math.floor(g.t * 2) !== Math.floor((g.t - dt) * 2)) spawnRipple(g.x, g.z, 18 + g.t * 6);
+    if (k >= 1) { g.phase = 'wave'; g.t = 0; g.ribbit = 0.5; }
+  } else if (g.phase === 'wave') {
+    y = UP + Math.sin(g.t * 1.2) * 0.6; wave = 1;
+    g.ribbit -= dt;
+    if (g.ribbit <= 0 && g.t < 5) { g.ribbit = 2.2; if (actx && playing) { const v = clamp(1 - Math.hypot(player.x - g.x, player.z - g.z) / 650, 0, 1) * 0.9; if (v > 0.05) { const t = actx.currentTime; tone(t, 140, 105, 0.25, 0.12 * v, 'square'); tone(t + 0.3, 160, 115, 0.3, 0.11 * v, 'square'); noiseHit(t, 'lowpass', 400, 0.06 * v, 0.6, ambBus, 1); } } }
+    if (g.t > 7) { g.phase = 'sink'; g.t = 0; }
+  } else if (g.phase === 'sink') {
+    const k = Math.min(1, g.t / 4); y = lerp(UP, DOWN, k * k);
+    if (Math.floor(g.t * 2) !== Math.floor((g.t - dt) * 2)) spawnRipple(g.x, g.z, 30);
+    if (k >= 1) { g.phase = 'under'; g.t = 0; g.next = 50 + Math.random() * 40; g.root.visible = false; }
+  }
+  if (!g.root.visible) return;
+  g.root.position.y = y;
+  const [aL, aR] = g.arms;
+  aR.rotation.set(0, 0, wave ? 2.5 + Math.sin(g.t * 5) * 0.45 : 0.55);
+  aL.rotation.set(0, 0, wave ? -0.45 : -0.55);
+  g.body.rotation.z = Math.sin(time * 0.6) * 0.04;
+  g.tail1.rotation.x = Math.sin(time * 1.2) * 0.1;
+  g.head.rotation.z = wave ? Math.sin(g.t * 1.6) * 0.12 : 0;
+}
 function updateGiant(dt) {
   const g = giant;
   g.ang += dt * 0.02;                                         // a slow lap every five minutes or so
@@ -4571,7 +4610,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? '<kbd>E</kbd>pet <b class="pn"></b>' : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
+  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? (activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -4728,6 +4767,14 @@ SPECIES.raebit = {
   fact: 'A Raebit simply cannot keep still. It dances whenever it is happy, which is always, and when the dance is finished it celebrates with a hop so big it lands on the other side of the forest.',
   hint: 'Too bouncy to net while it dances, and the moment the dance ends it springs off somewhere far across Glimmerwood. You will need to stop it in its tracks before it can hop away, then be quick with your net.'
 };
+// icons that use SVG gradients need their own ids each time they're put on the page: with two copies,
+// the browser may take the gradient from a hidden copy (in a closed menu) and draw nothing
+let iconUid = 0;
+for (const sp of Object.values(SPECIES)) {
+  if (!/ id="/.test(sp.icon)) continue;
+  const raw = sp.icon, ids = [...raw.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
+  Object.defineProperty(sp, 'icon', { get() { const u = ++iconUid; return ids.reduce((s, id) => s.split('"' + id + '"').join('"' + id + u + '"').split('#' + id + ')').join('#' + id + u + ')'), raw); } });
+}
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -5410,12 +5457,26 @@ function partnerInReach() {
 }
 function petPartner() {
   if (!partner || petCD > 0) return;
+  if (activeItem() === 'apple' && inv.apples > 0) { feedPartner(); return; }
   petT = 0.9; petCD = 0.9; partner.squish = 1; partner.idle = 0;
   const pr = partner.c.root.position;
   for (let i = 0; i < 3; i++) spawnHeart(pr.x, pr.y + 0.8 * partner.c.s, pr.z);
   for (let i = 0; i < 8; i++) spawnSparkle(pr.x, pr.y + 0.5 * partner.c.s, pr.z);
   sfx.love(1); mermSfx.giggle(0.8);
   if (Math.random() < 0.12) bondTimer = Math.min(bondTimer, 1.5);   // occasionally they tell you how they feel
+}
+// with an apple in hand, a pat becomes a snack
+const FEED_LINES = ['{name} gobbled it up in three happy crunches!', '{name} munched the apple and did a little happy wiggle.', 'Nom nom nom! {name} looks very pleased with you.', '{name} ate the whole thing, core and all. Delicious!', '{name} savoured every bite. Best snack ever.', '{name} crunched it up and now has apple on its face. Adorable.'];
+function feedPartner() {
+  inv.apples--; renderHotbar(); saveGame();
+  petT = 1.2; petCD = 1.2; partner.squish = 1.2; partner.idle = 0;
+  const pr = partner.c.root.position;
+  for (let i = 0; i < 6; i++) setTimeout(() => spawnHeart(pr.x, pr.y + 0.8 * partner.c.s, pr.z), i * 120);
+  for (let i = 0; i < 10; i++) spawnSparkle(pr.x, pr.y + 0.5 * partner.c.s, pr.z);
+  appleSfx.munch(); setTimeout(() => sfx.love(1), 650);
+  partner.p.fed = (partner.p.fed || 0) + 1;
+  toast(pick1(FEED_LINES).replace('{name}', partner.p.name));
+  if (inv.apples === 0) selectSlot(0, true);
 }
 function updatePartner(dt) {
   syncPartner();
@@ -7037,7 +7098,7 @@ function updateTeal(dt) {
    and an enormous Beeappy drifting high over the island
    ========================================================= */
 const forestState = { open: false, hopMet: false };
-const FOREST_TOLL = 300;
+const FOREST_TOLL = 500;
 // where you can walk: the beach always; past the hedge (through a gap) once Sir Hopsalot lets you
 function canWalk(x, z) {
   if (heightAt(x, z) < -MAX_DEPTH) return false;
@@ -7475,6 +7536,7 @@ function tick(dt) {
   updateDucksharks(dt);
   updateWeevils(dt);
   updateGiant(dt);
+  updateGiantMerm(dt);
   updateBeeappies(dt);
   updateBink(dt);
   updateGlimmeries(dt);
@@ -7541,7 +7603,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
