@@ -329,6 +329,7 @@
   #scrimMenu.pets .gold-chip { display: none; }
   #scrimMenu.paint .req.current { box-shadow: 0 0 0 4px #3f8a2a, 0 4px 0 rgba(0,0,0,.18); background: #e8f8e4; }
   #scrimMenu.paint .req .ric img { display: block; }
+  .decor-head { grid-column: 1 / -1; font-family: var(--display); font-weight: 700; color: #fff8e6; font-size: 1.05rem; margin: 2px 0 -6px; text-shadow: 0 2px 0 rgba(0,0,0,.2); }
   #scrimMenu.pets .bcell.picked { box-shadow: 0 0 0 4px #3f8a2a; background: #e8f8e4; }
   .bcell .home-tag { color: #3f8a2a; }
   .req.ware.deed { box-shadow: 0 0 0 3px #f2c230, 0 4px 0 rgba(0,0,0,.18); background: linear-gradient(160deg, #fff8e6, #fff0c8); }
@@ -7640,7 +7641,7 @@ function refreshScrim() {
   const ctl = ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> ';
   let html = '';
   if (m.mode === 'paint') {
-    html = (it ? `<b></b>${(houseState.paper || null) === it.id ? ' is on your walls' : '. Pick it to paper the walls'}` : '') + ctl + 'close';
+    html = (it ? `<b></b>${decorOn(it) ? (it.kind === 'carpet' ? ' is on your floor' : ' is on your walls') : (it.kind === 'carpet' ? '. Pick it to lay it down' : '. Pick it to paper the walls')}` : '') + ctl + 'close';
   } else if (m.mode === 'pets') {
     html = refreshPetPicker(m) + ctl + 'close';
   } else if (m.mode === 'carlos') {
@@ -7714,7 +7715,13 @@ function scrimActivate() {
 }
 function scrimMove(dx, dy) {
   const m = scrimMenu; if (!m.items.length) return;
-  m.cur = clamp(m.cur + dx + dy * m.cols, 0, m.items.length - 1); m.armed = -1; sfx.dexTick(); refreshScrim();
+  if (m.pos && m.pos.length === m.items.length && dy) {
+    // grids with section rows: move to the nearest card in the row above / below
+    const here = m.pos[m.cur], rows = [...new Set(m.pos.map(q => q.r))].sort((a, b) => a - b), ri = rows.indexOf(here.r), tr = rows[clamp(ri + dy, 0, rows.length - 1)];
+    let best = m.cur, bd = 1e9; m.pos.forEach((q, i) => { if (q.r === tr && Math.abs(q.c - here.c) < bd) { bd = Math.abs(q.c - here.c); best = i; } });
+    m.cur = best;
+  } else m.cur = clamp(m.cur + dx + dy * m.cols, 0, m.items.length - 1);
+  m.armed = -1; sfx.dexTick(); refreshScrim();
 }
 function scrimBack() {
   const m = scrimMenu;
@@ -7734,7 +7741,7 @@ function scrimKey(e) {
 function openScrim(mode, line) {
   if (scrimOpen) return;
   scrimOpen = true; for (const k in keys) keys[k] = false;
-  Object.assign(scrimMenu, { mode, cur: 0, armed: -1, req: null, picked: new Set(), changed: false });
+  Object.assign(scrimMenu, { mode, cur: 0, armed: -1, req: null, picked: new Set(), changed: false, pos: null });
   const isC = mode === 'carlos', isP = mode === 'pets' || mode === 'paint', who = isC ? 'Carlos the Capitalist' : isP ? 'Your treehouse' : 'Scrimple Scrumple';
   scrimEl.classList.toggle('carlos', isC); scrimEl.classList.toggle('pets', isP); scrimEl.classList.toggle('paint', mode === 'paint');
   scrimEl.querySelector('.scrim-pic').innerHTML = isC ? CARLOS_PIC : isP ? HOME_PIC : SCRIM_PIC;
@@ -8950,8 +8957,8 @@ const CARLOS_STOCK = [
 // the deed's card goes once the house is open; furnishings appear after Carlos's visit
 // (pet licences: one card at a time, the next one up, or the Master licence once you have them all)
 const carlosStock = () => CARLOS_STOCK.filter(w => (w.furn ? houseState.stage === 'furnish' : w.id !== 'deed' || !houseStageAt('carlos')) && (!w.tier || w.tier === Math.min(5, petSlots() + 1)));
-const carlosSold = id => id.startsWith('wp_') ? (houseState.papers || []).includes(id.slice(3)) : id === 'deed' ? carlosState.deed : HOUSE_ITEMS.includes(id) ? houseOwns(id) : /^pet\d$/.test(id) ? petSlots() >= +id[3] : false;
-const carlosIcon = id => id.startsWith('wp_') ? wallSwatch(id.slice(3)) : id === 'deed' ? DEED_ICON : /^pet\d$/.test(id) ? FURN_ICONS.pet : FURN_ICONS[id] || ITEM_DEFS[id].icon;
+const carlosSold = id => id.startsWith('cp_') ? (houseState.carpets || []).includes(id.slice(3)) : id.startsWith('wp_') ? (houseState.papers || []).includes(id.slice(3)) : id === 'deed' ? carlosState.deed : HOUSE_ITEMS.includes(id) ? houseOwns(id) : /^pet\d$/.test(id) ? petSlots() >= +id[3] : false;
+const carlosIcon = id => id.startsWith('cp_') ? carpetSwatch(id.slice(3)) : id.startsWith('wp_') ? wallSwatch(id.slice(3)) : id === 'deed' ? DEED_ICON : /^pet\d$/.test(id) ? FURN_ICONS.pet : FURN_ICONS[id] || ITEM_DEFS[id].icon;
 const carlosHave = id => id === 'rock' ? `${inv.rocks}/${MAX_ROCKS}` : id === 'apple' ? `${inv.apples}/${MAX_APPLES}` : carlosState.deed ? 'Yours!' : '';
 function buildCarlosShop(m) {
   m.items = carlosStock(); m.cols = m.items.length > 3 ? 4 : 3;
@@ -8975,6 +8982,7 @@ const FURN_LINES = {
 function carlosActivate(it) {
   const price = CARLOS_PRICE[it.id];
   if (it.id === 'deed' && carlosState.deed) return scrimNope('Already sold you that one, chief! One house per customer. One... mystery house.');
+  if (it.carpet && houseState.carpets.includes(it.carpet)) return scrimNope('Already rolled that one up for you, chief! One of each. Carpets are bulky.');
   if (it.wall && houseState.papers.includes(it.wall)) return scrimNope('Already sold you that roll, chief! You can’t paper a wall twice. Well, you CAN. But why?');
   if (it.tier && petSlots() >= it.tier) return scrimNope('That’s the top licence there is, chief! Five pets. Any more and it’s a zoo, and zoos need a DIFFERENT licence.');
   if (HOUSE_ITEMS.includes(it.id) && houseOwns(it.id)) return scrimNope('Already up in your treehouse, chief! One per customer. Don’t get greedy. That’s MY job.');
@@ -8989,8 +8997,14 @@ function carlosActivate(it) {
     inv.apples++; inv.owned.apple = true;
   }
   gold -= price; carlosSfx.till(); renderHotbar(); renderGold();
+  if (it.carpet) {
+    const first = !houseState.papers.length && !houseState.carpets.length; houseState.carpets.push(it.carpet); showFurnishings(); refreshHousePets(); saveGame();
+    scrimSay(pick1(['A genuine rug! Well, a carpet. Basically a big rug.', 'Feel that pile! Go on, feel it. Soft, right?', 'Wall-to-wall luxury, my friend. Wall to wall!', 'Fifty gold to never step on a splinter again. Bargain.'])); buildScrim();
+    toast(first ? 'A paint bucket has appeared in your treehouse! Use it to lay down your new carpet.' : 'The ' + it.name + ' is rolled up by your paint bucket.');
+    return;
+  }
   if (it.wall) {
-    const first = !houseState.papers.length; houseState.papers.push(it.wall); showFurnishings(); refreshHousePets(); saveGame();
+    const first = !houseState.papers.length && !houseState.carpets.length; houseState.papers.push(it.wall); showFurnishings(); refreshHousePets(); saveGame();
     scrimSay(pick1(['A fine roll of wallpaper! Hand-painted. By hand. Somebody’s hand.', 'Ooh, classy choice. Your treehouse is going to look FANCY.', 'Wallpaper! Nothing says “I own a home” like decorating it.', 'Fifty gold for a whole new look? That’s practically free. Don’t tell anyone.'])); buildScrim();
     if (first) toast('A paint bucket has appeared in your treehouse! Use it to put up your new wallpaper.'); else toast(`The ${it.name} is waiting by your paint bucket.`);
     return;
@@ -9075,7 +9089,7 @@ function updateCarlos(dt) {
    ========================================================= */
 const HOUSE_STAGES = ['locked', 'carlos', 'furnish'];
 const HOUSE_ITEMS = ['furn', 'posters', 'link', 'chute', 'board'];
-const houseState = { stage: 'locked', met: false, items: {}, papers: [], paper: null };
+const houseState = { stage: 'locked', met: false, items: {}, papers: [], paper: null, carpets: [], carpet: null };
 const houseOwns = id => !!houseState.items[id];
 
 // where you can stand up top: the room, the porch, and the doorway between them
@@ -9398,7 +9412,7 @@ function houseTarget() {
   const near = (u, v, r) => { const [x, z] = houseWorld(u, v); return facingPoint(x, z, r); };
   if (near(ZIP.lu, ZIP.lv, 2.2)) return { label: 'ride the zipline down to the beach', act: startZip };
   if (houseOwns('furn') && near(BED_AT[0], BED_AT[1], 2.8)) return { label: 'sleep in the bed (the scrumblies will move about)', act: startSleep };
-  if (houseState.papers.length && near(PAINT_AT[0], PAINT_AT[1], 2.0)) return { label: 'choose your wallpaper', act: openPaintPicker };
+  if (houseState.papers.length + houseState.carpets.length && near(PAINT_AT[0], PAINT_AT[1], 2.0)) return { label: 'decorate (wallpaper and carpets)', act: openPaintPicker };
   if (petSlots() > 0 && near(3.3, 2.5, 2.4)) return { label: 'choose your house pets', act: openPetPicker };
   if (houseOwns('link') && near(-(HW.u - 0.65), PIPE_V, 2.2)) return { label: 'use the Ranch Link (open the Box)', act: () => { sfx.pickup(); openBox(); } };
   if (houseOwns('chute') && near(HW.u - 0.65, PIPE_V, 2.2)) return { label: 'use the Easy Release Chute', act: () => openScrim('shop', 'Peace, friend! *crackle* Coming to you live down the chute. Who’s off to the wild?') };
@@ -9447,13 +9461,14 @@ function carlosHouseTalk() {
 }
 
 /* ---------- saving and every frame ---------- */
-function houseSave() { return { stage: houseState.stage, met: houseState.met, items: HOUSE_ITEMS.filter(houseOwns), license: houseState.license || 0, papers: (houseState.papers || []).slice(), paper: houseState.paper || null }; }
+function houseSave() { return { stage: houseState.stage, met: houseState.met, items: HOUSE_ITEMS.filter(houseOwns), license: houseState.license || 0, papers: (houseState.papers || []).slice(), paper: houseState.paper || null, carpets: (houseState.carpets || []).slice(), carpet: houseState.carpet || null }; }
 function houseLoad(o) {
   o = o && typeof o === 'object' ? o : {};
   houseState.stage = HOUSE_STAGES.includes(o.stage) ? o.stage : 'locked'; houseState.met = !!o.met; houseState.license = clamp(Math.floor(+o.license || 0), 0, 5);
   houseState.papers = (Array.isArray(o.papers) ? o.papers : []).filter(id => WALLPAPERS.some(w => w.id === id)); houseState.paper = houseState.papers.includes(o.paper) ? o.paper : null;
+  houseState.carpets = (Array.isArray(o.carpets) ? o.carpets : []).filter(id => CARPETS.some(c => c.id === id)); houseState.carpet = houseState.carpets.includes(o.carpet) ? o.carpet : null;
   houseState.items = {}; (Array.isArray(o.items) ? o.items : []).forEach(id => { if (HOUSE_ITEMS.includes(id)) houseState.items[id] = true; });
-  houseRide = null; zipRide = null; sleepT = 0; placeBouncy(); placeCarlos(); showFurnishings(); applyWallpaper(); bouncy.greeted = false;
+  houseRide = null; zipRide = null; sleepT = 0; placeBouncy(); placeCarlos(); showFurnishings(); applyWallpaper(); applyCarpet(); bouncy.greeted = false;
 }
 function updateHouse(dt) {
   const here = scrimHere();
@@ -9523,7 +9538,7 @@ const FURN_LINES_PET = [
   compactCreature({ root: g });
 }
 const _showFurnishings = showFurnishings;
-showFurnishings = () => { _showFurnishings(); houseFurn.pets.visible = petSlots() > 0; if (houseFurn.paint) houseFurn.paint.visible = (houseState.papers || []).length > 0; };
+showFurnishings = () => { _showFurnishings(); houseFurn.pets.visible = petSlots() > 0; if (houseFurn.paint) houseFurn.paint.visible = (houseState.papers || []).length + (houseState.carpets || []).length > 0; };
 
 /* ---------- picking who lives at home ---------- */
 const HOME_PIC = '<svg viewBox="0 0 64 64"><rect x="0" y="0" width="64" height="64" fill="#dff6e0"/><path d="M10 34 L32 14 L54 34 Z" fill="#d8566e"/><rect x="16" y="33" width="32" height="22" fill="#c89660"/><rect x="28" y="41" width="8" height="14" rx="3" fill="#8a5a33"/><circle cx="22" cy="41" r="3.5" fill="#bfe8ff" stroke="#fff" stroke-width="1.5"/><circle cx="42" cy="41" r="3.5" fill="#bfe8ff" stroke="#fff" stroke-width="1.5"/><path d="M32 9 C29 6 25 8 27 11 L32 15 L37 11 C39 8 35 6 32 9 Z" fill="#ff6fa5"/></svg>';
@@ -9563,7 +9578,7 @@ function petSpot() {
     if (Math.hypot(u, v) < 1.9 || (Math.abs(u) < 0.8 && v > 1.0 && v < 2.6)) continue;                                   // the trunk and the trapdoor
     if (houseOwns('furn') && ((u < -2.3 && v < -2.1) || (u > 1.8 && v < -2.2) || (u > 4.0 && v > 2.1) || Math.hypot(u - 4.3, v + 1.6) < 0.7)) continue;   // bed, table, bookshelf, plant
     if ((houseOwns('link') && u < -3.6 && Math.abs(v - PIPE_V) < 0.9) || (houseOwns('chute') && u > 3.6 && Math.abs(v - PIPE_V) < 0.9)) continue;
-    if ((petSlots() > 0 && Math.hypot(u - 3.3, v - 2.5) < 0.9) || Math.hypot(u + 4.0, v - 3.0) < 0.8 || ((houseState.papers || []).length && Math.hypot(u + 3.0, v - 1.7) < 0.8)) continue;           // the basket and the crate
+    if ((petSlots() > 0 && Math.hypot(u - 3.3, v - 2.5) < 0.9) || Math.hypot(u + 4.0, v - 3.0) < 0.8 || ((houseState.papers || []).length + (houseState.carpets || []).length && Math.hypot(u + 3.0, v - 1.7) < 0.9)) continue;           // the basket and the crate
     return [u, v];
   }
   return [-1.8, 1.2];
@@ -9833,38 +9848,146 @@ function applyWallpaper() {
   if (wallMat.map) wallMat.map.dispose();
   wallMat.map = wallTex(id); wallMat.needsUpdate = true; wallpaperGroup.visible = true;
 }
-// the paint bucket: shows up with your first wallpaper
+/* ---------- carpets: six designs, laid wall to wall across the room ---------- */
+const CARPETS = [
+  { id: 'cream', name: 'Cosy Cream', blurb: 'Soft, fluffy and cream, with a pink scalloped edge.' },
+  { id: 'gingham', name: 'Picnic Gingham', blurb: 'Red-and-white check. Every day is a picnic.' },
+  { id: 'moss', name: 'Mossy Meadow', blurb: 'Soft green moss with little toadstools and clover.' },
+  { id: 'rainbow', name: 'Rainbow Rings', blurb: 'Pastel rainbow rings, like a giant lollipop.' },
+  { id: 'royal', name: 'Royal Purple', blurb: 'Deep purple and gold. Lady Fluffytail would approve.' },
+  { id: 'ocean', name: 'Ocean Waves', blurb: 'Rolling blue waves and the odd little fish.' }
+];
+const CARPET_PRICE = 50;
+CARPETS.forEach(c => { CARLOS_PRICE['cp_' + c.id] = CARPET_PRICE; CARLOS_STOCK.push({ id: 'cp_' + c.id, name: c.name + ' Carpet', blurb: c.blurb, furn: true, carpet: c.id }); });
+const FLOOR = { u0: -HW.u + 0.1, u1: HW.u - 0.1, v0: HW.v0 + 0.1, v1: HW.v1 - 0.1 };
+function paintCarpet(id, W = 1024, H = Math.round(1024 * (FLOOR.v1 - FLOOR.v0) / (FLOOR.u1 - FLOOR.u0))) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), k = W / 1024;
+  const R = mulberry32(id.length * 131 + id.charCodeAt(1) * 7);
+  const dot = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+  const border = (inset, w, col) => { g.strokeStyle = col; g.lineWidth = w * k; g.strokeRect(inset * k, inset * k, W - inset * 2 * k, H - inset * 2 * k); };
+  if (id === 'cream') {
+    g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 2200; i++) dot(R() * W, R() * H, (1 + R() * 2.2) * k, R() < 0.5 ? 'rgba(255,255,255,.7)' : 'rgba(220,200,170,.35)');
+    g.fillStyle = '#ffb3cf'; const sc = 46 * k;
+    for (let x = sc / 2; x < W; x += sc) { dot(x, 0, sc / 2, '#ffb3cf'); dot(x, H, sc / 2, '#ffb3cf'); }
+    for (let y = sc / 2; y < H; y += sc) { dot(0, y, sc / 2, '#ffb3cf'); dot(W, y, sc / 2, '#ffb3cf'); }
+    border(48, 6, '#ffd6e6');
+  } else if (id === 'gingham') {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H); const s = 64 * k;
+    for (let x = 0; x < W; x += s * 2) { g.fillStyle = 'rgba(232,56,79,.45)'; g.fillRect(x, 0, s, H); }
+    for (let y = 0; y < H; y += s * 2) { g.fillStyle = 'rgba(232,56,79,.45)'; g.fillRect(0, y, W, s); }
+    border(18, 30, '#ffffff'); border(36, 6, '#c0283c');
+  } else if (id === 'moss') {
+    g.fillStyle = '#7fbf5c'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 260; i++) dot(R() * W, R() * H, (10 + R() * 30) * k, ['rgba(90,160,70,.35)', 'rgba(150,210,110,.3)', 'rgba(60,130,60,.25)'][i % 3]);
+    for (let i = 0; i < 26; i++) { const x = R() * W, y = R() * H; [0, 1, 2].forEach(a => dot(x + Math.cos(a * 2.1) * 9 * k, y + Math.sin(a * 2.1) * 9 * k, 9 * k, '#4fa64a')); }
+    for (let i = 0; i < 16; i++) { const x = 60 * k + R() * (W - 120 * k), y = 60 * k + R() * (H - 120 * k); g.fillStyle = '#fff4e6'; g.fillRect(x - 5 * k, y, 10 * k, 18 * k); g.fillStyle = '#e8384f'; g.beginPath(); g.ellipse(x, y, 20 * k, 13 * k, 0, Math.PI, 0); g.fill(); dot(x - 7 * k, y - 6 * k, 3 * k, '#fff'); dot(x + 6 * k, y - 8 * k, 2.5 * k, '#fff'); }
+    border(14, 18, '#5a9a3a');
+  } else if (id === 'rainbow') {
+    g.fillStyle = '#fff8e6'; g.fillRect(0, 0, W, H);
+    const cols = ['#ffb3cf', '#ffd2a8', '#fff2a8', '#c8f0b8', '#b8e4ff', '#d8c8ff'];
+    for (let r = 9; r >= 0; r--) { g.fillStyle = cols[r % cols.length]; g.beginPath(); g.ellipse(W / 2, H / 2, (W / 2 - 40 * k) * (r + 1) / 10, (H / 2 - 40 * k) * (r + 1) / 10, 0, 0, 7); g.fill(); }
+    dot(W / 2, H / 2, 40 * k, '#ffffff');
+  } else if (id === 'royal') {
+    g.fillStyle = '#4a2a7a'; g.fillRect(0, 0, W, H);
+    const s = 90 * k; g.strokeStyle = 'rgba(242,194,48,.55)'; g.lineWidth = 3 * k;
+    for (let x = -s; x < W + s; x += s) for (let y = -s; y < H + s; y += s) { g.beginPath(); g.moveTo(x, y - s / 2); g.lineTo(x + s / 2, y); g.lineTo(x, y + s / 2); g.lineTo(x - s / 2, y); g.closePath(); g.stroke(); dot(x, y, 5 * k, 'rgba(242,194,48,.8)'); }
+    border(20, 26, '#f2c230'); border(56, 6, '#f2c230'); border(40, 10, '#6a3cb0');
+    for (let i = 0; i < 4; i++) { const x = i % 2 ? W - 38 * k : 38 * k, y = i > 1 ? H - 38 * k : 38 * k; dot(x, y, 18 * k, '#f2c230'); dot(x, y, 8 * k, '#ff6fa5'); }
+  } else {
+    g.fillStyle = '#5ab4f0'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 7 * k; const s = 80 * k;
+    for (let y = s / 2; y < H; y += s) for (let x = ((y / s) % 2) * s / 2 - s; x < W + s; x += s) { g.beginPath(); g.arc(x + s / 2, y, s / 2.6, Math.PI, Math.PI * 1.85); g.stroke(); }
+    for (let i = 0; i < 12; i++) { const x = R() * W, y = R() * H, f = 18 * k; g.fillStyle = ['#ffb36b', '#ffd23f', '#ff8ab8'][i % 3]; g.beginPath(); g.ellipse(x, y, f, f * 0.6, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(x + f * 0.8, y); g.lineTo(x + f * 1.6, y - f * 0.6); g.lineTo(x + f * 1.6, y + f * 0.6); g.fill(); dot(x - f * 0.45, y - f * 0.1, 3 * k, '#2c2552'); }
+    border(14, 22, '#ffffff');
+  }
+  return c;
+}
+const carpetSwatch = id => { const c = paintCarpet(id, 128); return `<img src="${c.toDataURL()}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;box-shadow:0 0 0 2px #fff">`; };
+const carpetMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const carpetMesh = (() => {
+  const geo = new THREE.PlaneGeometry(FLOOR.u1 - FLOOR.u0, FLOOR.v1 - FLOOR.v0); geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, carpetMat); m.receiveShadow = true; m.visible = false;
+  const g = new THREE.Group(); g.position.set(HOUSE.x, HOUSE.deck + 0.02, HOUSE.z); g.rotation.y = HOUSE.yaw; g.add(m); scene.add(g);
+  m.position.set((FLOOR.u0 + FLOOR.u1) / 2, 0, (FLOOR.v0 + FLOOR.v1) / 2);
+  return m;
+})();
+function applyCarpet() {
+  const id = houseState.carpet;
+  if (!id || !houseState.carpets.includes(id)) { carpetMesh.visible = false; return; }
+  if (carpetMat.map) carpetMat.map.dispose();
+  const t = new THREE.CanvasTexture(paintCarpet(id)); t.anisotropy = 4; carpetMat.map = t; carpetMat.needsUpdate = true; carpetMesh.visible = true;
+}
+
+/* ---------- the paint bucket: shows up with your first wallpaper or carpet ---------- */
+// an open-topped tin with the paint sunk inside it (no lid to fight with), a rim, drips, a label, a brush and a few splats
 {
   const g = furnGroup('paint'), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
-  const PX = -3.0, PZ = 1.7;
-  add(new THREE.CylinderGeometry(0.3, 0.24, 0.48, 16), lam(0xdfe6f2), PX, 0.24, PZ);
-  add(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 16), lam(0xff6fa5), PX, 0.47, PZ);
-  add(new THREE.TorusGeometry(0.3, 0.025, 6, 18, Math.PI), lam(0x9aa6b8), PX, 0.5, PZ).rotation.y = 0.4;
-  [[0xff6fa5, 0.18], [0x7fd8c8, -0.05], [0xffd23f, -0.25]].forEach(([c, dy]) => add(new THREE.BoxGeometry(0.02, 0.12, 0.2), lam(c), PX + 0.29, 0.3 + dy * 0.4, PZ));
-  const brush = add(new THREE.BoxGeometry(0.06, 0.5, 0.04), lam(0xa8703c), PX + 0.12, 0.62, PZ - 0.05); brush.rotation.z = -0.4;
-  add(new THREE.BoxGeometry(0.14, 0.14, 0.08), lam(0xff6fa5), PX + 0.22, 0.86, PZ - 0.05).rotation.z = -0.4;
-  for (let k = 0; k < 4; k++) add(new THREE.CylinderGeometry(0.11, 0.11, 0.015, 10), lam([0xff6fa5, 0x7fd8c8, 0xffd23f, 0xb58be6][k]), PX - 0.35 + k * 0.18, 0.01, PZ + 0.38);
+  const PX = -3.0, PZ = 1.7, tin = new THREE.MeshPhongMaterial({ color: 0xc9d2e0, shininess: 70, specular: 0x8899aa, side: THREE.DoubleSide });
+  const paint = new THREE.MeshPhongMaterial({ color: 0xff6fa5, shininess: 90, specular: 0xffffff, emissive: 0x3a0a1e });
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.5, 24, 1, true), tin); wall.position.set(PX, 0.25, PZ); wall.castShadow = true; g.add(wall);
+  add(new THREE.CircleGeometry(0.25, 24), lam(0x9aa6b8), PX, 0.005, PZ).rotation.x = -Math.PI / 2;
+  const top = new THREE.Mesh(new THREE.CircleGeometry(0.288, 28), paint); top.rotation.x = -Math.PI / 2; top.position.set(PX, 0.43, PZ); g.add(top);
+  add(new THREE.TorusGeometry(0.3, 0.02, 8, 28), lam(0xaab4c4), PX, 0.5, PZ).rotation.x = Math.PI / 2;
+  add(new THREE.TorusGeometry(0.255, 0.018, 8, 26), lam(0xaab4c4), PX, 0.03, PZ).rotation.x = Math.PI / 2;
+  // a label band with a heart
+  add(new THREE.CylinderGeometry(0.287, 0.272, 0.16, 24, 1, true), lam(0xffffff), PX, 0.24, PZ);
+  const heart = new THREE.Shape(); heart.moveTo(0, -0.05); heart.bezierCurveTo(-0.08, 0.005, -0.05, 0.07, 0, 0.03); heart.bezierCurveTo(0.05, 0.07, 0.08, 0.005, 0, -0.05);
+  add(new THREE.ShapeGeometry(heart), lam(0xff6fa5), PX, 0.24, PZ + 0.286);
+  // drips running down over the rim
+  [[0.3, 0.16], [1.7, 0.1], [2.9, 0.2], [4.4, 0.12]].forEach(([a, len]) => {
+    // thin runs hugging the side of the tin (which narrows as it goes down), each ending in a little bead
+    const rAt = y => 0.25 + (y / 0.5) * 0.05 + 0.006, y0 = 0.5, y1 = 0.5 - len;
+    const x0 = PX + Math.sin(a) * rAt(y0), z0 = PZ + Math.cos(a) * rAt(y0);
+    const run = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.013, len, 8), paint); run.position.set(PX + Math.sin(a) * rAt((y0 + y1) / 2), (y0 + y1) / 2, PZ + Math.cos(a) * rAt((y0 + y1) / 2)); run.rotation.set(Math.cos(a) * 0.1, 0, -Math.sin(a) * 0.1); g.add(run);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.021, 10, 8), paint); tip.position.set(PX + Math.sin(a) * rAt(y1), y1, PZ + Math.cos(a) * rAt(y1)); tip.scale.set(1, 1.3, 1); g.add(tip);
+    const lip = new THREE.Mesh(new THREE.SphereGeometry(0.026, 10, 8), paint); lip.position.set(x0, y0 + 0.005, z0); lip.scale.set(1.4, 0.6, 1.4); g.add(lip);  });
+  // a handle, flopped to one side
+  const handle = add(new THREE.TorusGeometry(0.3, 0.012, 6, 20, Math.PI), lam(0x8a94a4), PX, 0.5, PZ); handle.rotation.set(0, 0.4, 0); handle.rotateX(-1.1);
+  // a brush resting across the top, dipped in pink
+  const brush = new THREE.Group(); brush.position.set(PX + 0.02, 0.55, PZ); brush.rotation.set(0, 0.5, -0.25); g.add(brush);
+  add(new THREE.CylinderGeometry(0.025, 0.03, 0.42, 8), lam(0xa8703c), 0.18, 0, 0, 1, 1, 1, brush).rotation.z = Math.PI / 2;
+  add(new THREE.BoxGeometry(0.06, 0.05, 0.12), lam(0x9aa6b8), -0.05, 0, 0, 1, 1, 1, brush);
+  const bristle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.045, 0.11), paint); bristle.position.set(-0.13, 0, 0); brush.add(bristle);
+  // a few splats on the floor
+  [[0xff6fa5, -0.45, 0.25, 0.12], [0x7fd8c8, 0.4, 0.4, 0.09], [0xffd23f, -0.2, 0.5, 0.07], [0xb58be6, 0.35, -0.35, 0.08]].forEach(([c, dx, dz, r]) => {
+    const sp = new THREE.Mesh(new THREE.CircleGeometry(r, 14), new THREE.MeshPhongMaterial({ color: c, shininess: 80, specular: 0xffffff })); sp.rotation.x = -Math.PI / 2; sp.position.set(PX + dx, 0.028, PZ + dz); g.add(sp);
+    const blob = new THREE.Mesh(new THREE.CircleGeometry(r * 0.45, 10), sp.material); blob.rotation.x = -Math.PI / 2; blob.position.set(PX + dx + r * 1.1, 0.028, PZ + dz - r * 0.6); g.add(blob);
+  });
   compactCreature({ root: g });
 }
 const PAINT_AT = [-3.0, 1.7];
+const DECOR_SECTIONS = [
+  { kind: 'paper', title: 'Wallpaper', bare: 'Bare Planks', list: () => WALLPAPERS.filter(w => houseState.papers.includes(w.id)), swatch: id => wallSwatch(id), cur: () => houseState.paper || null },
+  { kind: 'carpet', title: 'Carpet', bare: 'Bare Floor', list: () => CARPETS.filter(c => houseState.carpets.includes(c.id)), swatch: id => carpetSwatch(id), cur: () => houseState.carpet || null }
+];
+const decorOn = it => (it.kind === 'paper' ? houseState.paper || null : houseState.carpet || null) === it.id;
 function buildPaintPicker(m) {
-  m.items = [{ id: null, name: 'Bare Planks' }].concat(WALLPAPERS.filter(w => houseState.papers.includes(w.id))); m.cols = 4;
-  scrimBody.innerHTML = `<h3>Choose your wallpaper <span>${houseState.papers.length} of ${WALLPAPERS.length} collected</span></h3><div class="board-cards ware-cards four"></div>`;
+  m.items = []; m.cols = 4; m.pos = []; let row = -1;
+  scrimBody.innerHTML = `<h3>Decorate your treehouse <span>${houseState.papers.length} of ${WALLPAPERS.length} wallpapers · ${houseState.carpets.length} of ${CARPETS.length} carpets</span></h3><div class="board-cards ware-cards four"></div>`;
   const wrap = scrimBody.querySelector('.board-cards');
-  m.items.forEach((w, i) => {
-    const el = document.createElement('button'), on = (houseState.paper || null) === w.id;
-    el.className = 'req ware furnish' + (on ? ' current' : '');
-    el.innerHTML = `<h4>${on ? 'UP NOW' : 'WALLPAPER'}</h4><span class="ric">${w.id ? wallSwatch(w.id) : FURN_ICONS.furn}</span><span class="what">${w.name}</span><span class="have">${on ? 'On your walls' : 'Pick to paper the walls'}</span>`;
-    hookItem(el, i); wrap.appendChild(el); m.els.push(el);
-  });
+  for (const sec of DECOR_SECTIONS) {
+    const owned = sec.list(); if (!owned.length) continue;
+    const head = document.createElement('div'); head.className = 'decor-head'; head.textContent = sec.title; wrap.appendChild(head);
+    [{ id: null, name: sec.bare }].concat(owned).forEach((w, j) => {
+      if (j % 4 === 0) row++; m.pos.push({ r: row, c: j % 4 });
+      const it = { kind: sec.kind, id: w.id, name: w.name }, i = m.items.length, on = decorOn(it), el = document.createElement('button');
+      el.className = 'req ware furnish' + (on ? ' current' : '');
+      el.innerHTML = `<h4>${on ? (sec.kind === 'paper' ? 'UP NOW' : 'DOWN NOW') : sec.title.toUpperCase()}</h4><span class="ric">${w.id ? sec.swatch(w.id) : FURN_ICONS.furn}</span><span class="what">${w.name}</span><span class="have">${on ? (sec.kind === 'paper' ? 'On your walls' : 'On your floor') : (sec.kind === 'paper' ? 'Pick to paper the walls' : 'Pick to lay it down')}</span>`;
+      m.items.push(it); hookItem(el, i); wrap.appendChild(el); m.els.push(el);
+    });
+  }
 }
 function paintActivate(it) {
-  houseState.paper = it.id; applyWallpaper(); saveGame();
-  if (actx) { const t = actx.currentTime; noiseHit(t, 'bandpass', 1400, 0.08, 0.35, sfxBus, 0.8); tone(t + 0.3, 660, 990, 0.15, 0.05, 'sine'); }
-  scrimSay(it.id ? pick1(['Splosh! The walls are looking lovely.', `${it.name}! Very stylish.`, 'Slap, slap, slap... done! Your treehouse has never looked better.']) : 'Back to good old wooden planks. Classic.');
+  if (it.kind === 'carpet') { houseState.carpet = it.id; applyCarpet(); }
+  else { houseState.paper = it.id; applyWallpaper(); }
+  saveGame();
+  if (actx) { const t = actx.currentTime; noiseHit(t, 'bandpass', it.kind === 'carpet' ? 500 : 1400, 0.08, 0.35, sfxBus, 0.8); tone(t + 0.3, 660, 990, 0.15, 0.05, 'sine'); }
+  if (it.kind === 'carpet') scrimSay(it.id ? pick1(['Flump! Rolled out and smoothed down. Lovely and soft.', `${it.name}! Your toes will thank you.`, 'Wall to wall and not a wrinkle in sight.']) : 'Back to the bare boards. Mind the splinters!');
+  else scrimSay(it.id ? pick1(['Splosh! The walls are looking lovely.', `${it.name}! Very stylish.`, 'Slap, slap, slap... done! Your treehouse has never looked better.']) : 'Back to good old wooden planks. Classic.');
   buildScrim();
 }
-function openPaintPicker() { openScrim('paint', 'Dip the brush, pick a paper, and splosh!'); }
+function openPaintPicker() { openScrim('paint', 'Dip the brush, pick a paper, roll out a carpet!'); }
 
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
@@ -10062,7 +10185,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
