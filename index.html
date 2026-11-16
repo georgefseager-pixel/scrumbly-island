@@ -2039,6 +2039,9 @@ const SHINY = {
   beeappy: { shift: 0.52, tint: 0.62, sat: 0.35, css: 'hue-rotate(185deg) saturate(1.3)' },
   beeangy: { shift: 0.78, tint: 0.85, sat: 0.35, css: 'hue-rotate(280deg) saturate(1.2)' },
   glimmery: { shift: 0.5, tint: 0.75, sat: 0.6, light: 0.62, css: 'saturate(2.2) brightness(.8) hue-rotate(160deg)' },
+  sita: { shift: 0.14, tint: 0.5, sat: 0.4, css: 'hue-rotate(45deg) saturate(1.3) brightness(1.1)' },
+  rosita: { shift: 0.14, tint: 0.5, sat: 0.4, css: 'hue-rotate(45deg) saturate(1.3) brightness(1.1)' },
+  froggle: { shift: 0.55, tint: 0.95, sat: 0.3, css: 'hue-rotate(160deg) saturate(1.2)' },
   flops: { shift: 0.55, tint: 0.95, sat: 0.35, css: 'hue-rotate(200deg) saturate(1.3)' },
   willowet: { shift: 0, tint: 0.08, sat: 0.55, light: 1.1, css: 'sepia(.8) saturate(2) hue-rotate(-15deg)' },
   blorbo: { shift: 0.42, tint: 0.5, sat: 0.4, css: 'hue-rotate(150deg) saturate(1.4)' },
@@ -2164,6 +2167,8 @@ function tryNetCatch() {
   if (netRaebits()) got = true;
   netBlorbos();
   if (netFlopses()) got = true;
+  if (netSitas()) got = true;
+  if (netFroggles()) got = true;
   if (!got) netWeevils();
   return got;
 }
@@ -2753,7 +2758,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -4583,6 +4588,345 @@ function updateFlopses(dt) {
 }
 
 /* =========================================================
+   Scrumblies: the Sita (a little red rosebud with a face) and the Rosita
+   Sitas sit perfectly still in patches of wild roses that look just like
+   them. Their thorns prick anyone who bumps into them. Keep one as your
+   partner long enough (and love it) and it grows into a Rosita.
+   ========================================================= */
+const ROSE_RED = 0xe23a30, ROSE_DARK = 0xc42a24, LEAF_GREEN = 0x2f8a5a;
+function makeSitaMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const red = new THREE.MeshLambertMaterial({ color: ROSE_RED, emissive: 0x3a0806 }), dark = new THREE.MeshLambertMaterial({ color: ROSE_DARK, emissive: 0x300605 });
+  const leaf = new THREE.MeshLambertMaterial({ color: LEAF_GREEN, emissive: 0x0a2216 }), bead = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 100, specular: 0x9999bb });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; body.add(o); return o; };
+  add(new THREE.SphereGeometry(0.15, 18, 14), red, 0, 0.21, 0, 1, 1.1, 1);
+  // wrapped petals: overlapping shells round the bud, and a twist on top
+  for (let k = 0; k < 3; k++) add(new THREE.SphereGeometry(0.158, 16, 10, k * 2.1 + 1.0, 2.0, 0.25, 1.9), dark, 0, 0.215, 0, 1.02, 1.1, 1.02);
+  add(new THREE.TorusGeometry(0.05, 0.018, 6, 14), dark, 0, 0.36, -0.01, 1, 1, 1).rotation.x = Math.PI / 2;
+  // a sweet little face
+  [-1, 1].forEach(s => { add(new THREE.SphereGeometry(0.022, 10, 8), bead, s * 0.055, 0.23, 0.142, 1, 1.1, 0.6); add(new THREE.SphereGeometry(0.006, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), s * 0.055 - 0.008, 0.238, 0.155); add(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshLambertMaterial({ color: 0xff9cb6, emissive: 0x3a1a22 }), s * 0.095, 0.19, 0.122, 1.2, 0.7, 0.4); });
+  const sm = new THREE.TorusGeometry(0.022, 0.006, 5, 12, Math.PI); add(sm, new THREE.MeshBasicMaterial({ color: 0x141418 }), 0, 0.19, 0.148).rotation.z = Math.PI;
+  // a ruff of green sepals and three stubby green legs underneath
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; const s = add(new THREE.SphereGeometry(0.075, 10, 6), leaf, Math.sin(a) * 0.15, 0.09, Math.cos(a) * 0.15, 1.1, 0.3, 0.7); s.rotation.y = a; }
+  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 + 0.5; add(new THREE.SphereGeometry(0.035, 8, 6), leaf, Math.sin(a) * 0.06, 0.04, Math.cos(a) * 0.06, 1, 1.6, 1); }
+  scene.add(root);
+  return { root, body };
+}
+function makeRositaMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const red = new THREE.MeshLambertMaterial({ color: ROSE_RED, emissive: 0x3a0806 }), stemM = new THREE.MeshLambertMaterial({ color: 0x5fa83a, emissive: 0x14280c });
+  const face = new THREE.MeshLambertMaterial({ color: 0xa8622e, emissive: 0x2a1408 }), bead = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 100, specular: 0x9999bb });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  // a tall soft stem with two pairs of leaves
+  add(new THREE.CylinderGeometry(0.045, 0.055, 0.95, 10), stemM, 0, 0.47, 0);
+  [[0.34, 0.9], [0.62, 0.7]].forEach(([y, k]) => [-1, 1].forEach(s => { const l = add(new THREE.SphereGeometry(0.09, 12, 8), stemM, s * 0.12 * k, y, 0.02, 1.6 * k, 0.25, 0.75 * k); l.rotation.z = s * 0.5; }));
+  const head = new THREE.Group(); head.position.y = 1.12; body.add(head);
+  [-1, 0, 1].forEach(s => { const l = add(new THREE.SphereGeometry(0.09, 12, 8), stemM, s * 0.14, -0.15, 0.02, 1.4, 0.3, 0.9, head); l.rotation.z = s * 0.6; });
+  // the bloom: red petals wrapped round a round tan face
+  add(new THREE.SphereGeometry(0.21, 18, 14), red, 0, 0.02, -0.06, 1.1, 1.05, 0.9, head);
+  for (let k = 0; k < 7; k++) { const a = -1.4 + k / 6 * 2.8; add(new THREE.SphereGeometry(0.09, 10, 8), red, Math.sin(a) * 0.17, 0.02 + Math.cos(a) * 0.16, 0.05, 1, 1, 0.5, head); }
+  add(new THREE.SphereGeometry(0.11, 12, 8), red, 0.12, 0.2, 0.0, 1, 0.8, 0.9, head);
+  add(new THREE.SphereGeometry(0.15, 18, 12), face, 0, 0.0, 0.09, 1.05, 0.95, 0.55, head);
+  [-1, 1].forEach(s => { add(new THREE.SphereGeometry(0.02, 8, 6), bead, s * 0.05, 0.03, 0.172, 1, 1.15, 0.6, head); add(new THREE.SphereGeometry(0.006, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), s * 0.05 - 0.007, 0.04, 0.183, 1, 1, 1, head); add(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshLambertMaterial({ color: 0xff9cb6, emissive: 0x3a1a22 }), s * 0.1, -0.02, 0.16, 1.2, 0.8, 0.4, head); });
+  add(new THREE.TorusGeometry(0.03, 0.006, 5, 12, Math.PI), new THREE.MeshBasicMaterial({ color: 0x141418 }), 0, -0.02, 0.178, 1, 1, 1, head).rotation.z = Math.PI;
+  scene.add(root);
+  return { root, body, head };
+}
+// wild rose patches: lots of plain red rosebuds, with the odd Sita hiding among them
+const rosePatches = [], sitas = [];
+{
+  const buds = [], cups = [], tops = [], leaves = [];
+  for (let i = 0; i < 10; i++) {
+    let sp = null;
+    for (let k = 0; k < 200 && !sp; k++) {
+      const th = Math.random() * 6.28, d = HEDGE_OUT + 6 + Math.random() * (FOREST_OUT - HEDGE_OUT - 14), [x, z] = polar(th, d);
+      if (!forestFree(x, z, d, 2) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 3) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 28) || (typeof rabbitHoles !== 'undefined' && rabbitHoles.some(h => Math.hypot(h.x - x, h.z - z) < 6))) continue;
+      sp = { x, z };
+    }
+    if (!sp) continue;
+    const slots = [];
+    for (let k = 0; k < 16; k++) {
+      const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 2.2, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r;
+      if (slots.some(s => Math.hypot(s.x - x, s.z - z) < 0.5)) continue;
+      slots.push({ x, z, y: heightAt(x, z), ry: Math.random() * 6.28, used: false });
+    }
+    rosePatches.push({ x: sp.x, z: sp.z, slots });
+    for (const s of slots) {
+      buds.push({ x: s.x, z: s.z, y: s.y + 0.21, ry: s.ry, s: [1, 1.1, 1], c: ROSE_RED });
+      tops.push({ x: s.x, z: s.z, y: s.y + 0.36, rx: Math.PI / 2, s: 1, c: ROSE_DARK });
+      cups.push({ x: s.x, z: s.z, y: s.y + 0.09, ry: s.ry, s: 1, c: LEAF_GREEN });
+    }
+    for (let k = 0; k < 22; k++) { const a = Math.random() * 6.28, r = Math.random() * 2.6; const x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; leaves.push({ x, z, y: heightAt(x, z) + 0.12, rx: (Math.random() - 0.5) * 0.8, ry: Math.random() * 6.28, rz: (Math.random() - 0.5) * 0.8, s: [1, 1.4, 1], c: pick([0x2f8a5a, 0x3a9a5e, 0x27794e]) }); }
+  }
+  instanced(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x3a0806 }), buds, { cast: true, far: 120, slices: 8 });
+  instanced(new THREE.TorusGeometry(0.05, 0.018, 6, 12), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x300605 }), tops, { far: 80, slices: 8 });
+  instanced(new THREE.CylinderGeometry(0.19, 0.06, 0.06, 7), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x0a2216 }), cups, { far: 100, slices: 8 });
+  instanced(new THREE.ConeGeometry(0.07, 0.3, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), leaves, { far: 90, slices: 8 });
+}
+const SITA_COUNT = 5;
+// a Sita takes the place of one of the plain buds in a patch (the plain one is tucked out of sight)
+function placeSita(sita, awayFrom) {
+  const patches = rosePatches.filter(p => !sitas.some(s => s !== sita && s.patch === p && s.state !== 'gone') && (!awayFrom || Math.hypot(p.x - awayFrom.x, p.z - awayFrom.z) > 35));
+  if (!patches.length) return false;
+  const p = patches[Math.floor(Math.random() * patches.length)], slot = p.slots[Math.floor(Math.random() * p.slots.length)];
+  sita.patch = p; sita.x = slot.x; sita.z = slot.z; sita.y = slot.y; sita.face = Math.random() * 6.28;
+  return true;
+}
+for (let i = 0; i < SITA_COUNT && rosePatches.length; i++) {
+  const s = Object.assign(compactCreature(makeSitaMesh()), { species: 'sita', state: 'still', t: 0, x: 0, y: 0, z: 0, face: 0, patch: null });
+  applySize(s, rollSize()); applyShiny(s, rollShiny());
+  sitas.push(s); placeSita(s);
+}
+let sitaHints = {}, thornCD = 0;
+function netSitas() {
+  let got = false;
+  for (const s of sitas) if (s.root.visible && s.state === 'still' && inNetZone(s.x, s.y, s.z) && catchScrumbly('sita', s.size, false, s.shiny)) { s.state = 'caught'; s.t = 0; got = true; }
+  return got;
+}
+function updateSitas(dt) {
+  thornCD = Math.max(0, thornCD - dt);
+  for (const s of sitas) {
+    s.t += dt;
+    if (s.state === 'still') {
+      // perfectly still, apart from the faintest breath
+      s.body.scale.set(1, 1 + Math.sin(time * 1.6 + s.x) * 0.015, 1);
+      const d = Math.hypot(player.x - s.x, player.z - s.z);
+      if (!sitaHints.patch && d < 8 && d > 1 && playing) { sitaHints.patch = true; toast('A patch of wild roses... is one of them looking at you?'); }
+      if (d < 0.6 && !player.climb && player.y - s.y < 0.8 && thornCD <= 0 && playing && !knocked) {
+        // ouch! thorns
+        thornCD = 1.4; const k = 1 / (d || 1); player.vx = (player.x - s.x) * k * 6; player.vz = (player.z - s.z) * k * 6;
+        hurtPlayer(1); if (!knocked) toast('Ouch! That rose was covered in thorns!');
+      }
+    } else if (s.state === 'caught') {
+      const k = Math.min(1, s.t / 0.45); camera.getWorldDirection(_cv);
+      s.x = lerp(s.x, camera.position.x + _cv.x * 1.2, k * 0.35); s.z = lerp(s.z, camera.position.z + _cv.z * 1.2, k * 0.35); s.y = lerp(s.y, camera.position.y - 0.5, k * 0.35);
+      s.body.scale.setScalar(1 - k * 0.85);
+      if (k >= 1) { s.state = 'gone'; s.t = 0; s.root.visible = false; s.respawn = 40 + Math.random() * 30; }
+    } else if (s.state === 'gone' && s.t > s.respawn) {
+      if (placeSita(s, player)) { s.body.scale.setScalar(1); applySize(s, rollSize()); applyShiny(s, rollShiny()); s.state = 'still'; s.t = 0; s.root.visible = true; } else s.t = s.respawn - 3;
+    }
+    if (!s.root.visible) continue;
+    s.root.position.set(s.x, s.y, s.z); s.root.rotation.set(0, s.face, 0);
+  }
+  updateSitaGrowth(dt);
+}
+/* ---------- a Sita partner slowly grows: 10 minutes as your partner, sooner with love ---------- */
+const SITA_GROW = 600;
+let sitaNagT = 0;
+const sitaReady = () => party[0] && party[0].species === 'sita' && party[0].growT !== undefined && party[0].growT <= 0;
+function updateSitaGrowth(dt) {
+  const p = party[0];
+  if (!p || p.species !== 'sita' || !playing || paused || knocked) return;
+  if (p.growT === undefined) p.growT = SITA_GROW;
+  if (p.growT > 0) { p.growT -= dt; if (p.growT <= 0) { p.growT = 0; sitaNagT = 0; saveGame(); } return; }
+  // ready: every so often it tries to get your attention
+  sitaNagT -= dt;
+  if (sitaNagT <= 0) {
+    sitaNagT = 45;
+    toast(`${p.name} is trying to get your attention! Go and see what it wants.`);
+    if (partner) { const pr = partner.c.root.position; for (let i = 0; i < 6; i++) spawnSparkle(pr.x, pr.y + 0.4, pr.z); }
+    sfx.love(1);
+  }
+}
+const sitaLove = secs => { const p = party[0]; if (p && p.species === 'sita' && p.growT > 0) p.growT = Math.max(0, p.growT - secs); };
+function growSita() {
+  const p = party[0];
+  const np = makeScrumbly('rosita', p.name, p.size, p.shiny);
+  party[0] = np; renderPartyHud(); dexMarkCaught('rosita');
+  const pr = partner ? partner.c.root.position : player;
+  for (let i = 0; i < 16; i++) setTimeout(() => spawnSparkle(pr.x, (pr.y || 0) + 0.5, pr.z), i * 60);
+  for (let i = 0; i < 8; i++) setTimeout(() => spawnHeart(pr.x, (pr.y || 0) + 1, pr.z), i * 120);
+  sfx.caught(); saveGame();
+  toast(`${p.name} stretched up, up, up... and blossomed into a Rosita!`);
+}
+
+/* =========================================================
+   Scrumblies: the Froggle (a huge shaggy lime-green frog with a temper)
+   Charges and bites on sight, snaps at nets and smashes traps. Unless,
+   that is, your partner is a Bobo: then it goes all soppy and gentle.
+   ========================================================= */
+function makeFroggleMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const lime = new THREE.MeshLambertMaterial({ color: 0x9ccc2e, emissive: 0x1e2a08 }), cream = new THREE.MeshLambertMaterial({ color: 0xf0ecd2, emissive: 0x2c2a20 });
+  const white = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x444444 }), black = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 100, specular: 0x9999bb });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  add(new THREE.SphereGeometry(0.45, 22, 16), lime, 0, 0.48, -0.05, 1.1, 0.75, 1.25);
+  add(new THREE.SphereGeometry(0.36, 18, 12), cream, 0, 0.34, 0.12, 0.95, 0.5, 1.0);
+  const head = new THREE.Group(); head.position.set(0, 0.66, 0.45); body.add(head);
+  add(new THREE.SphereGeometry(0.36, 22, 16), lime, 0, 0, 0, 1.2, 0.78, 1.0, head);
+  // a shaggy cream jaw that opens to snap
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.08, -0.05); head.add(jaw);
+  add(new THREE.SphereGeometry(0.34, 18, 12), cream, 0, -0.06, 0.08, 1.12, 0.42, 0.95, jaw);
+  add(new THREE.TorusGeometry(0.3, 0.012, 5, 22, Math.PI * 0.7), new THREE.MeshBasicMaterial({ color: 0x3a3a20 }), 0, 0.0, 0.08, 1.15, 1, 1, jaw).rotation.set(Math.PI / 2, 0, Math.PI * 0.15);
+  // big googly eyes under shaggy cream brows
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.15, 14, 10), lime, s * 0.22, 0.24, 0.05, 1, 0.9, 0.9, head);
+    add(new THREE.SphereGeometry(0.11, 14, 10), white, s * 0.22, 0.25, 0.16, 1, 1, 0.6, head);
+    add(new THREE.SphereGeometry(0.075, 12, 10), black, s * 0.22, 0.24, 0.21, 1, 1, 0.5, head);
+    add(new THREE.SphereGeometry(0.018, 6, 4), white, s * 0.22 - 0.02, 0.27, 0.245, 1, 1, 1, head);
+    for (let k = 0; k < 6; k++) { const a = -0.2 + k * 0.45; const t = add(new THREE.ConeGeometry(0.035, 0.12, 5), cream, s * 0.22 + Math.cos(a + 1.3) * 0.12, 0.33 + Math.sin(a + 1.3) * 0.06, 0.06, 1, 1, 1, head); t.rotation.z = -(a + 1.3 - Math.PI / 2) * s; }
+  });
+  // four sturdy legs
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.12, 12, 10), lime, s * 0.4, 0.2, 0.42, 1, 1.9, 1);
+    add(new THREE.SphereGeometry(0.13, 12, 8), lime, s * 0.43, 0.05, 0.52, 1.2, 0.5, 1.5);
+    add(new THREE.SphereGeometry(0.22, 14, 10), lime, s * 0.46, 0.32, -0.42, 0.9, 1.1, 1.3);
+    add(new THREE.SphereGeometry(0.14, 12, 8), lime, s * 0.5, 0.06, -0.2, 1.2, 0.5, 1.8);
+  });
+  // shaggy fur all over (fused into one mesh)
+  for (let i = 0; i < 90; i++) {
+    const u = Math.random() * 2 - 1, a = Math.random() * 6.28, r = Math.sqrt(1 - u * u), nx = r * Math.cos(a), ny = Math.abs(u) * 0.8 + 0.2, nz = r * Math.sin(a);
+    const onHead = i < 35, c = Math.random() < 0.18 ? cream : lime;
+    const t = onHead ? add(new THREE.ConeGeometry(0.04, 0.12, 5), c, nx * 0.42, ny * 0.28, nz * 0.34, 1, 1, 1, head) : add(new THREE.ConeGeometry(0.045, 0.14, 5), c, nx * 0.48, 0.48 + ny * 0.33, -0.05 + nz * 0.55, 1, 1, 1);
+    if (onHead && nz > 0.5 && ny < 0.55) t.visible = false;                  // keep the face clear
+    t.lookAt(t.position.clone().multiplyScalar(2).add(new THREE.Vector3(0, 0.2, 0))); t.rotateX(Math.PI / 2);
+  }
+  const mad = new THREE.Sprite(new THREE.SpriteMaterial({ map: angerTex, depthTest: false })); mad.position.set(0.35, 1.35, 0.3); mad.scale.setScalar(0.45); mad.visible = false; mad.renderOrder = 5; root.add(mad);
+  scene.add(root);
+  return { root, body, head, jaw, mad };
+}
+const FROGGLE_COUNT = 3, FROGGLE_SEE = 14, FROGGLE_SPEED = 5.2;
+const froggles = [];
+function froggleHome(away) {
+  for (let i = 0; i < 300; i++) {
+    const th = Math.random() * 6.28, d = HEDGE_OUT + 10 + Math.random() * (FOREST_OUT - HEDGE_OUT - 20), [x, z] = polar(th, d);
+    if (!forestFree(x, z, d, 2) || froggles.some(f => Math.hypot(f.hx - x, f.hz - z) < 50) || (away && Math.hypot(x - away.x, z - away.z) < 40)) continue;
+    return { x, z };
+  }
+  const [x, z] = polar(Math.random() * 6.28, (HEDGE_OUT + FOREST_OUT) / 2); return { x, z };
+}
+for (let i = 0; i < FROGGLE_COUNT; i++) {
+  const h = froggleHome();
+  const f = Object.assign(compactCreature(makeFroggleMesh()), { species: 'froggle', x: h.x, z: h.z, hx: h.x, hz: h.z, tx: h.x, tz: h.z, y: 0, face: Math.random() * 6.28, state: 'wander', t: 0, wait: 1, hop: 0, jawOpen: 0, smitten: false, heartT: 0 });
+  applySize(f, rollSize()); applyShiny(f, rollShiny());
+  froggles.push(f);
+}
+let froggleHints = {};
+const froggleSfx = {
+  croak(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 110, 80, 0.25, 0.14 * v, 'sawtooth'); tone(t + 0.28, 120, 75, 0.3, 0.12 * v, 'sawtooth'); },
+  snap(v) { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'bandpass', 1800, 0.25 * v, 0.08, sfxBus, 2); tone(t, 300, 120, 0.1, 0.1 * v, 'square'); },
+  swoon(v) { if (!actx) return; const t = actx.currentTime; tone(t, 200, 420, 0.5, 0.1 * v, 'sine'); tone(t + 0.45, 420, 300, 0.6, 0.08 * v, 'sine'); }
+};
+const froggleVol = f => clamp(1 - Math.hypot(player.x - f.x, player.z - f.z) / 40, 0, 1);
+const bobosLove = () => party[0] && party[0].species === 'bobo' && partner;
+const froggleInForest = (x, z) => { const d = inland(x, z); return d > HEDGE_OUT + 1 && d < FOREST_OUT - 2; };
+function netFroggles() {
+  let got = false;
+  for (const f of froggles) {
+    if (!f.root.visible || !inNetZone(f.x, f.y, f.z)) continue;
+    if (f.state === 'smitten') { if (catchScrumbly('froggle', f.size, false, f.shiny)) { f.state = 'caught'; f.t = 0; got = true; } }
+    else if (!['caught', 'gone'].includes(f.state)) { froggleSfx.snap(1); if (!froggleHints.net) { froggleHints.net = true; toast('SNAP! The Froggle bit the net right out of the way. It\x27s far too fierce to catch!'); } if (f.state === 'wander') { f.state = 'charge'; f.t = 0; } }
+  }
+  return got;
+}
+function rockHitsFroggle(r) {
+  for (const f of froggles) {
+    if (!f.root.visible || ['caught', 'gone'].includes(f.state) || Math.hypot(r.x - f.x, r.y - (f.y + 0.5 * f.s), r.z - f.z) > 0.6 * f.s + 0.25) continue;
+    if (f.state !== 'smitten') { f.state = 'charge'; f.t = 0; froggleSfx.croak(1); }
+    return f;
+  }
+  return null;
+}
+function updateFroggles(dt) {
+  for (const f of froggles) {
+    f.t += dt;
+    const dist = Math.hypot(player.x - f.x, player.z - f.z), canSee = dist < FROGGLE_SEE && playing && !knocked && froggleInForest(player.x, player.z);
+    let speed = 0, jawWant = 0, tx = f.tx, tz = f.tz;
+    f.mad.visible = ['charge', 'bite'].includes(f.state);
+    switch (f.state) {
+      case 'wander': {
+        const md = Math.hypot(f.tx - f.x, f.tz - f.z);
+        if (md > 0.3) speed = 1.3;
+        else { f.wait -= dt; if (f.wait <= 0) { f.wait = 2 + Math.random() * 3; for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = 2 + Math.random() * 9, x = f.hx + Math.cos(a) * r, z = f.hz + Math.sin(a) * r; if (froggleInForest(x, z) && Math.abs(riverOff(x, z, inland(x, z))) > RIVER_HALF) { f.tx = x; f.tz = z; break; } } } }
+        if (!froggleHints.seen && dist < 26 && playing) { froggleHints.seen = true; toast('A huge shaggy frog is glaring at you. It does NOT look friendly...'); }
+        if (canSee) {
+          if (bobosLove()) { f.state = 'woo'; f.t = 0; }
+          else { f.state = 'charge'; f.t = 0; froggleSfx.croak(froggleVol(f) + 0.3); if (!froggleHints.charge) { froggleHints.charge = true; toast('Uh oh. It\x27s coming straight for you!'); } }
+        }
+        break;
+      }
+      case 'charge': {
+        tx = player.x; tz = player.z; speed = FROGGLE_SPEED;
+        if (bobosLove()) { f.state = 'woo'; f.t = 0; break; }
+        if (dist < 1.4 && !player.climb && player.y - f.y < 1.6) { f.state = 'bite'; f.t = 0; froggleSfx.snap(1); }
+        if (dist > 32 || !froggleInForest(player.x, player.z) || knocked) { f.state = 'wander'; f.t = 0; f.tx = f.hx; f.tz = f.hz; }
+        break;
+      }
+      case 'bite': {
+        jawWant = 1; tx = player.x; tz = player.z;
+        if (f.t > 0.18 && f.t - dt <= 0.18 && dist < 1.8 && !player.climb && player.y - f.y < 1.6 && !knocked) {
+          const k = 1 / (dist || 1); player.vx = (player.x - f.x) * k * 7; player.vz = (player.z - f.z) * k * 7; player.vy = 3;
+          hurtPlayer(1);
+        }
+        if (f.t > 0.5) { f.state = 'back'; f.t = 0; }
+        break;
+      }
+      case 'back': {
+        // hop back a step, then come again
+        const ax = f.x - player.x, az = f.z - player.z, al = Math.hypot(ax, az) || 1; tx = f.x + ax / al * 3; tz = f.z + az / al * 3; speed = 2.5;
+        if (f.t > 1.4) f.state = canSee && !bobosLove() ? 'charge' : 'wander';
+        break;
+      }
+      case 'woo': {
+        // a Bobo! it hops over to your partner, all its anger melting away
+        if (!bobosLove()) { f.state = 'wander'; f.t = 0; break; }
+        const pr = partner.c.root.position, pd = Math.hypot(pr.x - f.x, pr.z - f.z);
+        tx = pr.x; tz = pr.z; if (pd > 2.3) speed = 2.2;
+        else {
+          f.state = 'smitten'; f.t = 0; froggleSfx.swoon(1); for (let i = 0; i < 8; i++) setTimeout(() => spawnHeart(f.x, f.y + 1.2 * f.s, f.z), i * 150);
+          toast(`The Froggle seems enamoured by ${party[0].name}!`);
+        }
+        break;
+      }
+      case 'smitten': {
+        // follows your partner about, gazing adoringly; gentle as anything
+        if (!bobosLove()) { f.state = 'wander'; f.t = 0; f.hx = f.x; f.hz = f.z; f.tx = f.x; f.tz = f.z; break; }
+        const pr = partner.c.root.position, pd = Math.hypot(pr.x - f.x, pr.z - f.z);
+        tx = pr.x; tz = pr.z; if (pd > 3.2) speed = 2.6;
+        f.heartT -= dt; if (f.heartT <= 0) { f.heartT = 0.6 + Math.random() * 0.6; spawnHeart(f.x, f.y + 1.15 * f.s, f.z); }
+        if (!froggleInForest(f.x, f.z) && pd > 12) { f.state = 'wander'; f.t = 0; }
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, f.t / 0.45); camera.getWorldDirection(_cv);
+        f.x = lerp(f.x, camera.position.x + _cv.x * 1.2, k * 0.35); f.z = lerp(f.z, camera.position.z + _cv.z * 1.2, k * 0.35);
+        f.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { f.state = 'gone'; f.t = 0; f.root.visible = false; f.respawn = 45 + Math.random() * 30; }
+        break;
+      }
+      case 'gone': {
+        if (f.t > f.respawn) { const h = froggleHome(player); f.x = f.hx = f.tx = h.x; f.z = f.hz = f.tz = h.z; f.body.scale.setScalar(1); applySize(f, rollSize()); applyShiny(f, rollShiny()); f.state = 'wander'; f.t = 0; f.root.visible = true; }
+        break;
+      }
+    }
+    if (!f.root.visible) continue;
+    // stomping about: hops, and traps get smashed (unless it's feeling soppy)
+    if (speed > 0) {
+      const mx = tx - f.x, mz = tz - f.z, md = Math.hypot(mx, mz);
+      if (md > 0.05) {
+        f.face += angDiff(f.face, Math.atan2(mx, mz)) * Math.min(1, dt * (f.state === 'charge' ? 8 : 4));
+        const sp = Math.min(speed * dt, md); let nx = f.x + Math.sin(f.face) * sp, nz = f.z + Math.cos(f.face) * sp;
+        if (froggleInForest(nx, nz) || f.state === 'smitten') { f.x = nx; f.z = nz; }
+        f.hop += dt * (speed > 3 ? 10 : 6);
+      }
+    } else if (['bite', 'smitten', 'woo'].includes(f.state)) f.face += angDiff(f.face, Math.atan2((f.state === 'bite' ? player.x : (partner ? partner.c.root.position.x : player.x)) - f.x, (f.state === 'bite' ? player.z : (partner ? partner.c.root.position.z : player.z)) - f.z)) * Math.min(1, dt * 6);
+    if (!['smitten', 'trapped'].includes(f.state)) for (const t of traps.slice()) if (Math.hypot(t.x - f.x, t.z - f.z) < 1.0 * f.s) {
+      if (t.occupant) releaseTrap(t, true, true);
+      scene.remove(t.g); traps.splice(traps.indexOf(t), 1); inv.traps++; renderHotbar(); blorboSfx.smash();
+      if (dist < 40) toast('CRUNCH! The Froggle stomped your trap flat. You gather up the bits and bend it back into shape.');
+    }
+    const hopY = speed > 0 ? Math.abs(Math.sin(f.hop)) * (speed > 3 ? 0.35 : 0.15) : 0;
+    f.jawOpen = lerp(f.jawOpen, jawWant, Math.min(1, dt * 18));
+    f.jaw.rotation.x = f.jawOpen * 0.6; f.head.rotation.x = -f.jawOpen * 0.2;
+    f.y = heightAt(f.x, f.z);
+    f.root.position.set(f.x, f.y + hopY * f.s, f.z);
+    f.root.rotation.set(0, f.face, 0);
+    f.body.rotation.z = f.state === 'smitten' ? Math.sin(time * 2) * 0.08 : 0;
+    f.head.rotation.z = f.state === 'smitten' ? Math.sin(time * 1.5) * 0.15 : 0;
+  }
+}
+
+/* =========================================================
    Scrumblies: Bink (one of a kind!)
    A small, fluffy pink alien sitting on a tiny flying saucer. It putters round
    the whole beach in one long loop and never stops or slows. One bonk only
@@ -5008,6 +5352,7 @@ function updateRocks(dt) {
     if (r.bounces <= 1 && rockHitsBee(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsBink(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsGlimmery(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
+    if (r.bounces <= 1 && rockHitsFroggle(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsFlops(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsRaebit(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsWeevil(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
@@ -5132,7 +5477,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? (activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
+  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearPartner ? (sitaReady() ? '<kbd>E</kbd>help <b class="pn"></b> grow' : activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -5307,6 +5652,24 @@ SPECIES.flops = {
   fact: 'Flops is the shyest scrumbly in all of Glimmerwood. She knits her own dresses, picks flowers to match her ears, and would rather burrow halfway across the forest than be looked at.',
   hint: 'The moment she spots you she burrows away, and she never comes back to the same place. Don\'t let her see you coming: something thrown from a good distance might stop her long enough to get your net to her.'
 };
+SPECIES.sita = {
+  name: 'Sita', num: 15, where: 'Glimmerwood · hiding among the wild roses',
+  icon: '<svg viewBox="0 0 48 48"><ellipse cx="11" cy="35" rx="8" ry="4" fill="#2f8a5a" transform="rotate(-15 11 35)"/><ellipse cx="37" cy="35" rx="8" ry="4" fill="#2f8a5a" transform="rotate(15 37 35)"/><rect x="18" y="37" width="4" height="8" rx="2" fill="#2f8a5a"/><rect x="26" y="37" width="4" height="8" rx="2" fill="#2f8a5a"/><path d="M10 26 C10 12 18 6 25 6 C34 6 39 14 38 26 C37 35 31 38 24 38 C16 38 10 34 10 26 Z" fill="#e23a30"/><path d="M25 6 C33 10 36 18 34 30 M16 10 C22 14 24 20 22 32" stroke="#c42a24" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="19" cy="25" r="2" fill="#0c0c10"/><circle cx="29" cy="25" r="2" fill="#0c0c10"/><circle cx="18.4" cy="24.3" r=".6" fill="#fff"/><circle cx="28.4" cy="24.3" r=".6" fill="#fff"/><path d="M22 29 Q24 31 26 29" stroke="#141418" stroke-width="1.4" fill="none" stroke-linecap="round"/><ellipse cx="15" cy="28.5" rx="2" ry="1.2" fill="#ff9cb6"/><ellipse cx="33" cy="28.5" rx="2" ry="1.2" fill="#ff9cb6"/></svg>',
+  fact: 'A Sita looks so much like an ordinary rosebud that it sometimes forgets it isn\'t one. It never moves, never fusses, and is perfectly happy to be admired. Just not touched. Ow.',
+  hint: 'Hides among the wild roses and looks just like them, so look closely for a little face. It never moves an inch, but don\'t brush up against it: those thorns are sharp. Your net can reach it from a safe distance.'
+};
+SPECIES.rosita = {
+  name: 'Rosita', num: 16, where: 'Grown from a much-loved Sita',
+  icon: '<svg viewBox="0 0 48 48"><rect x="22.5" y="22" width="3.5" height="24" rx="1.7" fill="#5fa83a"/><ellipse cx="15" cy="34" rx="7" ry="3" fill="#5fa83a" transform="rotate(-25 15 34)"/><ellipse cx="33" cy="30" rx="7" ry="3" fill="#5fa83a" transform="rotate(25 33 30)"/><ellipse cx="17" cy="23" rx="5" ry="2.5" fill="#5fa83a" transform="rotate(20 17 23)"/><ellipse cx="31" cy="23" rx="5" ry="2.5" fill="#5fa83a" transform="rotate(-20 31 23)"/><path d="M11 13 C11 4 20 1 26 3 C34 1 39 8 37 15 C36 22 30 23 24 23 C17 23 11 20 11 13 Z" fill="#e23a30"/><circle cx="24" cy="13" r="7.5" fill="#a8622e"/><circle cx="21.5" cy="12" r="1.3" fill="#0c0c10"/><circle cx="26.5" cy="12" r="1.3" fill="#0c0c10"/><path d="M21.5 15.5 Q24 17.5 26.5 15.5" stroke="#141418" stroke-width="1.2" fill="none" stroke-linecap="round"/><circle cx="19" cy="15" r="1.2" fill="#ff9cb6"/><circle cx="29" cy="15" r="1.2" fill="#ff9cb6"/></svg>',
+  fact: 'Nobody has ever found a Rosita growing wild. Each one began as a little Sita who was loved so patiently that it simply had to grow tall enough to say thank you.',
+  hint: 'Never seen in the wild. They say a Sita kept close by your side, and loved, will one day want to show you something...'
+};
+SPECIES.froggle = {
+  name: 'Froggle', num: 17, where: 'Glimmerwood · stomping about, looking for trouble',
+  icon: '<svg viewBox="0 0 48 48"><ellipse cx="10" cy="38" rx="6" ry="5" fill="#9ccc2e"/><ellipse cx="38" cy="38" rx="6" ry="5" fill="#9ccc2e"/><ellipse cx="24" cy="31" rx="18" ry="12" fill="#9ccc2e"/><ellipse cx="24" cy="34" rx="12" ry="5" fill="#f0ecd2"/><circle cx="14" cy="16" r="8" fill="#9ccc2e"/><circle cx="34" cy="16" r="8" fill="#9ccc2e"/><circle cx="14" cy="17" r="5.5" fill="#fff"/><circle cx="34" cy="17" r="5.5" fill="#fff"/><circle cx="14" cy="17.5" r="3.6" fill="#0c0c10"/><circle cx="34" cy="17.5" r="3.6" fill="#0c0c10"/><circle cx="13" cy="16.5" r="1" fill="#fff"/><circle cx="33" cy="16.5" r="1" fill="#fff"/><path d="M7 11 l3 2 M10 8 l2 3 M14 7 l0 3 M41 11 l-3 2 M38 8 l-2 3 M34 7 l0 3" stroke="#f0ecd2" stroke-width="2" stroke-linecap="round"/><path d="M13 30 Q24 35 35 30" stroke="#3a3a20" stroke-width="1.4" fill="none"/><path d="M27 23 l3 -1 -1 3 z" fill="#e23a30"/></svg>',
+  fact: 'A Froggle is cross with everyone and everything, all of the time. It has bitten trees, rivers and once, for reasons nobody understands, the sky. Underneath all that shag, though, beats a heart just waiting for the right someone.',
+  hint: 'Charges anyone it sees and bites hard. Far too fierce to net, and it stomps traps flat. The Professor swears he once saw one go all soft and soppy over a certain shy little dumpling who likes to hide in the sand...'
+};
 // icons that use SVG gradients need their own ids each time they're put on the page: with two copies,
 // the browser may take the gradient from a hidden copy (in a closed menu) and draw nothing
 let iconUid = 0;
@@ -5388,6 +5751,8 @@ function scrumblyCandidates() {
   for (const g of glimmeries) if (g.root.visible && g.state !== 'caught') out.push({ o: g, id: 'glimmery', y: 0.15 });
   for (const q of raebits) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'raebit', y: 0.6 * q.s });
   for (const b of blorbos) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: 'blorbo', y: 0.3 * b.s });
+  for (const s of sitas) if (s.root.visible && s.state === 'still') out.push({ o: s, id: 'sita', y: 0.2 * s.s });
+  for (const f of froggles) if (f.root.visible && f.state !== 'caught') out.push({ o: f, id: 'froggle', y: 0.6 * f.s });
   for (const f of flopses) if (f.root.visible && f.state !== 'caught' && f.sink < 0.5) out.push({ o: f, id: 'flops', y: 0.3 * f.s });
   for (const w of willowets) if (w.root.visible && w.state !== 'caught' && w.under < 0.5) out.push({ o: w, id: 'willowet', y: 0.45 * w.s });
   for (const w of weevils) if (w.root.visible && w.state !== 'caught') out.push({ o: w, id: 'weevil', y: 0.25 * w.s });
@@ -6000,7 +6365,9 @@ function partnerInReach() {
 }
 function petPartner() {
   if (!partner || petCD > 0) return;
+  if (sitaReady()) { petCD = 1.5; growSita(); return; }
   if (activeItem() === 'apple' && inv.apples > 0) { feedPartner(); return; }
+  sitaLove(10);
   petT = 0.9; petCD = 0.9; partner.squish = 1; partner.idle = 0;
   const pr = partner.c.root.position;
   for (let i = 0; i < 3; i++) spawnHeart(pr.x, pr.y + 0.8 * partner.c.s, pr.z);
@@ -6011,7 +6378,7 @@ function petPartner() {
 // with an apple in hand, a pat becomes a snack
 const FEED_LINES = ['{name} gobbled it up in three happy crunches!', '{name} munched the apple and did a little happy wiggle.', 'Nom nom nom! {name} looks very pleased with you.', '{name} ate the whole thing, core and all. Delicious!', '{name} savoured every bite. Best snack ever.', '{name} crunched it up and now has apple on its face. Adorable.'];
 function feedPartner() {
-  inv.apples--; renderHotbar(); saveGame();
+  inv.apples--; renderHotbar(); sitaLove(30); saveGame();
   petT = 1.2; petCD = 1.2; partner.squish = 1.2; partner.idle = 0;
   const pr = partner.c.root.position;
   for (let i = 0; i < 6; i++) setTimeout(() => spawnHeart(pr.x, pr.y + 0.8 * partner.c.s, pr.z), i * 120);
@@ -6102,6 +6469,9 @@ const BOND_SPECIES_LINES = {
   ,beeangy: ['{name} is still a tiny bit cross. About what, nobody knows.', '{name} glared at a seagull until it left. You’re very safe.', '{name} buzzed something grumpy. You think it was a compliment.', '{name} is secretly very fond of you. Don’t tell it you know.', '{name} is trying out being calm. It lasted four seconds.']
   ,bink: ['{name} took you for a spin on its saucer. Only a short one. You were very brave.', '{name} beeped at you twice. You’re fairly sure it means “friend”.', '{name} has stopped looking for whatever it was looking for. It says it found it.', '{name} gave you a slow, sleepy, very happy blink.', '{name} polished its saucer just for you. It’s extremely shiny now.']
   ,glimmery: ['{name} tapped you with its wand. You feel 3% more magical.', '{name} sprinkled glitter on your shoes. It will never come off. You don’t mind.', '{name} did a little twirl in the air just for you.', '{name} is humming a tinkly fairy tune.', '{name} would very much like another apple. Just saying.']
+  ,sita: ['{name} sat very still and looked very pretty. It’s what it does best.', '{name} is keeping its thorns tucked in, just for you.', '{name} smells lovely today. It always does.', '{name} leaned towards the sun and closed its eyes happily.', '{name} gave you a tiny rosy blush.']
+  ,rosita: ['{name} stretched its leaves out to give you a hug.', '{name} remembers being a little bud. It’s very glad you waited.', '{name} turned its face towards you like you’re the sun.', '{name} dropped a single petal in your pocket. For luck.', '{name} is standing extra tall today. Look how proud it is!']
+  ,froggle: ['{name} is still grumpy at everyone else. But not you.', '{name} growled at a leaf for you. You’re safe now.', '{name} keeps glancing at your Bobos and sighing happily.', '{name} let you scratch its shaggy chin. Its leg thumped.', '{name} only bit one thing today, and it was a log. Progress!']
   ,flops: ['{name} smoothed down her skirt and gave a little curtsey.', '{name} has decided you are allowed to see her. That’s a very big deal.', '{name} flopped one ear over her face shyly.', '{name} picked you a tiny blue flower to match her ears.', '{name} didn’t burrow away once today. She’s so proud.']
   ,willowet: ['{name} peeked out from behind your legs. Very brave.', '{name} flopped its big ears down for a cuddle.', '{name} found a four-leaf clover and ate it before you could see.', '{name} isn’t even a little bit scared of you any more.', '{name} thumped its foot happily. Thump thump.']
   ,blorbo: ['{name} did a big happy squish.', '{name} is a little bit damp. It always is. It’s fine.', '{name} blorped at you affectionately.', '{name} is trying to look tall. It is a blob.', '{name} went boing off the ground and landed exactly where it started. Very pleased with itself.']
@@ -6187,6 +6557,7 @@ function trappable() {
   for (const m of speshuls) if (m.root.visible && ['panic', 'return', 'dazed'].includes(m.state)) out.push({ o: m, id: 'speshul' });
   if (typeof pengins !== 'undefined') for (const q of pengins) if (q.root.visible && ['waddle', 'flee', 'notice', 'emerge'].includes(q.state)) out.push({ o: q, id: 'pengin' });
   if (typeof weevils !== 'undefined') for (const w of weevils) if (w.root.visible && w.state === 'run') out.push({ o: w, id: 'weevil' });
+  if (typeof froggles !== 'undefined') for (const f of froggles) if (f.root.visible && f.state === 'smitten') out.push({ o: f, id: 'froggle' });
   if (typeof willowets !== 'undefined') for (const w of willowets) if (w.root.visible && ['graze', 'alert', 'flee'].includes(w.state)) out.push({ o: w, id: 'willowet' });
   return out;
 }
@@ -6207,6 +6578,7 @@ function releaseTrap(t, escaped, quiet) {
   else if (c.id === 'pengin') { startPenginFlee(o, true); }
   else if (c.id === 'weevil') { o.state = 'run'; o.t = 0; o.cross = 2; }
   else if (c.id === 'blorbo') { o.x = t.x; o.z = t.z; o.state = 'escape'; o.t = 0; }
+  else if (c.id === 'froggle') { o.state = 'wander'; o.t = 0; o.tx = o.x; o.tz = o.z; }
   else if (c.id === 'willowet') { o.y = heightAt(o.x, o.z); o.hole = nearestHole(o.x, o.z); o.state = 'flee'; o.t = 0; }
   if (quiet) return;
   sfx.wriggle();
@@ -6266,7 +6638,7 @@ function updateTraps(dt) {
    Save & load: autosave, three slots, save files, pause menu
    ========================================================= */
 const TRAP_TOTAL = 3;
-const packP = p => p && { species: p.species, name: p.name, size: p.size || null, shiny: !!p.shiny };
+const packP = p => p && Object.assign({ species: p.species, name: p.name, size: p.size || null, shiny: !!p.shiny }, isFinite(p.growT) ? { growT: Math.round(p.growT) } : {});
 function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
@@ -6278,7 +6650,7 @@ function snapshot() {
     music: musicOn
   };
 }
-const unpackP = p => p && SPECIES[p.species] && p.name ? makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny) : null;
+const unpackP = p => p && SPECIES[p.species] && p.name ? Object.assign(makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny), p.species === 'sita' && isFinite(p.growT) ? { growT: clamp(+p.growT, 0, 600) } : {}) : null;
 function setRockCount(n) {
   const held = rocks.filter(r => r.state === 'inv');
   while (held.length > n) {
@@ -6543,6 +6915,9 @@ const WELCOME_SPECIES = {
   beeangy: 'Hmph. You took your time. ...Fine. I missed you. A bit.',
   bink: '*beep boop* ...that means I missed you. I flew round the whole island looking for you!',
   glimmery: '*twinkle twinkle* You\'re back! I saved you some glitter. Well, I tried. It went everywhere.',
+  sita: '*a very small, very rosy blush* ...I stayed perfectly still until you came back.',
+  rosita: 'Look how tall I’ve grown! I’ve been waiting all day to show you!',
+  froggle: 'HMPH. Oh. It’s you. ...Good. I mean, whatever. I was guarding your stuff.',
   flops: '...oh! Hello. I put on my best dress, in case you came back today.',
   willowet: 'Oh! It’s you! I wasn’t hiding. I was just... checking the burrow. Hello!',
   blorbo: '*blorp* ...that’s blob for “I missed you”. *blorp blorp*',
@@ -6985,7 +7360,7 @@ function renderGold() { goldEl.innerHTML = `<i class="coin"></i><b>${gold}</b>`;
 renderGold();
 
 /* ---------- what scrumblies are worth to him ---------- */
-const SCRIM_PRICE = { bobo: 8, speshul: 14, beeappy: 15, pengin: 16, duckshark: 18, weevil: 20, mermiggly: 20, beeangy: 26 };
+const SCRIM_PRICE = { bobo: 8, speshul: 14, beeappy: 15, pengin: 16, duckshark: 18, weevil: 20, mermiggly: 20, beeangy: 26, glimmery: 22, raebit: 24, blorbo: 20, willowet: 22, flops: 26, sita: 4, rosita: 45, froggle: 40 };
 const priceOf = p => SPECIES[p.species].unique ? 0 : Math.round((SCRIM_PRICE[p.species] || 10) * (p.size ? 1.5 : 1) * (p.shiny ? 6 : 1));
 const round5 = n => Math.max(5, Math.round(n / 5) * 5);
 
@@ -8038,7 +8413,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -8098,6 +8473,8 @@ function tick(dt) {
   updateBlorbos(dt);
   updateWillowets(dt);
   updateFlopses(dt);
+  updateSitas(dt);
+  updateFroggles(dt);
   updateRanch(dt);
   updateScrim(dt);
   updateTeal(dt);
@@ -8160,7 +8537,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
