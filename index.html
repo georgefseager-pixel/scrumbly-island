@@ -327,6 +327,8 @@
   #scrimMenu.pets .speech b { color: #3f8a2a; }
   #scrimMenu.pets .scrim-pic { background: #dff6e0; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #3f8a2a; overflow: hidden; }
   #scrimMenu.pets .gold-chip { display: none; }
+  #scrimMenu.paint .req.current { box-shadow: 0 0 0 4px #3f8a2a, 0 4px 0 rgba(0,0,0,.18); background: #e8f8e4; }
+  #scrimMenu.paint .req .ric img { display: block; }
   #scrimMenu.pets .bcell.picked { box-shadow: 0 0 0 4px #3f8a2a; background: #e8f8e4; }
   .bcell .home-tag { color: #3f8a2a; }
   .req.ware.deed { box-shadow: 0 0 0 3px #f2c230, 0 4px 0 rgba(0,0,0,.18); background: linear-gradient(160deg, #fff8e6, #fff0c8); }
@@ -428,6 +430,10 @@
   #teleHold .ring { width: 30px; height: 30px; border-radius: 50%; background: conic-gradient(#ff3d5a var(--k, 0%), rgba(44,37,82,.15) 0); -webkit-mask: radial-gradient(circle, transparent 8px, #000 9px); mask: radial-gradient(circle, transparent 8px, #000 9px); }
   #teleFlash { position: fixed; inset: 0; z-index: 27; pointer-events: none; background: radial-gradient(circle, #ffffff 0%, #9ef0ff 45%, #2fb5a8 100%); opacity: 0; transition: opacity .55s; }
   #teleFlash.on { opacity: 1; }
+  #sleepFade { position: fixed; inset: 0; z-index: 27; pointer-events: none; background: radial-gradient(circle at 50% 40%, #3a2c6a 0%, #15112a 70%); opacity: 0; transition: opacity 1.1s; display: grid; place-items: center; }
+  #sleepFade.on { opacity: 1; }
+  #sleepFade b { font-family: var(--display); font-size: 4rem; color: #e8dcff; letter-spacing: .1em; animation: bob 1.6s ease-in-out infinite; }
+  #sleepFade i { font-style: normal; font-size: .75em; opacity: .8; } #sleepFade i + i { font-size: .55em; opacity: .6; }
   #teleFlash.green { background: radial-gradient(circle, #ffffff 0%, #c8ffd4 45%, #3ddc6a 100%); }
   .slot.cooling svg { opacity: .45; }
 </style>
@@ -1805,6 +1811,8 @@ function updatePlayer(dt) {
     }
   }
 
+  if (sleepT > 0) { updateSleep(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
+  if (zipRide) { updateZip(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
   if (houseRide) { updateHouseRide(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
 
   const ground = heightAt(player.x, player.z), wy = water.position.y;
@@ -7592,6 +7600,7 @@ function buildScrim() {
   scrimEl.classList.toggle('board', m.mode !== 'shop');
   if (m.mode === 'carlos') buildCarlosShop(m);
   else if (m.mode === 'pets') buildPetPicker(m);
+  else if (m.mode === 'paint') buildPaintPicker(m);
   else if (m.mode === 'shop') {
     m.items = ownedEntries(); m.cols = 6;
     scrimBody.innerHTML = `<h3>Your scrumblies <span>${m.items.length}</span></h3><div class="scrim-grid"></div>`;
@@ -7630,7 +7639,9 @@ function refreshScrim() {
   });
   const ctl = ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> ';
   let html = '';
-  if (m.mode === 'pets') {
+  if (m.mode === 'paint') {
+    html = (it ? `<b></b>${(houseState.paper || null) === it.id ? ' is on your walls' : '. Pick it to paper the walls'}` : '') + ctl + 'close';
+  } else if (m.mode === 'pets') {
     html = refreshPetPicker(m) + ctl + 'close';
   } else if (m.mode === 'carlos') {
     html = it ? (carlosSold(it.id) ? (it.id === 'deed' ? 'Already yours. Somewhere out there is a house...' : 'Already in your treehouse') : `<b></b> for <i class="coin"></i>${CARLOS_PRICE[it.id]}. Pick it to buy`) : '';
@@ -7651,7 +7662,7 @@ function refreshScrim() {
     html += ctl + 'back';
   }
   scrimFoot.innerHTML = html;
-  const b = scrimFoot.querySelector('b'); if (b && it && it.p) b.textContent = fullName(it.p); else if (b && it && m.mode === 'carlos') b.textContent = it.name;
+  const b = scrimFoot.querySelector('b'); if (b && it && it.p) b.textContent = fullName(it.p); else if (b && it && (m.mode === 'carlos' || m.mode === 'paint')) b.textContent = it.name;
   const el = m.els[m.cur]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
 }
 function removeEntries(list) {
@@ -7666,6 +7677,7 @@ function scrimActivate() {
   if (!scrimOpen || !it) return;
   if (m.mode === 'carlos') { carlosActivate(it); return; }
   if (m.mode === 'pets') { petPickerActivate(it); return; }
+  if (m.mode === 'paint') { paintActivate(it); return; }
   if (m.mode === 'shop') {
     if (it.area === 'party' && it.i === 0) return scrimNope('Whoa, not your partner, friend. That bond’s sacred. I may be a hippy, but I’m not a monster.');
     if (SPECIES[it.p.species].unique) return scrimNope(`${it.p.name}?! No way, man. There’s only one in the whole world. I couldn’t put a price on that. Keep them close.`);
@@ -7723,8 +7735,8 @@ function openScrim(mode, line) {
   if (scrimOpen) return;
   scrimOpen = true; for (const k in keys) keys[k] = false;
   Object.assign(scrimMenu, { mode, cur: 0, armed: -1, req: null, picked: new Set(), changed: false });
-  const isC = mode === 'carlos', isP = mode === 'pets', who = isC ? 'Carlos the Capitalist' : isP ? 'Your treehouse' : 'Scrimple Scrumple';
-  scrimEl.classList.toggle('carlos', isC); scrimEl.classList.toggle('pets', isP);
+  const isC = mode === 'carlos', isP = mode === 'pets' || mode === 'paint', who = isC ? 'Carlos the Capitalist' : isP ? 'Your treehouse' : 'Scrimple Scrumple';
+  scrimEl.classList.toggle('carlos', isC); scrimEl.classList.toggle('pets', isP); scrimEl.classList.toggle('paint', mode === 'paint');
   scrimEl.querySelector('.scrim-pic').innerHTML = isC ? CARLOS_PIC : isP ? HOME_PIC : SCRIM_PIC;
   scrimEl.querySelector('.speech b').textContent = who;
   scrimEl.querySelector('.scrim-shell').setAttribute('aria-label', who);
@@ -8938,8 +8950,8 @@ const CARLOS_STOCK = [
 // the deed's card goes once the house is open; furnishings appear after Carlos's visit
 // (pet licences: one card at a time, the next one up, or the Master licence once you have them all)
 const carlosStock = () => CARLOS_STOCK.filter(w => (w.furn ? houseState.stage === 'furnish' : w.id !== 'deed' || !houseStageAt('carlos')) && (!w.tier || w.tier === Math.min(5, petSlots() + 1)));
-const carlosSold = id => id === 'deed' ? carlosState.deed : HOUSE_ITEMS.includes(id) ? houseOwns(id) : /^pet\d$/.test(id) ? petSlots() >= +id[3] : false;
-const carlosIcon = id => id === 'deed' ? DEED_ICON : /^pet\d$/.test(id) ? FURN_ICONS.pet : FURN_ICONS[id] || ITEM_DEFS[id].icon;
+const carlosSold = id => id.startsWith('wp_') ? (houseState.papers || []).includes(id.slice(3)) : id === 'deed' ? carlosState.deed : HOUSE_ITEMS.includes(id) ? houseOwns(id) : /^pet\d$/.test(id) ? petSlots() >= +id[3] : false;
+const carlosIcon = id => id.startsWith('wp_') ? wallSwatch(id.slice(3)) : id === 'deed' ? DEED_ICON : /^pet\d$/.test(id) ? FURN_ICONS.pet : FURN_ICONS[id] || ITEM_DEFS[id].icon;
 const carlosHave = id => id === 'rock' ? `${inv.rocks}/${MAX_ROCKS}` : id === 'apple' ? `${inv.apples}/${MAX_APPLES}` : carlosState.deed ? 'Yours!' : '';
 function buildCarlosShop(m) {
   m.items = carlosStock(); m.cols = m.items.length > 3 ? 4 : 3;
@@ -8963,6 +8975,7 @@ const FURN_LINES = {
 function carlosActivate(it) {
   const price = CARLOS_PRICE[it.id];
   if (it.id === 'deed' && carlosState.deed) return scrimNope('Already sold you that one, chief! One house per customer. One... mystery house.');
+  if (it.wall && houseState.papers.includes(it.wall)) return scrimNope('Already sold you that roll, chief! You can’t paper a wall twice. Well, you CAN. But why?');
   if (it.tier && petSlots() >= it.tier) return scrimNope('That’s the top licence there is, chief! Five pets. Any more and it’s a zoo, and zoos need a DIFFERENT licence.');
   if (HOUSE_ITEMS.includes(it.id) && houseOwns(it.id)) return scrimNope('Already up in your treehouse, chief! One per customer. Don’t get greedy. That’s MY job.');
   if (gold < price) return scrimNope(pick1(['Ooh, a little short there, amigo. Carlos doesn’t do credit. Carlos got burned on credit.', `That’s ${price} gold, my friend. You’ve got ${gold}. I can do maths. Sometimes.`, 'Come back when your purse is heavier! I’ll be right here. Probably.']));
@@ -8976,6 +8989,12 @@ function carlosActivate(it) {
     inv.apples++; inv.owned.apple = true;
   }
   gold -= price; carlosSfx.till(); renderHotbar(); renderGold();
+  if (it.wall) {
+    const first = !houseState.papers.length; houseState.papers.push(it.wall); showFurnishings(); refreshHousePets(); saveGame();
+    scrimSay(pick1(['A fine roll of wallpaper! Hand-painted. By hand. Somebody’s hand.', 'Ooh, classy choice. Your treehouse is going to look FANCY.', 'Wallpaper! Nothing says “I own a home” like decorating it.', 'Fifty gold for a whole new look? That’s practically free. Don’t tell anyone.'])); buildScrim();
+    if (first) toast('A paint bucket has appeared in your treehouse! Use it to put up your new wallpaper.'); else toast(`The ${it.name} is waiting by your paint bucket.`);
+    return;
+  }
   if (it.tier) {
     houseState.license = it.tier; showFurnishings(); refreshHousePets(); saveGame();
     scrimSay(pick1(FURN_LINES_PET)); buildScrim();
@@ -9056,7 +9075,7 @@ function updateCarlos(dt) {
    ========================================================= */
 const HOUSE_STAGES = ['locked', 'carlos', 'furnish'];
 const HOUSE_ITEMS = ['furn', 'posters', 'link', 'chute', 'board'];
-const houseState = { stage: 'locked', met: false, items: {} };
+const houseState = { stage: 'locked', met: false, items: {}, papers: [], paper: null };
 const houseOwns = id => !!houseState.items[id];
 
 // where you can stand up top: the room, the porch, and the doorway between them
@@ -9071,6 +9090,7 @@ function houseUp() { if (!scrimHere()) return false; const [u, v] = houseLocal(p
 function houseFloorAt(x, z, y) { if (y === undefined || y < HOUSE.deck - 1.5) return null; const [u, v] = houseLocal(x, z); return inDeckFootprint(u, v) ? HOUSE.deck : null; }
 
 /* ---------- the tree and the house ---------- */
+const HOUSE_PANELS = [];       // the inside faces of the walls, for wallpaper
 const treehouse = (() => {
   const root = new THREE.Group(); root.position.set(HOUSE.x, HOUSE.gy, HOUSE.z); root.rotation.y = HOUSE.yaw; scene.add(root); root.updateMatrixWorld(true);
   const bark = new THREE.MeshLambertMaterial({ color: 0x7a5233, emissive: 0x1a0e04 }), barkD = lam(0x5e3e24);
@@ -9100,7 +9120,7 @@ const treehouse = (() => {
   // walls with real window openings (so you can see out), white trim and flower boxes
   const wall = (along, fixed, from, to, holes, inward) => {
     // along: 'u' (front/back walls) or 'v' (side walls); holes: [centre, width, sill, top]
-    const piece = (a0, a1, y0, y1) => { if (a1 - a0 < 0.01 || y1 - y0 < 0.01) return; const c = (a0 + a1) / 2, len = a1 - a0, h = y1 - y0; along === 'u' ? add(new THREE.BoxGeometry(len, h, 0.2), plank, c, D + y0 + h / 2, fixed) : add(new THREE.BoxGeometry(0.2, h, len), plank, fixed, D + y0 + h / 2, c); };
+    const piece = (a0, a1, y0, y1) => { if (a1 - a0 < 0.01 || y1 - y0 < 0.01) return; HOUSE_PANELS.push({ along, fixed, inward, a0, a1, y0, y1 }); const c = (a0 + a1) / 2, len = a1 - a0, h = y1 - y0; along === 'u' ? add(new THREE.BoxGeometry(len, h, 0.2), plank, c, D + y0 + h / 2, fixed) : add(new THREE.BoxGeometry(0.2, h, len), plank, fixed, D + y0 + h / 2, c); };
     let a = from;
     holes.sort((p, q) => p[0] - q[0]).forEach(([c, w, y0, y1]) => {
       piece(a, c - w / 2, 0, W); piece(c - w / 2, c + w / 2, 0, y0); piece(c - w / 2, c + w / 2, y1, W); a = c + w / 2;
@@ -9376,6 +9396,9 @@ function houseTarget() {
   if (houseState.stage === 'carlos' && facingPoint(carlos.x, carlos.z, 3.4)) return { label: 'talk to Carlos', act: talkToCarlos };
   const [hx, hz] = houseWorld(0, 1.65);
   const near = (u, v, r) => { const [x, z] = houseWorld(u, v); return facingPoint(x, z, r); };
+  if (near(ZIP.lu, ZIP.lv, 2.2)) return { label: 'ride the zipline down to the beach', act: startZip };
+  if (houseOwns('furn') && near(BED_AT[0], BED_AT[1], 2.8)) return { label: 'sleep in the bed (the scrumblies will move about)', act: startSleep };
+  if (houseState.papers.length && near(PAINT_AT[0], PAINT_AT[1], 2.0)) return { label: 'choose your wallpaper', act: openPaintPicker };
   if (petSlots() > 0 && near(3.3, 2.5, 2.4)) return { label: 'choose your house pets', act: openPetPicker };
   if (houseOwns('link') && near(-(HW.u - 0.65), PIPE_V, 2.2)) return { label: 'use the Ranch Link (open the Box)', act: () => { sfx.pickup(); openBox(); } };
   if (houseOwns('chute') && near(HW.u - 0.65, PIPE_V, 2.2)) return { label: 'use the Easy Release Chute', act: () => openScrim('shop', 'Peace, friend! *crackle* Coming to you live down the chute. Who’s off to the wild?') };
@@ -9424,12 +9447,13 @@ function carlosHouseTalk() {
 }
 
 /* ---------- saving and every frame ---------- */
-function houseSave() { return { stage: houseState.stage, met: houseState.met, items: HOUSE_ITEMS.filter(houseOwns), license: houseState.license || 0 }; }
+function houseSave() { return { stage: houseState.stage, met: houseState.met, items: HOUSE_ITEMS.filter(houseOwns), license: houseState.license || 0, papers: (houseState.papers || []).slice(), paper: houseState.paper || null }; }
 function houseLoad(o) {
   o = o && typeof o === 'object' ? o : {};
   houseState.stage = HOUSE_STAGES.includes(o.stage) ? o.stage : 'locked'; houseState.met = !!o.met; houseState.license = clamp(Math.floor(+o.license || 0), 0, 5);
+  houseState.papers = (Array.isArray(o.papers) ? o.papers : []).filter(id => WALLPAPERS.some(w => w.id === id)); houseState.paper = houseState.papers.includes(o.paper) ? o.paper : null;
   houseState.items = {}; (Array.isArray(o.items) ? o.items : []).forEach(id => { if (HOUSE_ITEMS.includes(id)) houseState.items[id] = true; });
-  houseRide = null; placeBouncy(); placeCarlos(); showFurnishings(); bouncy.greeted = false;
+  houseRide = null; zipRide = null; sleepT = 0; placeBouncy(); placeCarlos(); showFurnishings(); applyWallpaper(); bouncy.greeted = false;
 }
 function updateHouse(dt) {
   const here = scrimHere();
@@ -9499,7 +9523,7 @@ const FURN_LINES_PET = [
   compactCreature({ root: g });
 }
 const _showFurnishings = showFurnishings;
-showFurnishings = () => { _showFurnishings(); houseFurn.pets.visible = petSlots() > 0; };
+showFurnishings = () => { _showFurnishings(); houseFurn.pets.visible = petSlots() > 0; if (houseFurn.paint) houseFurn.paint.visible = (houseState.papers || []).length > 0; };
 
 /* ---------- picking who lives at home ---------- */
 const HOME_PIC = '<svg viewBox="0 0 64 64"><rect x="0" y="0" width="64" height="64" fill="#dff6e0"/><path d="M10 34 L32 14 L54 34 Z" fill="#d8566e"/><rect x="16" y="33" width="32" height="22" fill="#c89660"/><rect x="28" y="41" width="8" height="14" rx="3" fill="#8a5a33"/><circle cx="22" cy="41" r="3.5" fill="#bfe8ff" stroke="#fff" stroke-width="1.5"/><circle cx="42" cy="41" r="3.5" fill="#bfe8ff" stroke="#fff" stroke-width="1.5"/><path d="M32 9 C29 6 25 8 27 11 L32 15 L37 11 C39 8 35 6 32 9 Z" fill="#ff6fa5"/></svg>';
@@ -9539,7 +9563,7 @@ function petSpot() {
     if (Math.hypot(u, v) < 1.9 || (Math.abs(u) < 0.8 && v > 1.0 && v < 2.6)) continue;                                   // the trunk and the trapdoor
     if (houseOwns('furn') && ((u < -2.3 && v < -2.1) || (u > 1.8 && v < -2.2) || (u > 4.0 && v > 2.1) || Math.hypot(u - 4.3, v + 1.6) < 0.7)) continue;   // bed, table, bookshelf, plant
     if ((houseOwns('link') && u < -3.6 && Math.abs(v - PIPE_V) < 0.9) || (houseOwns('chute') && u > 3.6 && Math.abs(v - PIPE_V) < 0.9)) continue;
-    if ((petSlots() > 0 && Math.hypot(u - 3.3, v - 2.5) < 0.9) || Math.hypot(u + 4.0, v - 3.0) < 0.8) continue;           // the basket and the crate
+    if ((petSlots() > 0 && Math.hypot(u - 3.3, v - 2.5) < 0.9) || Math.hypot(u + 4.0, v - 3.0) < 0.8 || ((houseState.papers || []).length && Math.hypot(u + 3.0, v - 1.7) < 0.8)) continue;           // the basket and the crate
     return [u, v];
   }
   return [-1.8, 1.2];
@@ -9610,6 +9634,237 @@ onReachHouse = () => {
   if (pets.length && houseState.stage === 'furnish') { const p = pick1(pets); toast(pick1(WELCOME_HOME).replace('{name}', p.name)); sfx.love(1); }
   else _onReachHouse();
 };
+
+/* =========================================================
+   Treehouse extras: a nap in the bed (resets the wild scrumblies),
+   a zipline from the balcony down to the beach, and wallpapers
+   ========================================================= */
+/* ---------- sleeping: every wild scrumbly wanders back to a fresh spot ---------- */
+function resetWild() {
+  for (const list of CREATURE_LISTS) {
+    if (list === binks || list === blorbos) continue;              // Bink is one of a kind; Blorbos just keep bubbling
+    for (const c of list) {
+      if (c.state === 'gone') { c.respawn = Math.min(c.respawn || 0, c.t + 0.4 + Math.random() * 2.5); continue; }   // anyone away comes back too
+      if (['caught', 'trapped'].includes(c.state) || traps.some(t => t.occupant && t.occupant.o === c)) continue;
+      if (list === bobos) setState(c, 'gone'); else { c.state = 'gone'; c.t = 0; }
+      c.root.visible = false; c.respawn = 0.4 + Math.random() * 2.5;
+      if (c.ex) c.ex.visible = false; if (c.mad) c.mad.visible = false;
+    }
+  }
+}
+let sleepT = 0;
+const SLEEP_T = 3.2, BED_AT = [-3.5, -3.55];
+const sleepEl = (() => { const el = document.createElement('div'); el.id = 'sleepFade'; el.hidden = true; el.innerHTML = '<b>Z<i>z</i><i>z</i>...</b>'; document.body.appendChild(el); return el; })();
+const NAP_WAKE = [
+  'You wake up feeling wonderfully refreshed! The scrumblies all over the island have wandered back to their usual spots.',
+  'What a cosy nap! Outside, the scrumblies have all shuffled off to new spots.',
+  'You stretch and yawn. Somewhere out there, every scrumbly has found somewhere new to be.'
+];
+function startSleep() {
+  if (sleepT > 0) return;
+  sleepT = SLEEP_T; for (const k in keys) keys[k] = false;
+  player.vx = player.vz = player.vy = 0;
+  sleepEl.hidden = false; sleepEl.classList.remove('on'); void sleepEl.offsetWidth; sleepEl.classList.add('on');
+  sfx.love(1);
+  setTimeout(() => { resetWild(); health = MAX_HEALTH; renderHealth(); }, 1300);
+}
+function updateSleep(dt) {
+  sleepT = Math.max(0, sleepT - dt);
+  // lying in bed, looking up at the beams
+  const [x, z] = houseWorld(BED_AT[0], BED_AT[1] - 0.6);
+  camera.position.set(x, HOUSE.deck + 1.0, z); player.pitch = lerp(player.pitch, 1.25, Math.min(1, dt * 3));
+  if (sleepT <= 0) {
+    sleepEl.classList.remove('on'); setTimeout(() => { sleepEl.hidden = true; }, 900);
+    const [wx, wz] = houseWorld(BED_AT[0] + 1.5, BED_AT[1] + 1.6); player.x = wx; player.z = wz; player.y = HOUSE.deck; player.pitch = 0;
+    const [cx, cz] = houseWorld(0, 2); player.yaw = Math.atan2(-(cx - wx), -(cz - wz));
+    const pets = homePets();
+    toast(pets.length && Math.random() < 0.5 ? `${pick1(pets).name} curled up at the foot of the bed while you slept. ${NAP_WAKE[1].split('! ')[1] || NAP_WAKE[1]}` : pick1(NAP_WAKE));
+    saveGame();
+  }
+}
+
+/* ---------- the zipline: from a launch post on the balcony, over the hedge, to a tower on the beach ---------- */
+const ZIP = (() => {
+  const lu = -5.4, lv = 5.6, [sx, sz] = houseWorld(lu, lv), sy = HOUSE.deck + 3.3;
+  // run straight out along the house's view line, well onto the sand
+  let ex = sx, ez = sz;
+  for (let v = 8; v < 120; v += 0.5) { const [x, z] = houseWorld(-5.4, v); if (inland(x, z) < INLAND_LIMIT - 16) { ex = x; ez = z; break; } }
+  const eg = heightAt(ex, ez);
+  // the beach tower is just tall enough that your feet clear the hedge
+  let eh = 3.4;
+  for (; eh < 9; eh += 0.2) {
+    let ok = true;
+    for (let k = 0; k <= 60 && ok; k++) { const t = k / 60, x = lerp(sx, ex, t), z = lerp(sz, ez, t), d = inland(x, z); if (d > INLAND_LIMIT - 0.5 && d < INLAND_LIMIT + 5.5 && lerp(sy, eg + eh, t) - 2.15 < heightAt(x, z) + 6.4) ok = false; }
+    if (ok) break;
+  }
+  return { lu, lv, sx, sy, sz, ex, ez, ey: eg + eh, eg, eh, len: Math.hypot(ex - sx, sy - eg - eh, ez - sz) };
+})();
+const zipAt = t => [lerp(ZIP.sx, ZIP.ex, t), lerp(ZIP.sy, ZIP.ey, t) - Math.sin(t * Math.PI) * 0.5, lerp(ZIP.sz, ZIP.ez, t)];
+{
+  const root = new THREE.Group(); scene.add(root);
+  const wood = lam(0xa8703c), woodD = lam(0x8a5a33), metal = lam(0x9aa6b8);
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; root.add(m); return m; };
+  // the cable, sagging a touch
+  const pts = []; for (let k = 0; k <= 40; k++) { const [x, y, z] = zipAt(k / 40); pts.push(new THREE.Vector3(x, y, z)); }
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.03, 5, false), lam(0x4a5060), 0, 0, 0).castShadow = false;
+  // launch post on the balcony, with a little sign
+  add(new THREE.CylinderGeometry(0.12, 0.14, 3.5, 8), woodD, ZIP.sx, HOUSE.deck + 1.75, ZIP.sz);
+  add(new THREE.TorusGeometry(0.16, 0.04, 6, 14), metal, ZIP.sx, ZIP.sy, ZIP.sz);
+  // the beach tower: four legs, a platform, and a squashy pink landing cushion below
+  const ang = Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz);
+  const tower = new THREE.Group(); tower.position.set(ZIP.ex, ZIP.eg, ZIP.ez); tower.rotation.y = ang; root.add(tower);
+  const tAdd = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; tower.add(m); return m; };
+  [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]].forEach(([a, b]) => tAdd(new THREE.CylinderGeometry(0.1, 0.12, ZIP.eh + 0.4, 8), woodD, a, (ZIP.eh + 0.4) / 2, b));
+  tAdd(new THREE.BoxGeometry(1.8, 0.12, 1.8), wood, 0, ZIP.eh + 0.45, 0);
+  tAdd(new THREE.TorusGeometry(0.16, 0.04, 6, 14), metal, 0, ZIP.eh, -0.2);
+  for (let k = 1; k < ZIP.eh / 1.2; k++) tAdd(new THREE.BoxGeometry(1.5, 0.06, 0.06), wood, 0, k * 1.2, 0.7);
+  const cushion = tAdd(new THREE.SphereGeometry(1.2, 16, 10), lam(0xff8ab8), 0, 0.25, 1.6); cushion.scale.set(1.2, 0.35, 1.2);
+  tAdd(new THREE.TorusGeometry(1.2, 0.08, 6, 24), lam(0xffffff), 0, 0.32, 1.6).rotation.x = Math.PI / 2;
+  // a flag on top
+  tAdd(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 5), woodD, 0.75, ZIP.eh + 1.05, 0.75);
+  const flag = tAdd(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshLambertMaterial({ color: 0xff6fa5, side: THREE.DoubleSide }), 1.05, ZIP.eh + 1.45, 0.75);
+  root.visible = false;
+  ZIP.root = root;
+}
+// the beach end of the zipline is a landmark: you can bump into its legs
+const ZIP_LAND = (() => { const ang = Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz); return [ZIP.ex + Math.sin(ang) * 1.6, ZIP.ez + Math.cos(ang) * 1.6]; })();
+let zipRide = null, zipHint = false;
+function startZip() {
+  zipRide = { t: 0, v: 2, whoosh: 0 }; player.vx = player.vz = player.vy = 0; player.climb = null; for (const k in keys) keys[k] = false;
+  player.yaw = Math.atan2(-(ZIP.ex - ZIP.sx), -(ZIP.ez - ZIP.sz)); player.pitch = -0.15;
+  if (actx) { const t = actx.currentTime; tone(t, 300, 900, 0.3, 0.05, 'sawtooth'); }
+}
+function updateZip(dt) {
+  const r = zipRide;
+  r.v = Math.min(13, r.v + dt * 7);                 // picking up speed
+  r.t = Math.min(1, r.t + r.v * dt / ZIP.len);
+  const [x, y, z] = zipAt(r.t);
+  player.x = x; player.z = z; player.y = y - 2.15;
+  camera.position.set(x, y - 0.5 + Math.sin(r.t * 40) * 0.015, z);
+  r.whoosh -= dt; if (r.whoosh <= 0 && actx) { r.whoosh = 0.18; const t = actx.currentTime; noiseHit(t, 'bandpass', 600 + r.v * 80, 0.03 + r.v * 0.004, 0.2, sfxBus, 1.4); }
+  if (r.t >= 1) {
+    zipRide = null;
+    // let go and drop onto the cushion
+    const [lx, lz] = ZIP_LAND; player.x = lx; player.z = lz; player.y = heightAt(lx, lz) + 1.6; player.vy = 0; player.grounded = false;
+    player.vx = Math.sin(Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz)) * 2; player.vz = Math.cos(Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz)) * 2;
+    sfx.thud && sfx.thud(); for (let i = 0; i < 10; i++) spawnSparkle(lx, heightAt(lx, lz) + 0.5, lz);
+    if (!zipHint) { zipHint = true; toast('WHEEEE! Down on the beach in no time. (It only goes one way: take the ladder to get back up.)'); }
+  }
+}
+
+/* ---------- wallpapers ---------- */
+const WALLPAPERS = [
+  { id: 'grass', name: 'Green Grass', blurb: 'Fresh mint with a meadow of grass round the bottom.' },
+  { id: 'petals', name: 'Pink Petals', blurb: 'Blush pink, scattered with falling rose petals.' },
+  { id: 'gothic', name: 'Gothic Black', blurb: 'Dramatic. Mysterious. Tiny skulls. Very fashionable.' },
+  { id: 'clouds', name: 'Sky Clouds', blurb: 'Fluffy clouds on a clear blue sky. Feels like flying.' },
+  { id: 'candy', name: 'Candy Stripes', blurb: 'Pastel stripes and little hearts. Sweet as anything.' },
+  { id: 'starry', name: 'Starry Night', blurb: 'Deep blue, gold stars and a sleepy moon.' }
+];
+const WALL_PRICE = 50, WALL_TILE = 2.4;
+WALLPAPERS.forEach(w => { CARLOS_PRICE['wp_' + w.id] = WALL_PRICE; CARLOS_STOCK.push({ id: 'wp_' + w.id, name: w.name + ' Wallpaper', blurb: w.blurb, furn: true, wall: w.id }); });
+const wallCanvas = {};
+function paintWallpaper(id, W = 512, H = 726) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const R = mulberry32(id.length * 977 + id.charCodeAt(0));
+  const dot = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+  if (id === 'grass') {
+    g.fillStyle = '#e4f6e0'; g.fillRect(0, 0, W, H);
+    for (let x = 0; x < W; x += 32) { g.fillStyle = 'rgba(120,190,120,.08)'; g.fillRect(x, 0, 14, H); }
+    for (let k = 0; k < 30; k++) dot(R() * W, R() * H * 0.6, 3, 'rgba(255,255,255,.7)');
+    // a meadow along the bottom
+    const gh = H * 0.24;
+    g.fillStyle = '#7fcf6a'; g.fillRect(0, H - gh * 0.45, W, gh * 0.45);
+    for (let k = 0; k < 140; k++) { const x = R() * W, h = gh * (0.45 + R() * 0.75), w = 7 + R() * 8; g.fillStyle = ['#5cb85c', '#6fcf5a', '#4fa64a', '#8fdc6f'][k % 4]; g.beginPath(); g.moveTo(x - w / 2, H); g.quadraticCurveTo(x + (R() - 0.5) * 20, H - h * 0.6, x + (R() - 0.5) * 14, H - h); g.lineTo(x + w / 2, H); g.fill(); }
+    for (let k = 0; k < 18; k++) { const x = R() * W, y = H - gh * (0.5 + R() * 0.5); [0, 1, 2, 3, 4].forEach(p => dot(x + Math.cos(p * 1.26) * 6, y + Math.sin(p * 1.26) * 6, 4.5, ['#ffffff', '#ffd23f', '#ff9cc0'][k % 3])); dot(x, y, 3.5, '#ffb000'); }
+  } else if (id === 'petals') {
+    g.fillStyle = '#ffe1ec'; g.fillRect(0, 0, W, H);
+    for (let k = 0; k < 70; k++) { const x = R() * W, y = R() * H, a = R() * 6.28, s = 8 + R() * 10; g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = ['#ff8ab8', '#ff6fa5', '#ffb3cf', '#e8528e'][k % 4]; g.beginPath(); g.ellipse(0, 0, s, s * 0.55, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(-s * 0.3, -s * 0.1, s * 0.4, s * 0.18, 0, 0, 7); g.fill(); g.restore(); }
+    for (let k = 0; k < 8; k++) { const x = R() * W, y = R() * H; for (let r = 4; r > 0; r--) dot(x + (r % 2) * 2, y, r * 4.5, r % 2 ? '#e8384f' : '#c0283c'); dot(x - 12, y + 12, 6, '#5cc277'); }
+  } else if (id === 'gothic') {
+    g.fillStyle = '#211c2a'; g.fillRect(0, 0, W, H);
+    // a faint purple damask
+    g.strokeStyle = 'rgba(150,110,200,.22)'; g.lineWidth = 3;
+    for (let y = 40; y < H; y += 120) for (let x = 0; x <= W; x += 128) { const ox = (Math.floor(y / 120) % 2) * 64; g.beginPath(); g.moveTo(x + ox, y - 40); g.bezierCurveTo(x + ox + 34, y - 10, x + ox + 34, y + 30, x + ox, y + 50); g.bezierCurveTo(x + ox - 34, y + 30, x + ox - 34, y - 10, x + ox, y - 40); g.stroke(); }
+    // little skulls
+    for (let k = 0; k < 22; k++) {
+      const x = 30 + R() * (W - 60), y = 30 + R() * (H - 60), s = 9 + R() * 4;
+      dot(x, y, s, '#f4f0e8'); g.fillStyle = '#f4f0e8'; g.fillRect(x - s * 0.55, y + s * 0.4, s * 1.1, s * 0.7);
+      dot(x - s * 0.38, y, s * 0.28, '#211c2a'); dot(x + s * 0.38, y, s * 0.28, '#211c2a');
+      g.fillStyle = '#211c2a'; g.beginPath(); g.moveTo(x, y + s * 0.25); g.lineTo(x - 2, y + s * 0.5); g.lineTo(x + 2, y + s * 0.5); g.fill();
+      for (let t = -1; t <= 1; t++) g.fillRect(x + t * s * 0.3 - 1, y + s * 0.75, 2, s * 0.35);
+    }
+    for (let k = 0; k < 40; k++) dot(R() * W, R() * H, 1.4, 'rgba(200,170,255,.5)');
+  } else if (id === 'clouds') {
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#9fd8ff'); gr.addColorStop(1, '#d8f0ff'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    for (let k = 0; k < 9; k++) { const x = R() * W, y = R() * H, s = 22 + R() * 18; [[0, 0, 1], [-1.1, 0.25, 0.75], [1.1, 0.25, 0.8], [0.5, -0.45, 0.8], [-0.5, -0.4, 0.7]].forEach(([dx, dy, r]) => { dot(x + dx * s, y + dy * s, s * r, '#ffffff'); dot(x + dx * s + W, y + dy * s, s * r, '#ffffff'); dot(x + dx * s - W, y + dy * s, s * r, '#ffffff'); }); }
+  } else if (id === 'candy') {
+    const cols = ['#ffe1ec', '#fff8e6', '#dff6e0', '#fff8e6', '#e8dcff', '#fff8e6'];
+    for (let x = 0, k = 0; x < W; x += W / 12, k++) { g.fillStyle = cols[k % cols.length]; g.fillRect(x, 0, W / 12 + 1, H); }
+    for (let k = 0; k < 26; k++) { const x = R() * W, y = R() * H, s = 7; g.fillStyle = ['#ff6fa5', '#ffb36b', '#b58be6'][k % 3]; g.beginPath(); g.moveTo(x, y + s); g.bezierCurveTo(x - s * 1.6, y - s * 0.2, x - s * 0.6, y - s * 1.3, x, y - s * 0.4); g.bezierCurveTo(x + s * 0.6, y - s * 1.3, x + s * 1.6, y - s * 0.2, x, y + s); g.fill(); }
+  } else {
+    g.fillStyle = '#1f2a5a'; g.fillRect(0, 0, W, H);
+    for (let k = 0; k < 90; k++) dot(R() * W, R() * H, 1 + R() * 1.6, 'rgba(255,255,255,.7)');
+    const star = (x, y, s) => { g.fillStyle = '#ffd23f'; g.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? s * 0.45 : s; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); };
+    for (let k = 0; k < 16; k++) star(R() * W, R() * H, 7 + R() * 6);
+    for (let k = 0; k < 3; k++) { const x = 60 + R() * (W - 120), y = 60 + R() * (H - 120); dot(x, y, 20, '#fff2a8'); dot(x + 9, y - 6, 18, '#1f2a5a'); }
+  }
+  return c;
+}
+const wallTex = id => { if (!wallCanvas[id]) { wallCanvas[id] = paintWallpaper(id); } const t = new THREE.CanvasTexture(wallCanvas[id]); t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4; return t; };
+const wallSwatch = id => { const c = paintWallpaper(id, 128, 182); return `<img src="${c.toDataURL()}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;box-shadow:0 0 0 2px #fff">`; };
+const wallMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const wallpaperGroup = (() => {
+  const g = new THREE.Group(); g.position.set(HOUSE.x, HOUSE.deck, HOUSE.z); g.rotation.y = HOUSE.yaw; g.visible = false; scene.add(g);
+  for (const p of HOUSE_PANELS) {
+    const len = p.a1 - p.a0, h = p.y1 - p.y0, geo = new THREE.PlaneGeometry(len, h), uv = geo.attributes.uv, pos = geo.attributes.position;
+    // world-anchored UVs, so the pattern runs on across the pieces of a wall
+    for (let i = 0; i < uv.count; i++) { const lx = pos.getX(i), ly = pos.getY(i); uv.setXY(i, ((p.a0 + p.a1) / 2 + lx * (p.along === 'u' ? Math.sign(p.inward) : -Math.sign(p.inward))) / WALL_TILE, (p.y0 + h / 2 + ly) / HOUSE_WALL_H); }
+    const m = new THREE.Mesh(geo, wallMat), off = 0.105;
+    if (p.along === 'u') { m.position.set((p.a0 + p.a1) / 2, p.y0 + h / 2, p.fixed + p.inward * off); m.rotation.y = p.inward > 0 ? 0 : Math.PI; }
+    else { m.position.set(p.fixed + p.inward * off, p.y0 + h / 2, (p.a0 + p.a1) / 2); m.rotation.y = p.inward > 0 ? Math.PI / 2 : -Math.PI / 2; }
+    m.receiveShadow = true; g.add(m);
+  }
+  return g;
+})();
+function applyWallpaper() {
+  const id = houseState.paper;
+  if (!id || !houseState.papers || !houseState.papers.includes(id)) { wallpaperGroup.visible = false; return; }
+  if (wallMat.map) wallMat.map.dispose();
+  wallMat.map = wallTex(id); wallMat.needsUpdate = true; wallpaperGroup.visible = true;
+}
+// the paint bucket: shows up with your first wallpaper
+{
+  const g = furnGroup('paint'), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
+  const PX = -3.0, PZ = 1.7;
+  add(new THREE.CylinderGeometry(0.3, 0.24, 0.48, 16), lam(0xdfe6f2), PX, 0.24, PZ);
+  add(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 16), lam(0xff6fa5), PX, 0.47, PZ);
+  add(new THREE.TorusGeometry(0.3, 0.025, 6, 18, Math.PI), lam(0x9aa6b8), PX, 0.5, PZ).rotation.y = 0.4;
+  [[0xff6fa5, 0.18], [0x7fd8c8, -0.05], [0xffd23f, -0.25]].forEach(([c, dy]) => add(new THREE.BoxGeometry(0.02, 0.12, 0.2), lam(c), PX + 0.29, 0.3 + dy * 0.4, PZ));
+  const brush = add(new THREE.BoxGeometry(0.06, 0.5, 0.04), lam(0xa8703c), PX + 0.12, 0.62, PZ - 0.05); brush.rotation.z = -0.4;
+  add(new THREE.BoxGeometry(0.14, 0.14, 0.08), lam(0xff6fa5), PX + 0.22, 0.86, PZ - 0.05).rotation.z = -0.4;
+  for (let k = 0; k < 4; k++) add(new THREE.CylinderGeometry(0.11, 0.11, 0.015, 10), lam([0xff6fa5, 0x7fd8c8, 0xffd23f, 0xb58be6][k]), PX - 0.35 + k * 0.18, 0.01, PZ + 0.38);
+  compactCreature({ root: g });
+}
+const PAINT_AT = [-3.0, 1.7];
+function buildPaintPicker(m) {
+  m.items = [{ id: null, name: 'Bare Planks' }].concat(WALLPAPERS.filter(w => houseState.papers.includes(w.id))); m.cols = 4;
+  scrimBody.innerHTML = `<h3>Choose your wallpaper <span>${houseState.papers.length} of ${WALLPAPERS.length} collected</span></h3><div class="board-cards ware-cards four"></div>`;
+  const wrap = scrimBody.querySelector('.board-cards');
+  m.items.forEach((w, i) => {
+    const el = document.createElement('button'), on = (houseState.paper || null) === w.id;
+    el.className = 'req ware furnish' + (on ? ' current' : '');
+    el.innerHTML = `<h4>${on ? 'UP NOW' : 'WALLPAPER'}</h4><span class="ric">${w.id ? wallSwatch(w.id) : FURN_ICONS.furn}</span><span class="what">${w.name}</span><span class="have">${on ? 'On your walls' : 'Pick to paper the walls'}</span>`;
+    hookItem(el, i); wrap.appendChild(el); m.els.push(el);
+  });
+}
+function paintActivate(it) {
+  houseState.paper = it.id; applyWallpaper(); saveGame();
+  if (actx) { const t = actx.currentTime; noiseHit(t, 'bandpass', 1400, 0.08, 0.35, sfxBus, 0.8); tone(t + 0.3, 660, 990, 0.15, 0.05, 'sine'); }
+  scrimSay(it.id ? pick1(['Splosh! The walls are looking lovely.', `${it.name}! Very stylish.`, 'Slap, slap, slap... done! Your treehouse has never looked better.']) : 'Back to good old wooden planks. Classic.');
+  buildScrim();
+}
+function openPaintPicker() { openScrim('paint', 'Dip the brush, pick a paper, and splosh!'); }
 
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
@@ -9747,6 +10002,7 @@ function tick(dt) {
   updateCarlos(dt);
   updateHouse(dt);
   updateHousePets(dt);
+  ZIP.root.visible = scrimHere();
   updateForest(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -9806,7 +10062,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
