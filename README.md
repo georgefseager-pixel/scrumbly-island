@@ -14,7 +14,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Mouse | Look (click to capture the mouse) |
 | Esc (or controller Start) | Pause menu: keep exploring, save, load, new game, settings, controls |
 | Click | Use the item in hand (swing the net, throw a rock) |
-| 1–6 / scroll wheel / Q | Swap item |
+| 1–7 / scroll wheel / Q | Swap item |
 | E | Pick up a rock you're looking at |
 | Click (Scrumblydex out) | Scan the scrumbly in your sights |
 | Tab (Scrumblydex out) | Open / close the Scrumblydex list (arrows browse, Esc closes) |
@@ -24,9 +24,10 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Click (cage trap out) | Set a trap on the sand in front of you (a green ghost shows where; red means you can't) |
 | E (looking at a trap) | Collect what's inside, or pick an empty trap back up |
 | Hold click (teleporter out) | Hold the red button for three seconds to zap back to the ranch (10-minute recharge) |
+| Hold click (green teleporter out, slot 7) | Hold the green button for three seconds to zap to Scrimple Scrumple's shop (its own 10-minute recharge) |
 | E (looking at an apple, up an apple tree) | Pick it (they grow back); throw them like rocks with apples out (6) |
 | E (looking at an apple on the ground) | Pick it back up |
-| E (near Sir Hopsalot) | Talk; arrows / d-pad pick an answer |
+| E (near Sir Hopsalot, Lady Fluffytail or Dr. Tealbottom) | Talk; arrows / d-pad pick an answer |
 | Walk or jump into a palm | Grab on; W/S climb, A/D shimmy round, Space leap off |
 | M | Music on/off |
 
@@ -68,6 +69,8 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 - A giant Mermiggly lives far out to sea on the opposite side from the giant Duckshark. Every minute or so it rises up out of the water, waves over at the island with a deep, far-off ribbit, then sinks back down
 - A giant Beeappy drifts in slow circles high above the island, with a deep, distant hum now and then
 - Dr. Tealbottom, the second islander, appears after the tutorial: a teal frog-woman scientist in a lab coat, with goggles pushed up and a curly bun, by a satellite beacon that sweeps the sky and blinks. She's a colleague of Professor Loveopolis and runs three experiments. First, catch a Bobo without a rock (ambush it from a palm tree); she rewards you with a second cage trap. Second, prove the Beeangy exists by bringing one in your party; she works out it's just a Beeappy holding a grudge and gives you a health injection (a second heart). Third, prove the UFO is real by bringing Bink; she gives you the teleporter, a remote with a big red button that zaps you back to the ranch after a three-second hold (recharges in ten minutes, shown on its hotbar slot). Then she heads off to tell Loveopolis, and from then on stands beside the ranch with plenty to say. A "!" over her means she has something for you
+- Lady Fluffytail, self-declared Princess of Glimmerwood, holds court on a pink velvet throne in a glade a little way in from one of the hedge gaps, between two potted rose bushes on a round pink rug. She's a tall white rabbit lady in a big pink ballgown with a white frill, pearls, puffed sleeves, a bow, a tiara with a heart gem, long-lashed eyes, an enormous powder-puff tail and a heart-shaped fan. You are her subject, and she makes demands. First, show her a shiny scrumbly (one as beautiful as her) in your party: she gives you a third cage trap. Second, three shinies in your party at once: she gives you a royal kiss (a third heart). Third, a giant rose: she's only ever found Sitas and wonders whether plant scrumblies grow with enough love; show her a Rosita and she gives you a green teleporter she found in the brambles, which zaps you to Scrimple Scrumple's shop after a three-second hold (slot 7, its own ten-minute recharge). Then she glides off to the ranch and stands beside Professor Loveopolis with plenty of royal opinions. A "!" over her means she has something for you
+- Debug (title screen): Debug, then Skip to Forest starts you just inside a gap in the hedge with the tutorial done, the forest toll paid, 999 gold, a Bobo partner plus one of every beach scrumbly in the Box (all scanned and caught), Dr. Tealbottom's quests finished (two traps, two hearts, the teleporter) and Scrimple's notice board unlocked. It replaces the autosave (click twice if there is one)
 - Shiny variants: about 1 in 40 scrumblies has special colours (a golden Bobo, a purple Speshul, a pink Pengin, a blue Beeappy...). Wild Shinies sparkle, and a catch is named "[Name] the Shiny [Species]" (or "the Shiny Big Bobo"), with a rainbow Shiny tag in the party and Box
 - Your Partner follows you around: it hops after you when you wander off, waits at the foot of trees you climb, floats in the shallows, and settles nearby to watch you. Look at it and press E to pet it for hearts, sparkles and a happy squint. Every few minutes it lets you know how it feels with a little note (about 70 different ones)
 - Settings (from the pause menu): interface size, screen edge margin (for TVs that crop the edges), look sensitivity, invert look up/down, music and sound volume, and shadows on/off. Kept in this browser. A Controls page lists every key and controller button
