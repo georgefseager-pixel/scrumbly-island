@@ -305,6 +305,18 @@
   .dchoices button.cur { background: var(--pink); color: #fff; box-shadow: 0 3px 0 var(--pink-deep); }
   #dialog.hop .dlg-card { border-color: #c8a070; box-shadow: 0 5px 0 #8a5a33, 0 14px 30px rgba(44,37,82,.3); }
   #dialog.hop .dbody b { color: #8a5a33; }
+  #dialog.carlos .dlg-card { border-color: #ffb36b; box-shadow: 0 5px 0 #d9661a, 0 14px 30px rgba(44,37,82,.3); }
+  #dialog.carlos .dbody b { color: #d9661a; }
+  #dialog.carlos .prof-pic { background: #fff0d6; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #d9661a; }
+  #scrimMenu.carlos .scrim-shell { background: #ffa04d; box-shadow: inset 0 -8px 0 #d9661a, inset 0 4px 0 #ffc896, 0 18px 40px rgba(44,37,82,.4); }
+  #scrimMenu.carlos .speech b { color: #d9661a; }
+  #scrimMenu.carlos .scrim-pic { background: #fff0d6; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #d9661a; }
+  #scrimMenu.carlos .gold-chip, #scrimMenu.carlos #scrimClose { box-shadow: 0 3px 0 #d9661a; } #scrimMenu.carlos #scrimClose { color: #d9661a; }
+  #scrimMenu.carlos .board-cards { background: #9a6a3a; box-shadow: inset 0 0 0 6px #6b4226; }
+  .req.ware h4 { color: #d9661a; }
+  .req.ware.deed { box-shadow: 0 0 0 3px #f2c230, 0 4px 0 rgba(0,0,0,.18); background: linear-gradient(160deg, #fff8e6, #fff0c8); }
+  .req.ware.sold { opacity: .6; }
+  .req.ware.sold .reward { color: #c0283c; letter-spacing: .1em; }
   #dialog.fluff .dlg-card { border-color: #ff9cc8; box-shadow: 0 5px 0 #e8528e, 0 14px 30px rgba(44,37,82,.3); }
   #dialog.fluff .dbody b { color: #d63f7e; }
   #dialog.fluff .prof-pic { background: #ffe6f2; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #e8528e; }
@@ -1769,6 +1781,7 @@ function updatePlayer(dt) {
   { const sp = collideScrim(nx, nz); nx = sp[0]; nz = sp[1]; }
   { const tp = collideTeal(nx, nz); nx = tp[0]; nz = tp[1]; }
   { const lp = collideFluff(nx, nz); nx = lp[0]; nz = lp[1]; }
+  { const cp = collideCarlos(nx, nz); nx = cp[0]; nz = cp[1]; }
   { const fp = collideForest(nx, nz); nx = fp[0]; nz = fp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
@@ -1795,11 +1808,12 @@ function updatePlayer(dt) {
   nearScrim = !nearProf && scrimInReach(); nearBoard = !nearProf && !nearScrim && boardInReach(); nearTeal = !nearProf && !nearScrim && !nearBoard && tealInReach();
   nearHop = nearProf || nearScrim || nearBoard || nearTeal ? null : hopInReach();
   nearFluff = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && fluffInReach();
-  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && partnerInReach();
-  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal || nearHop || nearFluff ? null : findNearTrap();
-  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff ? null : findTargetRock();
-  targetApple = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || targetRock ? null : findTargetApple();
-  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearHop) talkToHop(nearHop); else if (nearFluff) talkToFluff(); else if (targetApple) pickUpApple(targetApple); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
+  nearCarlos = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && carlosInReach();
+  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && !nearCarlos && partnerInReach();
+  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos ? null : findNearTrap();
+  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos ? null : findTargetRock();
+  targetApple = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos || targetRock ? null : findTargetApple();
+  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearHop) talkToHop(nearHop); else if (nearFluff) talkToFluff(); else if (nearCarlos) talkToCarlos(); else if (targetApple) pickUpApple(targetApple); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -5497,7 +5511,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearFluff ? '<kbd>E</kbd>talk to Lady Fluffytail' : nearPartner ? (sitaReady() ? '<kbd>E</kbd>help <b class="pn"></b> grow' : activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
+  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearFluff ? '<kbd>E</kbd>talk to Lady Fluffytail' : nearCarlos ? '<kbd>E</kbd>shop with Carlos the Capitalist' : nearPartner ? (sitaReady() ? '<kbd>E</kbd>help <b class="pn"></b> grow' : activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -6099,7 +6113,7 @@ const prof = (() => {
   }, 512);
   prof.tag.material.needsUpdate = true;
 });
-let nearProf = false, nearScrim = false, nearBoard = false, nearTeal = false, nearFluff = false;
+let nearProf = false, nearScrim = false, nearBoard = false, nearTeal = false, nearFluff = false, nearCarlos = false;
 function profDistance() { return Math.hypot(player.x - prof.root.position.x, player.z - prof.root.position.z); }
 function profInReach() {
   if (player.climb || profDistance() > 3.4) return false;
@@ -6635,7 +6649,7 @@ function netTrapped() {
 }
 function updateTraps(dt) {
   // placement preview
-  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff;
+  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && !nearCarlos;
   if (!holding) trapSpot = null;
   trapGhost.visible = holding;
   if (holding) { trapSpot = trapPlacement(); trapGhost.position.set(trapSpot.x, trapSpot.y, trapSpot.z); trapGhost.rotation.y = trapSpot.yaw; ghostMat.color.setHex(trapSpot.ok ? 0x7ee08a : 0xff6f7f); ghostMat.opacity = 0.35 + Math.sin(time * 5) * 0.1; }
@@ -6668,7 +6682,7 @@ function snapshot() {
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
-    gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), forest: forestSave(),
+    gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), forest: forestSave(),
     music: musicOn
   };
 }
@@ -6716,7 +6730,7 @@ function applySnapshot(s) {
   inv.apples = clamp(s.inv && isFinite(s.inv.apples) ? Math.floor(s.inv.apples) : 0, 0, MAX_APPLES);
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
-  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); fluffLoad(s.fluff); tealLoad(s.teal);
+  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); fluffLoad(s.fluff); carlosLoad(s.carlos); tealLoad(s.teal);
   refreshResidents(); bondBag = [];
 }
 // a short description of a save, for the slot list
@@ -7043,7 +7057,7 @@ function showLine() {
   dlgItem.hidden = true;
   if (L.give) giveItem(L.give);
   if (L.act) L.act();
-  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else if (dlgWho === 'fluff') fluffSfx.talk(); else sfx.profTalk(); }
+  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else if (dlgWho === 'fluff') fluffSfx.talk(); else if (dlgWho === 'carlos') carlosSfx.talk(); else sfx.profTalk(); }
   dlgChoicesEl.hidden = true; dlgChoicesEl.innerHTML = ''; dlgChoice = 0;
   if (L.choices) L.choices.forEach((c, i) => { const b = document.createElement('button'); b.textContent = c.label; b.addEventListener('click', e => { e.stopPropagation(); dlgChoice = i; pickChoice(); }); b.addEventListener('mouseenter', () => { dlgChoice = i; renderChoices(); }); dlgChoicesEl.appendChild(b); });
   renderChoices();
@@ -7484,7 +7498,7 @@ const BOARD_HELLO = [
   'These little dudes are getting rare out there. Help me get them home?',
   'I always keep three requests going. The wild needs all the help it can get.'
 ];
-function scrimSay(t) { scrimSpeech.textContent = t; scrimSpeech.classList.remove('say'); void scrimSpeech.offsetWidth; scrimSpeech.classList.add('say'); guy.talk = 1.2; }
+function scrimSay(t) { scrimSpeech.textContent = t; scrimSpeech.classList.remove('say'); void scrimSpeech.offsetWidth; scrimSpeech.classList.add('say'); if (scrimMenu.mode === 'carlos') carlos.talk = 1.6; else guy.talk = 1.2; }
 function entryCell(e, extra = '') {
   const partner = e.area === 'party' && e.i === 0, b = document.createElement('button');
   b.className = 'bcell has';
@@ -7500,7 +7514,8 @@ function hookItem(el, idx) {
 function buildScrim() {
   const m = scrimMenu; m.els = [];
   scrimEl.classList.toggle('board', m.mode !== 'shop');
-  if (m.mode === 'shop') {
+  if (m.mode === 'carlos') buildCarlosShop(m);
+  else if (m.mode === 'shop') {
     m.items = ownedEntries(); m.cols = 6;
     scrimBody.innerHTML = `<h3>Your scrumblies <span>${m.items.length}</span></h3><div class="scrim-grid"></div>`;
     const grid = scrimBody.querySelector('.scrim-grid');
@@ -7538,7 +7553,10 @@ function refreshScrim() {
   });
   const ctl = ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> ';
   let html = '';
-  if (m.mode === 'shop') {
+  if (m.mode === 'carlos') {
+    html = it ? (it.id === 'deed' && carlosState.deed ? 'Already yours. Somewhere out there is a house...' : `<b></b> for <i class="coin"></i>${CARLOS_PRICE[it.id]}. Pick it to buy`) : '';
+    html += ctl + 'close';
+  } else if (m.mode === 'shop') {
     if (!it) html = 'You haven’t got any scrumblies to set free.';
     else if (m.armed === m.cur) html = `Set <b></b> free for <i class="coin"></i>${priceOf(it.p)}? Press again to confirm`;
     else html = `<b></b>${sellableEntry(it) ? ` · <i class="coin"></i>${priceOf(it.p)}. Pick them to set them free` : it.area === 'party' && it.i === 0 ? ' · your partner stays with you' : ' · one of a kind: not for sale'}`;
@@ -7554,7 +7572,7 @@ function refreshScrim() {
     html += ctl + 'back';
   }
   scrimFoot.innerHTML = html;
-  const b = scrimFoot.querySelector('b'); if (b && it && it.p) b.textContent = fullName(it.p);
+  const b = scrimFoot.querySelector('b'); if (b && it && it.p) b.textContent = fullName(it.p); else if (b && it && m.mode === 'carlos') b.textContent = it.name;
   const el = m.els[m.cur]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
 }
 function removeEntries(list) {
@@ -7567,6 +7585,7 @@ function scrimNope(msg) { sfx.dexNope(); if (msg) scrimSay(msg); }
 function scrimActivate() {
   const m = scrimMenu, it = m.items[m.cur];
   if (!scrimOpen || !it) return;
+  if (m.mode === 'carlos') { carlosActivate(it); return; }
   if (m.mode === 'shop') {
     if (it.area === 'party' && it.i === 0) return scrimNope('Whoa, not your partner, friend. That bond’s sacred. I may be a hippy, but I’m not a monster.');
     if (SPECIES[it.p.species].unique) return scrimNope(`${it.p.name}?! No way, man. There’s only one in the whole world. I couldn’t put a price on that. Keep them close.`);
@@ -7624,7 +7643,12 @@ function openScrim(mode, line) {
   if (scrimOpen) return;
   scrimOpen = true; for (const k in keys) keys[k] = false;
   Object.assign(scrimMenu, { mode, cur: 0, armed: -1, req: null, picked: new Set(), changed: false });
-  scrimSay(line || ''); scrimSfx.hello();
+  const isC = mode === 'carlos';
+  scrimEl.classList.toggle('carlos', isC);
+  scrimEl.querySelector('.scrim-pic').innerHTML = isC ? CARLOS_PIC : SCRIM_PIC;
+  scrimEl.querySelector('.speech b').textContent = isC ? 'Carlos the Capitalist' : 'Scrimple Scrumple';
+  scrimEl.querySelector('.scrim-shell').setAttribute('aria-label', isC ? 'Carlos the Capitalist' : 'Scrimple Scrumple');
+  scrimSay(line || ''); if (isC) carlosSfx.hello(); else scrimSfx.hello();
   buildScrim(); scrimEl.hidden = false;
   document.getElementById('crosshair').hidden = true;
   if (document.pointerLockElement === canvas) document.exitPointerLock();
@@ -7687,9 +7711,9 @@ function setDialogSpeaker(who) {
   dlgWho = who;
   const pic = dlgEl.querySelector('.prof-pic'), name = dlgEl.querySelector('.dbody b');
   if (profDlgPic === null) profDlgPic = pic.innerHTML;
-  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : who === 'fluff' ? FLUFF_PIC : profDlgPic;
-  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : who === 'fluff' ? 'Lady Fluffytail' : 'Professor Loveopolis';
-  ['scrim', 'teal', 'hop', 'fluff'].forEach(k => dlgEl.classList.toggle(k, who === k));
+  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : who === 'fluff' ? FLUFF_PIC : who === 'carlos' ? CARLOS_PIC : profDlgPic;
+  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : who === 'fluff' ? 'Lady Fluffytail' : who === 'carlos' ? 'Carlos the Capitalist' : 'Professor Loveopolis';
+  ['scrim', 'teal', 'hop', 'fluff', 'carlos'].forEach(k => dlgEl.classList.toggle(k, who === k));
 }
 
 /* ---------- saving ---------- */
@@ -8087,7 +8111,7 @@ function updateTeal(dt) {
    and an enormous Beeappy drifting high over the island
    ========================================================= */
 const forestState = { open: false, hopMet: false };
-const FOREST_TOLL = 500;
+const FOREST_TOLL = 400;
 // where you can walk: the beach always; past the hedge (through a gap) once Sir Hopsalot lets you
 function canWalk(x, z) {
   if (heightAt(x, z) < -MAX_DEPTH) return false;
@@ -8665,6 +8689,238 @@ function updateFluff(dt) {
   if (fluff.tag) fluff.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
 }
 
+/* =========================================================
+   Islanders: Carlos the Capitalist, rabbit of business
+   A smooth-talking rabbit in sunglasses with a makeshift stall in the
+   forest. Sells stones and apples (20 gold each) and, once only, a deed
+   to a house (600 gold)... which house, he couldn't actually tell you.
+   ========================================================= */
+const carlosState = { met: false, deed: false };
+const CARLOS_PRICE = { rock: 20, apple: 20, deed: 600 };
+// his pitch: a little way in from another gap, well away from Lady Fluffytail
+const CARLOS = (() => {
+  let best = null;
+  for (let i = 0; i < 600 && !best; i++) {
+    const th = GAP_TH[3] + (i % 2 ? 1 : -1) * (0.08 + Math.random() * 0.12), d = HEDGE_OUT + 8 + Math.random() * 10, [x, z] = polar(th, d);
+    if (!forestFree(x, z, d, 3) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 4.5) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 6) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 7) || Math.hypot(FLUFF.x - x, FLUFF.z - z) < 30) continue;
+    best = { th, x, z };
+  }
+  if (!best) { const th = GAP_TH[3] + 0.12, [x, z] = polar(th, HEDGE_OUT + 12); best = { th, x, z }; }
+  const [gx, gz] = polar(GAP_TH[3], HEDGE_OUT + 2);
+  return { ...best, yaw: Math.atan2(gx - best.x, gz - best.z) };
+})();
+const carlosWorld = (u, v) => [CARLOS.x + Math.cos(CARLOS.yaw) * u + Math.sin(CARLOS.yaw) * v, CARLOS.z - Math.sin(CARLOS.yaw) * u + Math.cos(CARLOS.yaw) * v];
+// a hand-painted sign
+const carlosSignTex = (() => {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 160; const g = c.getContext('2d');
+  g.fillStyle = '#c99a5e'; g.fillRect(0, 0, 512, 160);
+  for (let i = 0; i < 9; i++) { g.fillStyle = `rgba(90,50,20,${0.08 + Math.random() * 0.1})`; g.fillRect(0, i * 18 + Math.random() * 6, 512, 2); }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '700 64px "Fredoka", "Baloo 2", sans-serif'; g.fillStyle = '#ffd23f'; g.strokeStyle = '#5a2a10'; g.lineWidth = 10;
+  g.strokeText('CARLOS’ DEALS', 256, 62); g.fillText('CARLOS’ DEALS', 256, 62);
+  g.font = '700 30px "Nunito", sans-serif'; g.fillStyle = '#5a2a10'; g.fillText('no refunds · no questions', 256, 122);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+})();
+// the stall: a plank counter on crates under a striped awning held up with branches
+const carlosStall = (() => {
+  const root = new THREE.Group(); const [sx, sz] = carlosWorld(0, 0); root.position.set(sx, heightAt(sx, sz), sz); root.rotation.y = CARLOS.yaw; scene.add(root);
+  const wood = lam(0xb98352), dark = lam(0x8a5a33), stick = lam(0x7a5233);
+  // crates and the counter top (he stands behind it, at v = -1)
+  [-0.75, 0.75].forEach(u => { campAdd(new THREE.BoxGeometry(0.75, 0.75, 0.7), wood, u, 0.38, 0, root); campAdd(new THREE.BoxGeometry(0.78, 0.06, 0.73), dark, u, 0.2, 0, root); campAdd(new THREE.BoxGeometry(0.78, 0.06, 0.73), dark, u, 0.56, 0, root); });
+  campAdd(new THREE.BoxGeometry(2.4, 0.08, 0.85), dark, 0, 0.8, 0, root);
+  // branch poles and a red-and-white striped awning
+  [[-1.25, 0.45], [1.25, 0.45], [-1.25, -1.6], [1.25, -1.6]].forEach(([u, v]) => campAdd(new THREE.CylinderGeometry(0.05, 0.06, 2.6 + (v < 0 ? 0.3 : 0), 6), stick, u, 1.3 + (v < 0 ? 0.15 : 0), v, root));
+  for (let k = 0; k < 7; k++) {
+    const st = campAdd(new THREE.BoxGeometry(2.7 / 7, 0.05, 2.35), lam(k % 2 ? 0xffffff : 0xe8384f), -1.35 + (k + 0.5) * 2.7 / 7, 2.7, -0.58, root); st.rotation.x = -0.12;
+    const fl = campAdd(new THREE.ConeGeometry(0.19, 0.25, 3), lam(k % 2 ? 0xffffff : 0xe8384f), -1.35 + (k + 0.5) * 2.7 / 7, 2.68, 0.62, root); fl.rotation.set(Math.PI, Math.PI / 6, 0); fl.scale.set(1, 1, 0.25);
+  }
+  // wares: a heap of stones, a basket of apples and a scroll tied with a ribbon
+  for (let k = 0; k < 7; k++) campAdd(new THREE.DodecahedronGeometry(0.09 + Math.random() * 0.04, 0), lam(0x9a96a8), -0.85 + (k % 4) * 0.13 + Math.random() * 0.05, 0.9 + (k > 3 ? 0.08 : 0), 0.1 + Math.floor(k / 4) * 0.12 - 0.08, root);
+  campAdd(new THREE.CylinderGeometry(0.26, 0.2, 0.18, 14), lam(0xc9a066), 0, 0.93, 0.05, root);
+  for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; campAdd(new THREE.SphereGeometry(0.085, 10, 8), lam(0xe8283c), Math.cos(a) * 0.12, 1.04 + (k % 2) * 0.04, 0.05 + Math.sin(a) * 0.12, root); }
+  const scroll = campAdd(new THREE.CylinderGeometry(0.06, 0.06, 0.42, 12), lam(0xf6e8c4), 0.75, 0.9, 0.05, root); scroll.rotation.z = Math.PI / 2;
+  campAdd(new THREE.TorusGeometry(0.065, 0.015, 6, 14), lam(0xe8384f), 0.75, 0.9, 0.05, root).rotation.y = Math.PI / 2;
+  campAdd(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 10), lam(0xc0283c), 0.75, 0.9, 0.12, root).rotation.x = Math.PI / 2;
+  // a crate of extra stock to one side
+  campAdd(new THREE.BoxGeometry(0.6, 0.5, 0.6), wood, 1.9, 0.25, -0.5, root).rotation.y = 0.4;
+  // the sign, nailed to the front of the counter
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.53), new THREE.MeshLambertMaterial({ map: carlosSignTex }));
+  sign.position.set(0, 0.48, 0.4); sign.rotation.x = -0.05; root.add(sign);
+  return root;
+})();
+compactCreature({ root: carlosStall });
+[[-0.75, 0, 0.6], [0.75, 0, 0.6], [1.9, -0.5, 0.45]].forEach(([u, v, r]) => { const [x, z] = carlosWorld(u, v); forestColliders.push({ x, z, r }); });
+// Carlos: a grey rabbit in sunglasses, a loud orange flower shirt, a gold chain, a toothpick and one floppy ear
+const carlos = (() => {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); scene.add(root);
+  const fur = new THREE.MeshLambertMaterial({ color: 0x9c98a8, emissive: 0x222028 }), cream = lam(0xe8e2ea), pinkM = lam(0xffa6c0);
+  const shirt = new THREE.MeshLambertMaterial({ color: 0xff8a2b, emissive: 0x3a1a04 }), gold = new THREE.MeshPhongMaterial({ color: 0xf2c230, shininess: 90, specular: 0xffffff });
+  const shades = new THREE.MeshPhongMaterial({ color: 0x14141c, shininess: 120, specular: 0x8888ff }), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  // legs in white trousers, and pointy shoes
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.1, 0.11, 0.62, 10), lam(0xf4f0e8), s * 0.15, 0.34, 0); add(new THREE.SphereGeometry(0.13, 12, 8), lam(0x6b3a1a), s * 0.16, 0.05, 0.1, 0.8, 0.45, 1.7); });
+  // a loud open-collared shirt with flowers on it
+  add(new THREE.CylinderGeometry(0.33, 0.36, 0.75, 20), shirt, 0, 0.98, 0, 1, 1, 0.85);
+  add(new THREE.SphereGeometry(0.34, 16, 10), shirt, 0, 1.36, 0, 1, 0.45, 0.85);
+  for (let k = 0; k < 10; k++) { const a = Math.random() * 6.28, y = 0.7 + Math.random() * 0.65; add(new THREE.SphereGeometry(0.045, 6, 4), lam(k % 2 ? 0xfff2a8 : 0x2fb5a8), Math.sin(a) * 0.34, y, Math.cos(a) * 0.29, 1, 1, 0.4).lookAt(0, y, 0); }
+  // open collar showing chest fur, and a big gold chain
+  const v = add(new THREE.ConeGeometry(0.13, 0.3, 3), cream, 0, 1.3, 0.25, 1, 1, 0.3); v.rotation.x = Math.PI;
+  for (let k = 0; k < 11; k++) { const a = -1.2 + k / 10 * 2.4; add(new THREE.TorusGeometry(0.025, 0.009, 5, 8), gold, Math.sin(a) * 0.2, 1.36 - Math.cos(a * 0.8) * 0.12 + 0.03, 0.2 + Math.cos(a) * 0.06); }
+  add(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 12), gold, 0, 1.2, 0.29).rotation.x = Math.PI / 2;
+  add(new THREE.SphereGeometry(0.13, 10, 8), cream, 0, 0.75, -0.33);   // little tail
+  const head = new THREE.Group(); head.position.y = 1.78; body.add(head);
+  add(new THREE.SphereGeometry(0.3, 18, 14), fur, 0, 0, 0, 1.05, 0.95, 0.95, head);
+  add(new THREE.SphereGeometry(0.15, 12, 10), cream, 0, -0.09, 0.2, 1.25, 0.8, 0.8, head);
+  add(new THREE.SphereGeometry(0.045, 8, 6), pinkM, 0, -0.03, 0.33, 1.2, 0.9, 1, head);
+  // a sly grin and a toothpick
+  add(new THREE.TorusGeometry(0.06, 0.01, 5, 12, Math.PI * 0.8), dark, 0.02, -0.14, 0.28, 1, 0.7, 1, head).rotation.z = Math.PI + 0.25;
+  const pick = add(new THREE.CylinderGeometry(0.006, 0.006, 0.16, 5), lam(0xe8c88a), 0.09, -0.15, 0.32, 1, 1, 1, head); pick.rotation.set(1.2, 0, 0.9);
+  // the shades: two dark lenses, a bridge, and a glint
+  [-1, 1].forEach(s => { add(new THREE.BoxGeometry(0.15, 0.09, 0.03), shades, s * 0.1, 0.06, 0.27, 1, 1, 1, head).rotation.y = s * 0.25; add(new THREE.BoxGeometry(0.02, 0.02, 0.2), shades, s * 0.19, 0.08, 0.17, 1, 1, 1, head); });
+  add(new THREE.BoxGeometry(0.06, 0.015, 0.02), shades, 0, 0.08, 0.29, 1, 1, 1, head);
+  const glint = add(new THREE.BoxGeometry(0.04, 0.012, 0.005), new THREE.MeshBasicMaterial({ color: 0xffffff }), -0.13, 0.08, 0.3, 1, 1, 1, head); glint.rotation.z = 0.6;
+  // a slicked tuft of hair
+  [[0, 0.27, 0.12, 0.09], [0.05, 0.3, 0.05, 0.08], [-0.04, 0.29, 0.0, 0.07]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 10, 8), lam(0x6e6a7a), x, y, z, 1, 0.6, 1.6, head).rotation.x = -0.4);
+  // one ear up, one ear flopped over: very relaxed
+  const ears = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.13, 0.22, -0.05); piv.rotation.z = s < 0 ? 0.25 : -1.5; piv.rotation.x = s < 0 ? -0.1 : 0.3; head.add(piv);
+    add(new THREE.SphereGeometry(0.09, 12, 10), fur, 0, 0.32, 0, 1, 3.9, 0.55, piv);
+    add(new THREE.SphereGeometry(0.06, 10, 8), pinkM, 0, 0.32, 0.03, 1, 3.5, 0.4, piv);
+    return piv;
+  });
+  // arms in short sleeves; the right one does a lot of pointing
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.38, 1.45, 0); body.add(piv);
+    add(new THREE.CylinderGeometry(0.1, 0.09, 0.2, 10), shirt, 0, -0.08, 0, 1, 1, 1, piv);
+    add(new THREE.CylinderGeometry(0.065, 0.07, 0.45, 10), fur, 0, -0.32, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.085, 12, 10), cream, 0, -0.56, 0.02, 1, 1, 1, piv);
+    piv.rotation.z = s * 0.2; return piv;
+  });
+  add(new THREE.TorusGeometry(0.06, 0.015, 6, 14), gold, 0, -0.48, 0, 1, 1, 1, arms[0]).rotation.x = Math.PI / 2;   // a gold watch
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.65); mark.renderOrder = 7; mark.position.y = 2.75; root.add(mark);
+  return compactCreature({ root, body, head, arms, ears, mark, tag: null, face: 0, wave: 0, talk: 0, greeted: false, x: 0, z: 0, baseYaw: 0 });
+})();
+{ const [x, z] = carlosWorld(0, -1.0); carlos.x = x; carlos.z = z; carlos.baseYaw = CARLOS.yaw; carlos.root.position.set(x, heightAt(x, z), z); }
+const setCarlosTag = () => { if (carlos.tag) carlos.root.remove(carlos.tag); carlos.tag = nameTag('Carlos the Capitalist'); carlos.tag.position.y = 3.15; carlos.root.add(carlos.tag); };
+setCarlosTag();
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(setCarlosTag);
+function collideCarlos(x, z) {
+  if (!scrimHere()) return [x, z];
+  const dx = x - carlos.x, dz = z - carlos.z, d = Math.hypot(dx, dz), rr = 0.45 + PLAYER_R;
+  if (d < rr) { const k = (rr - d) / Math.max(d, 1e-3); x += dx * k; z += dz * k; }
+  return [x, z];
+}
+// you talk to him across the counter
+function carlosInReach() { if (!scrimHere() || !carlos.root.visible || player.climb) return false; const [cx, cz] = carlosWorld(0, 0); return facingPoint(cx, cz, 3.2) || facingPoint(carlos.x, carlos.z, 3.6); }
+const carlosSfx = {
+  talk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) { const f = 240 + Math.random() * 140; tone(t + i * 0.06, f * 1.25, f, 0.05, 0.06, 'square'); } },
+  hello() { if (!actx) return; const t = actx.currentTime; tone(t, 1200, 2600, 0.12, 0.05, 'sine'); tone(t + 0.16, 2600, 1100, 0.2, 0.05, 'sine'); },   // a wolf whistle, naturally
+  till() { if (!actx) return; const t = actx.currentTime; tone(t, 2093, 2093, 0.08, 0.05, 'triangle'); tone(t + 0.08, 2637, 2637, 0.25, 0.05, 'triangle'); noiseHit(t + 0.02, 'bandpass', 3000, 0.06, 0.08, sfxBus, 1.2); }
+};
+const CARLOS_PIC = '<svg viewBox="0 0 64 64"><ellipse cx="22" cy="14" rx="5.5" ry="14" fill="#9c98a8" transform="rotate(-12 22 14)"/><ellipse cx="22" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(-12 22 15)"/><ellipse cx="48" cy="20" rx="13" ry="5" fill="#9c98a8" transform="rotate(20 48 20)"/><ellipse cx="48" cy="20" rx="9" ry="2.6" fill="#ffa6c0" transform="rotate(20 48 20)"/><path d="M14 64 L18 52 Q32 46 46 52 L50 64 Z" fill="#ff8a2b"/><circle cx="24" cy="58" r="2" fill="#fff2a8"/><circle cx="41" cy="60" r="2" fill="#2fb5a8"/><path d="M27 52 L32 60 L37 52 Z" fill="#e8e2ea"/><path d="M25 53 Q32 59 39 53" stroke="#f2c230" stroke-width="2" fill="none" stroke-dasharray="2 1"/><circle cx="32" cy="36" r="17" fill="#9c98a8"/><ellipse cx="32" cy="22" rx="7" ry="4" fill="#6e6a7a"/><ellipse cx="32" cy="43" rx="8" ry="6" fill="#e8e2ea"/><rect x="17" y="30" width="13" height="8" rx="3" fill="#14141c"/><rect x="34" y="30" width="13" height="8" rx="3" fill="#14141c"/><path d="M30 32 h4" stroke="#14141c" stroke-width="2"/><path d="M19 32 l4 3" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="32" cy="40" rx="2.2" ry="1.6" fill="#ffa6c0"/><path d="M28 46 Q33 49 37 45" stroke="#1d1b22" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M36 46 L44 49" stroke="#e8c88a" stroke-width="1.3" stroke-linecap="round"/></svg>';
+const DEED_ICON = '<svg viewBox="0 0 48 48"><rect x="9" y="10" width="30" height="28" rx="2" fill="#f6e8c4" stroke="#b98352" stroke-width="2"/><rect x="5" y="7" width="38" height="7" rx="3.5" fill="#e8d4a4" stroke="#b98352" stroke-width="2"/><rect x="5" y="34" width="38" height="7" rx="3.5" fill="#e8d4a4" stroke="#b98352" stroke-width="2"/><path d="M15 19 L24 13 L33 19 L33 28 L15 28 Z" fill="none" stroke="#8a5a33" stroke-width="2" stroke-linejoin="round"/><rect x="21" y="22" width="6" height="6" fill="#8a5a33"/><circle cx="34" cy="31" r="5" fill="#e8384f" stroke="#a81020" stroke-width="1.5"/><path d="M32 35 l-2 6 M36 35 l2 6" stroke="#e8384f" stroke-width="2.4"/></svg>';
+const CARLOS_HELLO = [
+  'Step right up, amigo! Prices so low they’re practically illegal. Not actually illegal. Probably.',
+  'Everything must go! Well, not everything. Some of it must stay. But you get the vibe.',
+  'Rocks! Apples! Real estate! Carlos has it all, my friend.',
+  'You look like someone with an eye for quality. And gold. Mostly gold.',
+  'No refunds, no returns, no questions. ESPECIALLY no questions.',
+  'Another day, another deal. What’s it gonna be, chief?'
+];
+const CARLOS_BUY = {
+  rock: ['A fine stone. Hand-picked. By hand. Mine.', 'That rock? Very rare. There are only... several million of them.', 'Top-grade throwing stone. Aerodynamic. I think. What does aerodynamic mean?', 'Ooh, a classic. You won’t find a rockier rock anywhere on this island.'],
+  apple: ['Crisp, juicy, fresh off the tree! Which tree? A tree. Don’t worry about it.', 'An apple a day keeps the Froggle away. That’s not true. Don’t test it.', 'Organic, artisanal, locally sourced. Sourced from right over there.', 'The scrumblies go crazy for these. Crazy, I tell you.']
+};
+const CARLOS_STOCK = [
+  { id: 'rock', name: 'Throwing Stone', blurb: 'Hand-picked. Practically a gemstone.' },
+  { id: 'apple', name: 'Juicy Apple', blurb: 'Fresh off the tree. Some tree.' },
+  { id: 'deed', name: 'Deed to a House', blurb: 'Genuine! Official! One house, yours forever.' }
+];
+const carlosIcon = id => id === 'deed' ? DEED_ICON : ITEM_DEFS[id].icon;
+const carlosHave = id => id === 'rock' ? `${inv.rocks}/${MAX_ROCKS}` : id === 'apple' ? `${inv.apples}/${MAX_APPLES}` : carlosState.deed ? 'Yours!' : '';
+function buildCarlosShop(m) {
+  m.items = CARLOS_STOCK; m.cols = 3;
+  scrimBody.innerHTML = `<h3>Carlos’ Deals <span>all sales final</span></h3><div class="board-cards ware-cards"></div>`;
+  const wrap = scrimBody.querySelector('.board-cards');
+  m.items.forEach((w, i) => {
+    const el = document.createElement('button'), sold = w.id === 'deed' && carlosState.deed;
+    el.className = 'req ware' + (w.id === 'deed' ? ' deed' : '') + (sold ? ' sold' : '');
+    el.style.setProperty('--tilt', `${[-1, 1.2, -0.6][i]}deg`);
+    el.innerHTML = `<h4>${w.id === 'deed' ? 'ONCE IN A LIFETIME' : 'HOT DEAL'}</h4><span class="ric">${carlosIcon(w.id)}</span><span class="what">${w.name}</span><span class="plea">${w.blurb}</span><span class="reward">${sold ? 'SOLD' : `<i class="coin"></i>${CARLOS_PRICE[w.id]}`}</span><span class="have">${w.id === 'deed' ? (sold ? 'It’s yours!' : 'Only one left!') : `You have ${carlosHave(w.id)}`}</span>`;
+    hookItem(el, i); wrap.appendChild(el); m.els.push(el);
+  });
+}
+function carlosActivate(it) {
+  const price = CARLOS_PRICE[it.id];
+  if (it.id === 'deed' && carlosState.deed) return scrimNope('Already sold you that one, chief! One house per customer. One... mystery house.');
+  if (gold < price) return scrimNope(pick1(['Ooh, a little short there, amigo. Carlos doesn’t do credit. Carlos got burned on credit.', `That’s ${price} gold, my friend. You’ve got ${gold}. I can do maths. Sometimes.`, 'Come back when your purse is heavier! I’ll be right here. Probably.']));
+  if (it.id === 'rock') {
+    if (inv.rocks >= MAX_ROCKS) return scrimNope('Your pockets are bulging, my friend! Even Carlos can’t sell you what you can’t carry. Believe me, I’ve tried.');
+    const before = inv.rocks; setRockCount(inv.rocks + 1);
+    if (inv.rocks === before) return scrimNope('Huh. Fresh out of rocks. Somebody’s been throwing them all over the beach.');
+    inv.owned.rock = true;
+  } else if (it.id === 'apple') {
+    if (inv.apples >= MAX_APPLES) return scrimNope('No more room for apples, amigo! Eat one. Throw one. Live a little.');
+    inv.apples++; inv.owned.apple = true;
+  }
+  gold -= price; carlosSfx.till(); renderHotbar(); renderGold();
+  if (it.id === 'deed') {
+    carlosState.deed = true; saveGame(); closeScrim();
+    setTimeout(() => openDialog([
+      { text: 'SOLD! Congratulations, homeowner! One genuine deed to a house. Signed, sealed and, er... delivered.' },
+      { text: 'Hm? Which house is it? Great question. FANTASTIC question. Really shows you’re thinking about the future.' },
+      { text: '...Okay. Look. Between you and me? I don’t actually know what house it belongs to. I found it lying around in the brambles.' },
+      { text: 'But look at that seal! Very official. There’s a house out there somewhere with your name on it. Well. With A name on it.' },
+      { text: 'Anyway! No refunds! Pleasure doing business with you, chief!' }
+    ], null, 'carlos'), 250);
+    return;
+  }
+  scrimSay(pick1(CARLOS_BUY[it.id])); saveGame(); buildScrim();
+}
+function talkToCarlos() {
+  carlos.wave = 1.4; carlosSfx.hello();
+  if (!carlosState.met) {
+    carlosState.met = true; saveGame();
+    openDialog([
+      { text: 'Hey, hey, HEY! Look who it is! The catcher everybody’s talking about! Well, I’m talking about you. Right now. To you.' },
+      { text: 'Carlos. Carlos the Capitalist. Entrepreneur, visionary, rabbit of business. You might’ve heard of me. You haven’t? You will.' },
+      { text: 'Now, I see you’ve got a nice heavy purse there, and I’ve got a nice heavy stall here. Coincidence? I think not. I think it’s DESTINY.' },
+      { text: 'Stones, apples, and once-in-a-lifetime real estate opportunities. Take a look, my friend. Take a long, lingering look.' }
+    ], () => openScrim('carlos', 'Twenty gold for a stone or an apple. And for you? Still twenty. Because I like you.'), 'carlos');
+    return;
+  }
+  openScrim('carlos', pick1(CARLOS_HELLO));
+}
+function carlosSave() { return { met: carlosState.met, deed: carlosState.deed }; }
+function carlosLoad(o) { o = o && typeof o === 'object' ? o : {}; carlosState.met = !!o.met; carlosState.deed = !!o.deed; carlos.greeted = false; }
+function updateCarlos(dt) {
+  const here = scrimHere();
+  carlos.root.visible = here;
+  if (!here) return;
+  const d = Math.hypot(player.x - carlos.x, player.z - carlos.z);
+  if (d > 60) return;
+  const want = d < 14 ? Math.atan2(player.x - carlos.x, player.z - carlos.z) - carlos.baseYaw : 0;
+  carlos.face += angDiff(carlos.face, clamp(want, -1.2, 1.2)) * Math.min(1, dt * 3);
+  carlos.root.rotation.y = carlos.baseYaw + carlos.face;
+  // a cool little lean and a head bob, like there's music only he can hear
+  carlos.body.rotation.z = 0.05 + Math.sin(time * 2.2) * 0.02;
+  carlos.head.rotation.z = Math.sin(time * 4.4) * 0.05; carlos.head.rotation.x = Math.max(0, Math.sin(time * 4.4)) * 0.06;
+  if (!carlos.greeted && d < 16 && playing) {
+    carlos.greeted = true; carlos.wave = 1.6; carlosSfx.hello();
+    toast(carlosState.met ? 'Carlos: "My favourite customer! Come on over, chief!"' : 'A rabbit in sunglasses behind a rickety stall gives you a finger-gun and a wink...');
+  }
+  if (carlos.wave > 0) carlos.wave -= dt;
+  if (carlos.talk > 0) carlos.talk -= dt;
+  const talking = (dialogOpen && dlgWho === 'carlos') || carlos.talk > 0;
+  // finger guns, a lot of pointing, and leaning on the counter
+  carlos.arms[1].rotation.z = carlos.wave > 0 ? 1.4 + Math.sin(time * 10) * 0.1 : talking ? 0.6 + Math.sin(time * 6) * 0.35 : 0.25;
+  carlos.arms[1].rotation.x = carlos.wave > 0 || talking ? -1.2 : -0.6;
+  carlos.arms[0].rotation.z = -0.25; carlos.arms[0].rotation.x = -0.7;
+  carlos.mark.visible = !carlosState.met;
+  if (carlos.mark.visible) carlos.mark.position.y = 2.75 + Math.abs(Math.sin(time * 3)) * 0.25;
+  if (carlos.tag) carlos.tag.visible = d < 12 && d > 4.5 && !dialogOpen && !scrimOpen;
+}
+
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -8798,6 +9054,7 @@ function tick(dt) {
   updateScrim(dt);
   updateTeal(dt);
   updateFluff(dt);
+  updateCarlos(dt);
   updateForest(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -8857,7 +9114,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
