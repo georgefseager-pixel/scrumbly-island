@@ -2039,6 +2039,7 @@ const SHINY = {
   beeappy: { shift: 0.52, tint: 0.62, sat: 0.35, css: 'hue-rotate(185deg) saturate(1.3)' },
   beeangy: { shift: 0.78, tint: 0.85, sat: 0.35, css: 'hue-rotate(280deg) saturate(1.2)' },
   glimmery: { shift: 0.5, tint: 0.75, sat: 0.6, light: 0.62, css: 'saturate(2.2) brightness(.8) hue-rotate(160deg)' },
+  flops: { shift: 0.55, tint: 0.95, sat: 0.35, css: 'hue-rotate(200deg) saturate(1.3)' },
   willowet: { shift: 0, tint: 0.08, sat: 0.55, light: 1.1, css: 'sepia(.8) saturate(2) hue-rotate(-15deg)' },
   blorbo: { shift: 0.42, tint: 0.5, sat: 0.4, css: 'hue-rotate(150deg) saturate(1.4)' },
   raebit: { shift: 0.68, tint: 0.75, sat: 0.3, light: 1.15, css: 'hue-rotate(230deg) saturate(.9) brightness(1.1)' },
@@ -2162,6 +2163,7 @@ function tryNetCatch() {
   if (netGlimmeries()) got = true;
   if (netRaebits()) got = true;
   netBlorbos();
+  if (netFlopses()) got = true;
   if (!got) netWeevils();
   return got;
 }
@@ -2751,7 +2753,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -4407,6 +4409,180 @@ function updateWillowets(dt) {
 }
 
 /* =========================================================
+   Scrumblies: Flops (a little pale bunny in a crocheted dress)
+   Hops about the forest floor. Like a Bobo she burrows away the moment
+   she spots you, but she never comes back to the same place, so the only
+   way to catch her is a well-aimed rock from afar, then a quick net.
+   ========================================================= */
+const floralTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#f7f4ec'; g.fillRect(0, 0, 128, 128);
+  const rnd = (() => { let s = 7; return () => (s = (s * 9301 + 49297) % 233280) / 233280; })();
+  for (let i = 0; i < 16; i++) {
+    const x = rnd() * 128, y = rnd() * 128;
+    g.strokeStyle = '#6aa86a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 6, y + 4, x + 10, y + 10); g.stroke();
+    g.fillStyle = '#7fae6a'; g.beginPath(); g.ellipse(x + 8, y + 5, 4, 2, 0.6, 0, 6.28); g.fill();
+    g.fillStyle = '#5b7fd1'; for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28; g.beginPath(); g.arc(x + Math.cos(a) * 3.2, y + Math.sin(a) * 3.2, 2.4, 0, 6.28); g.fill(); }
+    g.fillStyle = '#f2d34a'; g.beginPath(); g.arc(x, y, 1.6, 0, 6.28); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); return t;
+})();
+const FLOPS_SCALE = 0.62;
+function makeFlopsMesh() {
+  const root = new THREE.Group(), scaler = new THREE.Group(), body = new THREE.Group(); scaler.scale.setScalar(FLOPS_SCALE); scaler.add(body); root.add(scaler);
+  const fur = new THREE.MeshLambertMaterial({ color: 0xd9c4a6, emissive: 0x2a2218 }), cream = new THREE.MeshLambertMaterial({ color: 0xf4ece0, emissive: 0x302c26 });
+  const pinkKnit = new THREE.MeshLambertMaterial({ color: 0xf2c2d2, emissive: 0x2e1c22 }), blueLace = new THREE.MeshLambertMaterial({ color: 0xa8cbec, emissive: 0x18242e, side: THREE.DoubleSide });
+  const floral = new THREE.MeshLambertMaterial({ map: floralTex, emissive: 0x202020 }), bead = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 100, specular: 0x9999bb });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
+  // knitted pink bottoms, a pink top and a scalloped blue crochet skirt
+  add(new THREE.SphereGeometry(0.2, 18, 14), pinkKnit, 0, 0.2, 0, 1, 0.9, 0.9);
+  add(new THREE.SphereGeometry(0.18, 18, 14), fur, 0, 0.38, 0, 1, 1.05, 0.9);
+  add(new THREE.CylinderGeometry(0.165, 0.19, 0.17, 20), pinkKnit, 0, 0.42, 0, 1, 1, 0.9);
+  const skirt = new THREE.CylinderGeometry(0.19, 0.31, 0.16, 28, 1, true), sp = skirt.attributes.position;
+  for (let i = 0; i < sp.count; i++) if (sp.getY(i) < 0) { const a = Math.atan2(sp.getZ(i), sp.getX(i)); sp.setY(i, sp.getY(i) - Math.abs(Math.sin(a * 6)) * 0.035); }
+  skirt.computeVertexNormals();
+  add(skirt, blueLace, 0, 0.3, 0, 1, 1, 0.9);
+  // sitting legs with flowery foot pads
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.1, 12, 10), fur, s * 0.15, 0.09, 0.1, 1, 0.9, 1.3);
+    add(new THREE.SphereGeometry(0.085, 12, 10), fur, s * 0.17, 0.07, 0.25, 1, 0.95, 0.9);
+    add(new THREE.CylinderGeometry(0.068, 0.068, 0.02, 16), floral, s * 0.17, 0.07, 0.33).rotation.x = Math.PI / 2;
+  });
+  const arms = [-1, 1].map(s => { const piv = new THREE.Group(); piv.position.set(s * 0.17, 0.47, 0.04); body.add(piv); add(new THREE.SphereGeometry(0.055, 10, 8), fur, 0, -0.09, 0, 1, 1.8, 1, piv); piv.rotation.z = s * 0.45; return piv; });
+  const head = new THREE.Group(); head.position.y = 0.68; body.add(head);
+  add(new THREE.SphereGeometry(0.2, 20, 16), fur, 0, 0, 0, 1.05, 0.98, 0.95, head);
+  add(new THREE.SphereGeometry(0.085, 12, 10), cream, 0, -0.07, 0.14, 1.3, 0.9, 0.8, head);
+  add(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshLambertMaterial({ color: 0xf2a0b8, emissive: 0x3a1a22 }), 0, -0.03, 0.2, 1.3, 0.9, 0.8, head);
+  const eyes = [-1, 1].map(s => add(new THREE.SphereGeometry(0.026, 10, 8), bead, s * 0.08, 0.03, 0.175, 1, 1.15, 0.7, head));
+  // long floppy ears, lined with flowery fabric
+  const ears = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.12, 0.14, -0.02); piv.rotation.z = -s * 2.2; head.add(piv);
+    add(new THREE.SphereGeometry(0.075, 14, 10), fur, 0, 0.2, 0, 1.25, 2.9, 0.4, piv);
+    add(new THREE.SphereGeometry(0.06, 14, 10), floral, 0, 0.2, 0.022, 1.2, 2.7, 0.3, piv);
+    return piv;
+  });
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.38); ex.position.y = 0.75; ex.visible = false; ex.renderOrder = 6; root.add(ex);
+  const stars = [];
+  for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.13); st.visible = false; root.add(st); stars.push(st); }
+  scene.add(root);
+  return { root, body, head, ears, arms, eyes, ex, stars };
+}
+const FLOPS_COUNT = 4, FLOPS_SEE = 11, FLOPS_STUN = 5;
+const flopses = [];
+function flopsSpot(away, minAway) {
+  for (let i = 0; i < 300; i++) {
+    const th = Math.random() * 6.28, d = HEDGE_OUT + 5 + Math.random() * (FOREST_OUT - HEDGE_OUT - 12), [x, z] = polar(th, d);
+    if (!forestFree(x, z, d, 1.5) || forestColliders.some(c => Math.abs(c.x - x) < 2 && Math.abs(c.z - z) < 2)) continue;
+    if (away && Math.hypot(x - away.x, z - away.z) < minAway) continue;
+    if (flopses.some(f => f.state !== 'gone' && Math.hypot(f.hx - x, f.hz - z) < 35)) continue;
+    return { x, z };
+  }
+  return null;
+}
+function newFlops() {
+  const s = flopsSpot() || (() => { const [x, z] = polar(Math.random() * 6.28, HEDGE_OUT + 20); return { x, z }; })();
+  const f = Object.assign(compactCreature(makeFlopsMesh()), { species: 'flops', x: s.x, z: s.z, hx: s.x, hz: s.z, tx: s.x, tz: s.z, y: 0, face: Math.random() * 6.28, state: 'idle', t: 0, wait: 1, hop: 0, sink: 0, stunPhase: 0 });
+  applySize(f, rollSize()); applyShiny(f, rollShiny());
+  flopses.push(f);
+  return f;
+}
+for (let i = 0; i < FLOPS_COUNT; i++) newFlops();
+let flopsHints = {};
+const flopsVol = f => clamp(1 - Math.hypot(player.x - f.x, player.z - f.z) / 35, 0, 1);
+const flopsCanStun = f => ['idle', 'alert', 'stunned'].includes(f.state) || (f.state === 'burrow' && f.t < 0.25);
+const flopsHitBy = (f, x, y, z) => Math.hypot(x - f.x, y - (f.y + 0.3 * f.s), z - f.z) < 0.34 * f.s + 0.25;
+function flopsBurrow(f) {
+  f.state = 'burrow'; f.t = 0; f.ex.visible = false; sandPuff(f.x, f.z, 22); sfx.burrow();
+}
+function rockHitsFlops(r) {
+  for (const f of flopses) {
+    if (!f.root.visible || !flopsCanStun(f) || !flopsHitBy(f, r.x, r.y, r.z)) continue;
+    if (f.state !== 'stunned') sfx.stun();
+    f.state = 'stunned'; f.t = 0; f.sink = 0; f.ex.visible = false; f.body.scale.set(1.25, 0.7, 1.25);
+    if (!flopsHints.stun) { flopsHints.stun = true; toast('Bonk! She\x27s seeing stars. Quick, before she comes round!'); }
+    return f;
+  }
+  return null;
+}
+function netFlopses() {
+  let got = false;
+  for (const f of flopses) {
+    if (!f.root.visible || !inNetZone(f.x, f.y, f.z)) continue;
+    if (f.state === 'stunned') { if (catchScrumbly('flops', f.size, false, f.shiny)) { f.state = 'caught'; f.t = 0; got = true; } }
+    else if (f.state === 'idle' || f.state === 'alert') { sfx.wriggle(); flopsBurrow(f); }
+  }
+  return got;
+}
+function updateFlopses(dt) {
+  for (const f of flopses) {
+    f.t += dt;
+    const dist = Math.hypot(player.x - f.x, player.z - f.z);
+    let hopY = 0, sy = 1, sx = 1, earUp = 0;
+    const sees = dist < FLOPS_SEE && !player.climb && player.y - f.y < 2.5 && playing && !knocked;
+    switch (f.state) {
+      case 'idle': {
+        const mx = f.tx - f.x, mz = f.tz - f.z, md = Math.hypot(mx, mz);
+        if (md > 0.12) {
+          const sp = 0.9 * dt; f.x += mx / md * Math.min(sp, md); f.z += mz / md * Math.min(sp, md);
+          f.face += angDiff(f.face, Math.atan2(mx, mz)) * Math.min(1, dt * 6);
+          f.hop += dt * 9; const k = Math.abs(Math.sin(f.hop)); hopY = k * 0.12; sy = 0.92 + k * 0.14;
+        } else {
+          f.hop = 0; sy = 1 + Math.sin(time * 2.4 + f.hx) * 0.03; f.wait -= dt;
+          if (f.wait <= 0) { f.wait = 1.5 + Math.random() * 3; for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = Math.random() * 5, x = f.hx + Math.cos(a) * r, z = f.hz + Math.sin(a) * r; if (forestFree(x, z, inland(x, z), 1)) { f.tx = x; f.tz = z; break; } } }
+        }
+        if (!flopsHints.seen && dist < 24 && playing) { flopsHints.seen = true; toast('A little bunny in a crocheted dress is hopping about. She looks awfully shy...'); }
+        if (sees) { f.state = 'alert'; f.t = 0; f.ex.visible = true; sfx.squeak(); }
+        break;
+      }
+      case 'alert': {
+        // a split second of "eep!" before she's off
+        earUp = 1; f.face += angDiff(f.face, Math.atan2(player.x - f.x, player.z - f.z)) * Math.min(1, dt * 12);
+        if (f.t > 0.55) flopsBurrow(f);
+        break;
+      }
+      case 'burrow': {
+        f.sink = Math.min(1, f.t / 0.55); sx = 1 + Math.sin(f.t * 40) * 0.08;
+        if (f.sink >= 1) {
+          // gone, and she won't be back here: she turns up somewhere else in the forest, a good while later
+          f.state = 'gone'; f.t = 0; f.root.visible = false; f.respawn = 25 + Math.random() * 20;
+          if (!flopsHints.gone && dist < 30) { flopsHints.gone = true; setTimeout(() => toast('Poof! She burrowed away... and she won\x27t be coming back here.'), 400); }
+        }
+        break;
+      }
+      case 'stunned': {
+        f.stunPhase += dt * 5; sy = 1 + Math.sin(f.t * 6) * 0.04;
+        if (f.t > FLOPS_STUN) { if (sees) flopsBurrow(f); else { f.state = 'idle'; f.t = 0; f.wait = 1; } }
+        break;
+      }
+      case 'caught': {
+        const k = Math.min(1, f.t / 0.45); camera.getWorldDirection(_cv);
+        f.x = lerp(f.x, camera.position.x + _cv.x * 1.2, k * 0.35); f.z = lerp(f.z, camera.position.z + _cv.z * 1.2, k * 0.35); hopY = k * 1.2;
+        f.body.scale.setScalar(1 - k * 0.85);
+        if (k >= 1) { f.state = 'gone'; f.t = 0; f.root.visible = false; f.respawn = 35 + Math.random() * 20; }
+        break;
+      }
+      case 'gone': {
+        if (f.t > f.respawn) {
+          const s = flopsSpot(player, 40);
+          if (s) { f.x = f.hx = f.tx = s.x; f.z = f.hz = f.tz = s.z; f.sink = 0; f.body.scale.setScalar(1); applySize(f, rollSize()); applyShiny(f, rollShiny()); f.state = 'idle'; f.t = 0; f.root.visible = true; }
+          else f.t = f.respawn - 2;
+        }
+        break;
+      }
+    }
+    if (!f.root.visible) continue;
+    f.y = heightAt(f.x, f.z) - f.sink * 0.55 * f.s;
+    if (f.state !== 'caught') { f.body.scale.x = lerp(f.body.scale.x, sx, Math.min(1, dt * 12)); f.body.scale.y = lerp(f.body.scale.y, sy, Math.min(1, dt * 12)); f.body.scale.z = f.body.scale.x; }
+    f.root.position.set(f.x, f.y + hopY * f.s, f.z);
+    f.root.rotation.set(0, f.face, 0);
+    const st = f.state === 'stunned';
+    f.head.rotation.z = st ? Math.sin(f.t * 4) * 0.25 : 0;
+    f.ears.forEach((e, i) => { const s = i ? 1 : -1; e.rotation.z = -s * (2.2 - earUp * 1.1) + Math.sin(time * 1.8 + i) * 0.05; });
+    f.stars.forEach((s, i) => { s.visible = st; if (st) { const a = f.stunPhase + i * 2.09; s.position.set(Math.cos(a) * 0.22, 0.72 + Math.sin(a * 2) * 0.03, Math.sin(a) * 0.22); } });
+  }
+}
+
+/* =========================================================
    Scrumblies: Bink (one of a kind!)
    A small, fluffy pink alien sitting on a tiny flying saucer. It putters round
    the whole beach in one long loop and never stops or slows. One bonk only
@@ -4781,6 +4957,7 @@ function updateAim() {
     for (const b of beeappies) if (b.root.visible && ['drift', 'calm'].includes(b.state) && beeHitBy(b, sim.x, sim.y, sim.z)) { hit = b; land = { x: sim.x, y: sim.y, z: sim.z }; }
     if (bink.root.visible && bink.state === 'fly' && binkHitBy(bink, sim.x, sim.y, sim.z)) { hit = bink; land = { x: sim.x, y: sim.y, z: sim.z }; }
     for (const g of glimmeries) if (g.root.visible && ['drift', 'lured'].includes(g.state) && glimHitBy(g, sim.x, sim.y, sim.z)) { hit = g; land = { x: sim.x, y: sim.y, z: sim.z }; }
+    for (const q of flopses) if (q.root.visible && q.state !== 'stunned' && flopsCanStun(q) && flopsHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const q of raebits) if (q.root.visible && ['dance', 'crouch'].includes(q.state) && raeHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const w of weevils) if (w.root.visible && w.state === 'run' && weevilHitBy(w, sim.x, sim.y, sim.z)) { hit = w; land = { x: w.x, y: w.y, z: w.z }; }
     for (const d of ducksharks) if (sharkStunnable(d) && d.state !== 'stunned' && sharkHitBy(d, sim.x, sim.y, sim.z)) { hit = d; land = { x: d.x, y: water.position.y, z: d.z }; }
@@ -4831,6 +5008,7 @@ function updateRocks(dt) {
     if (r.bounces <= 1 && rockHitsBee(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsBink(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsGlimmery(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 1; r.bounces = 2; }
+    if (r.bounces <= 1 && rockHitsFlops(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsRaebit(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsWeevil(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsShark(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
@@ -5123,6 +5301,12 @@ SPECIES.willowet = {
   fact: 'Willowets dig enormous tunnel networks under Glimmerwood and nobody, not even the Willowets, knows where they all go. A Willowet that dives into one hole could pop up almost anywhere.',
   hint: 'Terribly skittish: the moment it spots you it bolts for the nearest rabbit hole, and it never comes back out of the same one. If you want to catch it, you\'ll have to get something in its way before it reaches that hole.'
 };
+SPECIES.flops = {
+  name: 'Flops', num: 14, where: 'Glimmerwood · hopping among the flowers',
+  icon: '<svg viewBox="0 0 48 48"><ellipse cx="11" cy="21" rx="5" ry="11" fill="#d9c4a6" transform="rotate(30 11 21)"/><ellipse cx="37" cy="21" rx="5" ry="11" fill="#d9c4a6" transform="rotate(-30 37 21)"/><ellipse cx="11.5" cy="21.5" rx="3" ry="8.5" fill="#f7f4ec" transform="rotate(30 11.5 21.5)"/><ellipse cx="36.5" cy="21.5" rx="3" ry="8.5" fill="#f7f4ec" transform="rotate(-30 36.5 21.5)"/><circle cx="10" cy="20" r="1.4" fill="#5b7fd1"/><circle cx="12" cy="25" r="1.2" fill="#5b7fd1"/><circle cx="38" cy="20" r="1.4" fill="#5b7fd1"/><circle cx="36" cy="25" r="1.2" fill="#5b7fd1"/><ellipse cx="24" cy="40" rx="9" ry="6" fill="#f2c2d2"/><path d="M15 31 L33 31 L38 39 Q33 42 31 39 Q28 42 26 39 Q24 42 22 39 Q20 42 17 39 Q15 42 10 39 Z" fill="#a8cbec"/><rect x="16" y="26" width="16" height="6" rx="2.5" fill="#f2c2d2"/><circle cx="24" cy="17" r="9.5" fill="#d9c4a6"/><ellipse cx="24" cy="21" rx="4.5" ry="3" fill="#f4ece0"/><circle cx="20" cy="16" r="1.4" fill="#0c0c10"/><circle cx="28" cy="16" r="1.4" fill="#0c0c10"/><ellipse cx="24" cy="19.5" rx="1.6" ry="1.1" fill="#f2a0b8"/></svg>',
+  fact: 'Flops is the shyest scrumbly in all of Glimmerwood. She knits her own dresses, picks flowers to match her ears, and would rather burrow halfway across the forest than be looked at.',
+  hint: 'The moment she spots you she burrows away, and she never comes back to the same place. Don\'t let her see you coming: something thrown from a good distance might stop her long enough to get your net to her.'
+};
 // icons that use SVG gradients need their own ids each time they're put on the page: with two copies,
 // the browser may take the gradient from a hidden copy (in a closed menu) and draw nothing
 let iconUid = 0;
@@ -5204,6 +5388,7 @@ function scrumblyCandidates() {
   for (const g of glimmeries) if (g.root.visible && g.state !== 'caught') out.push({ o: g, id: 'glimmery', y: 0.15 });
   for (const q of raebits) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'raebit', y: 0.6 * q.s });
   for (const b of blorbos) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: 'blorbo', y: 0.3 * b.s });
+  for (const f of flopses) if (f.root.visible && f.state !== 'caught' && f.sink < 0.5) out.push({ o: f, id: 'flops', y: 0.3 * f.s });
   for (const w of willowets) if (w.root.visible && w.state !== 'caught' && w.under < 0.5) out.push({ o: w, id: 'willowet', y: 0.45 * w.s });
   for (const w of weevils) if (w.root.visible && w.state !== 'caught') out.push({ o: w, id: 'weevil', y: 0.25 * w.s });
   for (const d of ducksharks) if (d.root.visible && d.state !== 'caught') out.push({ o: d, id: 'duckshark', y: 0.5 * d.s });
@@ -5917,6 +6102,7 @@ const BOND_SPECIES_LINES = {
   ,beeangy: ['{name} is still a tiny bit cross. About what, nobody knows.', '{name} glared at a seagull until it left. You’re very safe.', '{name} buzzed something grumpy. You think it was a compliment.', '{name} is secretly very fond of you. Don’t tell it you know.', '{name} is trying out being calm. It lasted four seconds.']
   ,bink: ['{name} took you for a spin on its saucer. Only a short one. You were very brave.', '{name} beeped at you twice. You’re fairly sure it means “friend”.', '{name} has stopped looking for whatever it was looking for. It says it found it.', '{name} gave you a slow, sleepy, very happy blink.', '{name} polished its saucer just for you. It’s extremely shiny now.']
   ,glimmery: ['{name} tapped you with its wand. You feel 3% more magical.', '{name} sprinkled glitter on your shoes. It will never come off. You don’t mind.', '{name} did a little twirl in the air just for you.', '{name} is humming a tinkly fairy tune.', '{name} would very much like another apple. Just saying.']
+  ,flops: ['{name} smoothed down her skirt and gave a little curtsey.', '{name} has decided you are allowed to see her. That’s a very big deal.', '{name} flopped one ear over her face shyly.', '{name} picked you a tiny blue flower to match her ears.', '{name} didn’t burrow away once today. She’s so proud.']
   ,willowet: ['{name} peeked out from behind your legs. Very brave.', '{name} flopped its big ears down for a cuddle.', '{name} found a four-leaf clover and ate it before you could see.', '{name} isn’t even a little bit scared of you any more.', '{name} thumped its foot happily. Thump thump.']
   ,blorbo: ['{name} did a big happy squish.', '{name} is a little bit damp. It always is. It’s fine.', '{name} blorped at you affectionately.', '{name} is trying to look tall. It is a blob.', '{name} went boing off the ground and landed exactly where it started. Very pleased with itself.']
   ,raebit: ['{name} taught you a new dance move. You are not as good at it.', '{name} flopped its ears over its eyes for a game of peekaboo.', '{name} did a jig of pure joy. Then another one, to be sure.', '{name} is trying very hard not to boing away. It is so proud of itself.', '{name} gave you a soft, floppy-eared nuzzle.']
@@ -6357,6 +6543,7 @@ const WELCOME_SPECIES = {
   beeangy: 'Hmph. You took your time. ...Fine. I missed you. A bit.',
   bink: '*beep boop* ...that means I missed you. I flew round the whole island looking for you!',
   glimmery: '*twinkle twinkle* You\'re back! I saved you some glitter. Well, I tried. It went everywhere.',
+  flops: '...oh! Hello. I put on my best dress, in case you came back today.',
   willowet: 'Oh! It’s you! I wasn’t hiding. I was just... checking the burrow. Hello!',
   blorbo: '*blorp* ...that’s blob for “I missed you”. *blorp blorp*',
   raebit: 'You’re back! Quick, dance with me! Left paw, right paw... BOING!'
@@ -7851,7 +8038,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -7910,6 +8097,7 @@ function tick(dt) {
   updateRaebits(dt);
   updateBlorbos(dt);
   updateWillowets(dt);
+  updateFlopses(dt);
   updateRanch(dt);
   updateScrim(dt);
   updateTeal(dt);
@@ -7972,7 +8160,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
