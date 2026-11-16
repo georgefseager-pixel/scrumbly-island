@@ -305,6 +305,9 @@
   .dchoices button.cur { background: var(--pink); color: #fff; box-shadow: 0 3px 0 var(--pink-deep); }
   #dialog.hop .dlg-card { border-color: #c8a070; box-shadow: 0 5px 0 #8a5a33, 0 14px 30px rgba(44,37,82,.3); }
   #dialog.hop .dbody b { color: #8a5a33; }
+  #dialog.bouncy .dlg-card { border-color: #b58be6; box-shadow: 0 5px 0 #6a3cb0, 0 14px 30px rgba(44,37,82,.3); }
+  #dialog.bouncy .dbody b { color: #6a3cb0; }
+  #dialog.bouncy .prof-pic { background: #fff3c8; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #6a3cb0; }
   #dialog.carlos .dlg-card { border-color: #ffb36b; box-shadow: 0 5px 0 #d9661a, 0 14px 30px rgba(44,37,82,.3); }
   #dialog.carlos .dbody b { color: #d9661a; }
   #dialog.carlos .prof-pic { background: #fff0d6; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #d9661a; }
@@ -314,6 +317,12 @@
   #scrimMenu.carlos .gold-chip, #scrimMenu.carlos #scrimClose { box-shadow: 0 3px 0 #d9661a; } #scrimMenu.carlos #scrimClose { color: #d9661a; }
   #scrimMenu.carlos .board-cards { background: #9a6a3a; box-shadow: inset 0 0 0 6px #6b4226; }
   .req.ware h4 { color: #d9661a; }
+  .board-cards.four { grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 14px 12px; align-items: stretch; }
+  .board-cards.four .req { padding: 16px 8px 8px; gap: 3px; }
+  .board-cards.four .req .ric { width: 46px; height: 46px; }
+  .board-cards.four .req .what { font-size: .92rem; }
+  .board-cards.four .req .plea { font-size: .7rem; }
+  .req.ware.furnish h4 { color: #3f8a2a; }
   .req.ware.deed { box-shadow: 0 0 0 3px #f2c230, 0 4px 0 rgba(0,0,0,.18); background: linear-gradient(160deg, #fff8e6, #fff0c8); }
   .req.ware.sold { opacity: .6; }
   .req.ware.sold .reward { color: #c0283c; letter-spacing: .1em; }
@@ -1133,8 +1142,9 @@ const riverTex = (() => {
   }
 }
 // walking height: the ground, or a bridge deck if you're on one
-function groundAt(x, z) {
+function groundAt(x, z, y) {
   const h = heightAt(x, z);
+  if (y !== undefined) { const f = houseFloorAt(x, z, y); if (f !== null) return f; }
   for (const b of bridges) {
     const dx = x - b.cx, dz = z - b.cz; if (Math.abs(dx) > 13 || Math.abs(dz) > 13) continue;
     const along = dx * b.ox + dz * b.oz, lat = -dx * b.oz + dz * b.ox;
@@ -1766,6 +1776,8 @@ function updatePlayer(dt) {
     }
   }
 
+  if (houseRide) { updateHouseRide(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
+
   const ground = heightAt(player.x, player.z), wy = water.position.y;
   const depth = Math.max(0, wy - ground), wet = clamp(depth / MAX_DEPTH, 0, 1);
   const speed = (run ? 9.5 : 5) * (1 - 0.5 * wet);
@@ -1782,6 +1794,7 @@ function updatePlayer(dt) {
   { const tp = collideTeal(nx, nz); nx = tp[0]; nz = tp[1]; }
   { const lp = collideFluff(nx, nz); nx = lp[0]; nz = lp[1]; }
   { const cp = collideCarlos(nx, nz); nx = cp[0]; nz = cp[1]; }
+  { const hp = collideHouse(nx, nz); nx = hp[0]; nz = hp[1]; }
   { const fp = collideForest(nx, nz); nx = fp[0]; nz = fp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
@@ -1809,11 +1822,12 @@ function updatePlayer(dt) {
   nearHop = nearProf || nearScrim || nearBoard || nearTeal ? null : hopInReach();
   nearFluff = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && fluffInReach();
   nearCarlos = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && carlosInReach();
-  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && !nearCarlos && partnerInReach();
-  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos ? null : findNearTrap();
-  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos ? null : findTargetRock();
-  targetApple = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos || targetRock ? null : findTargetApple();
-  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearHop) talkToHop(nearHop); else if (nearFluff) talkToFluff(); else if (nearCarlos) talkToCarlos(); else if (targetApple) pickUpApple(targetApple); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
+  nearHouse = nearProf || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos ? null : houseTarget();
+  nearPartner = !nearProf && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && !nearCarlos && !nearHouse && partnerInReach();
+  nearTrap = nearProf || nearPartner || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos || nearHouse ? null : findNearTrap();
+  targetRock = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos || nearHouse || houseUp() ? null : findTargetRock();
+  targetApple = nearProf || nearPartner || nearTrap || nearScrim || nearBoard || nearTeal || nearHop || nearFluff || nearCarlos || nearHouse || targetRock ? null : findTargetApple();
+  if (pickQueued) { pickQueued = false; if (nearProf) talkToProf(); else if (nearHop) talkToHop(nearHop); else if (nearFluff) talkToFluff(); else if (nearCarlos) talkToCarlos(); else if (nearHouse) nearHouse.act(); else if (targetApple) pickUpApple(targetApple); else if (nearTeal) talkToTeal(); else if (nearScrim) talkToScrim(); else if (nearBoard) openBoard(); else if (nearPartner) petPartner(); else if (nearTrap) useTrapInteract(nearTrap); else pickUpRock(); }
   if (swingQueued) { swingQueued = false; useItem(); }
   updatePrompt();
 
@@ -1823,7 +1837,7 @@ function updatePlayer(dt) {
   if (player.ambushT !== undefined) { player.ambushT += dt; if (player.grounded && player.ambushT > 0.2) player.ambushT = Math.max(player.ambushT, AMBUSH_T - 0.45); }
   player.y += player.vy * dt;
   boboPlayerContact();
-  const g = groundAt(player.x, player.z), depthNow = Math.max(0, wy - g);
+  const g = groundAt(player.x, player.z, player.y), depthNow = Math.max(0, wy - g);
   if (player.y <= g) {
     if (!player.grounded && player.vy < -5) { sfxLand(depthNow > 0.1); if (depthNow > 0.1) { splash(player.x, player.z, 26, 1.1); spawnRipple(player.x, player.z, 1.6); } }
     player.y = g; player.vy = 0; player.grounded = true;
@@ -4289,6 +4303,26 @@ function updateBlorbos(dt) {
    one, so the only time to trap it is on the way in.
    ========================================================= */
 // rabbit holes: little earthy mounds with a dark burrow mouth
+// the site for your treehouse, chosen with its own seeded dice so it's in the same spot every visit
+// (before the rabbit holes, rose patches and islanders, which all keep clear of it)
+const TRUNK_R = 1.2, HOUSE_WALL_H = 3.2;
+const HOUSE = (() => {
+  const r = mulberry32(31337); let best = null;
+  for (let i = 0; i < 3000 && !best; i++) {
+    const th = r() * 6.28, d = HEDGE_OUT + 15 + r() * 8, [x, z] = polar(th, d);
+    if (!forestFree(x, z, d, 7) || GAP_TH.some(g => Math.abs(angDiff(g, th)) < 0.12) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 8) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 10)) continue;
+    best = { th, x, z };
+  }
+  if (!best) { const th = GAP_TH[0] + 0.5, [x, z] = polar(th, HEDGE_OUT + 18); best = { th, x, z }; }
+  const [ox, oz] = polar(best.th, HEDGE_OUT);
+  const yaw = Math.atan2(ox - best.x, oz - best.z), gy = heightAt(best.x, best.z);
+  return { ...best, yaw, gy, deck: gy + 6, c: Math.cos(yaw), s: Math.sin(yaw) };
+})();
+const houseWorld = (u, v) => [HOUSE.x + HOUSE.c * u + HOUSE.s * v, HOUSE.z - HOUSE.s * u + HOUSE.c * v];
+const houseLocal = (x, z) => { const dx = x - HOUSE.x, dz = z - HOUSE.z; return [HOUSE.c * dx - HOUSE.s * dz, HOUSE.s * dx + HOUSE.c * dz]; };
+forestColliders.push({ x: HOUSE.x, z: HOUSE.z, r: TRUNK_R + 0.1 });
+// nothing else gets placed under the deck
+const underHouse = (x, z, pad = 0) => Math.hypot(x - HOUSE.x, z - HOUSE.z) < 7.5 + pad;
 const rabbitHoles = [];
 {
   const parts = [];
@@ -4296,7 +4330,7 @@ const rabbitHoles = [];
     let sp = null;
     for (let k = 0; k < 200 && !sp; k++) {
       const th = Math.random() * 6.28, d = HEDGE_OUT + 6 + Math.random() * (FOREST_OUT - HEDGE_OUT - 14), [x, z] = polar(th, d);
-      if (!forestFree(x, z, d, 2) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 2.5) || rabbitHoles.some(h => Math.hypot(h.x - x, h.z - z) < 22)) continue;
+      if (!forestFree(x, z, d, 2) || underHouse(x, z, 2) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 2.5) || rabbitHoles.some(h => Math.hypot(h.x - x, h.z - z) < 22)) continue;
       sp = { x, z };
     }
     if (!sp) continue;
@@ -4663,7 +4697,7 @@ const rosePatches = [], sitas = [];
     let sp = null;
     for (let k = 0; k < 200 && !sp; k++) {
       const th = Math.random() * 6.28, d = HEDGE_OUT + 6 + Math.random() * (FOREST_OUT - HEDGE_OUT - 14), [x, z] = polar(th, d);
-      if (!forestFree(x, z, d, 2) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 3) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 28) || (typeof rabbitHoles !== 'undefined' && rabbitHoles.some(h => Math.hypot(h.x - x, h.z - z) < 6))) continue;
+      if (!forestFree(x, z, d, 2) || underHouse(x, z, 3) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 3) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 28) || (typeof rabbitHoles !== 'undefined' && rabbitHoles.some(h => Math.hypot(h.x - x, h.z - z) < 6))) continue;
       sp = { x, z };
     }
     if (!sp) continue;
@@ -5511,7 +5545,7 @@ function netSlam() {
 const promptEl = document.getElementById('prompt');
 let promptText = '';
 function updatePrompt() {
-  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearFluff ? '<kbd>E</kbd>talk to Lady Fluffytail' : nearCarlos ? '<kbd>E</kbd>shop with Carlos the Capitalist' : nearPartner ? (sitaReady() ? '<kbd>E</kbd>help <b class="pn"></b> grow' : activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
+  let t = targetTreeApple ? '<kbd>E</kbd>pick apple' : nearProf ? '<kbd>E</kbd>talk to Professor Loveopolis' : nearScrim ? '<kbd>E</kbd>talk to Scrimple Scrumple' : nearBoard ? '<kbd>E</kbd>read the notice board' : nearTeal ? '<kbd>E</kbd>talk to Dr. Tealbottom' : nearHop ? '<kbd>E</kbd>talk to Sir Hopsalot' : nearFluff ? '<kbd>E</kbd>talk to Lady Fluffytail' : nearCarlos ? '<kbd>E</kbd>shop with Carlos the Capitalist' : nearHouse ? '<kbd>E</kbd>' + nearHouse.label : nearPartner ? (sitaReady() ? '<kbd>E</kbd>help <b class="pn"></b> grow' : activeItem() === 'apple' && inv.apples > 0 ? '<kbd>E</kbd>feed <b class="pn"></b> an apple' : '<kbd>E</kbd>pet <b class="pn"></b>') : nearTrap ? (nearTrap.occupant ? `<kbd>E</kbd>collect the ${sizeWord(nearTrap.occupant.o.size)}${SPECIES[nearTrap.occupant.id].name}` : '<kbd>E</kbd>pick up trap') : (targetRock ? '<kbd>E</kbd>pick up rock' : targetApple ? '<kbd>E</kbd>pick up apple' : '');
   if (!t && activeItem() === 'trap' && !player.climb && trapSpot) t = trapSpot.ok ? '<kbd>Click</kbd>set trap' : 'Can’t set a trap here';
   if (!t && activeItem() === 'dex' && !player.climb && !dexOpen) t = scan ? 'Scanning…' : (scanTarget ? '<kbd>Click</kbd>scan · <kbd>Tab</kbd>Scrumblydex' : '<kbd>Tab</kbd>open Scrumblydex');
   if (t !== promptText) { promptText = t; promptEl.innerHTML = t; promptEl.hidden = !t; }
@@ -6432,6 +6466,7 @@ function updatePartner(dt) {
   // where to be: a couple of metres behind you, a little to the side
   let tx, tz;
   if (player.climb) { const tp = player.climb.p; tx = tp.x + (player.x - tp.x) * 1.8; tz = tp.z + (player.z - tp.z) * 1.8; }
+  else if (houseRide || houseUp()) { [tx, tz] = houseWorld(-1.4, 2.6); }
   else { tx = player.x - fwd.x * (1.8 + s * 0.4) + right.x * 0.7; tz = player.z - fwd.z * (1.8 + s * 0.4) + right.z * 0.7; }
   if (!canWalk(tx, tz)) { tx = player.x; tz = player.z; }
   const dx = tx - P.x, dz = tz - P.z, d = Math.hypot(dx, dz), far = Math.hypot(player.x - P.x, player.z - P.z);
@@ -6649,7 +6684,7 @@ function netTrapped() {
 }
 function updateTraps(dt) {
   // placement preview
-  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && !nearCarlos;
+  const holding = playing && !paused && !menuOpen() && activeItem() === 'trap' && inv.eq < 0.05 && inv.traps > 0 && !player.climb && !nearTrap && !nearProf && !nearPartner && !nearScrim && !nearBoard && !nearTeal && !nearHop && !nearFluff && !nearCarlos && !nearHouse;
   if (!holding) trapSpot = null;
   trapGhost.visible = holding;
   if (holding) { trapSpot = trapPlacement(); trapGhost.position.set(trapSpot.x, trapSpot.y, trapSpot.z); trapGhost.rotation.y = trapSpot.yaw; ghostMat.color.setHex(trapSpot.ok ? 0x7ee08a : 0xff6f7f); ghostMat.opacity = 0.35 + Math.sin(time * 5) * 0.1; }
@@ -6680,9 +6715,9 @@ function snapshot() {
     v: 2, savedAt: Date.now(),
     party: party.map(packP), box: boxSlots.map(packP),
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
-    player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
+    player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
-    gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), forest: forestSave(),
+    gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
     music: musicOn
   };
 }
@@ -6721,6 +6756,7 @@ function applySnapshot(s) {
   if (P && isFinite(P.x) && isFinite(P.z) && canWalk(P.x, P.z)) { player.x = P.x; player.z = P.z; player.yaw = isFinite(P.yaw) ? P.yaw : player.yaw; player.pitch = clamp(isFinite(P.pitch) ? P.pitch : 0, -1.2, 1.2); }
   else { player.x = spawnX; player.z = spawnZ; const fx = Math.cos(spawnTheta + 0.55), fz = Math.sin(spawnTheta + 0.55); player.yaw = Math.atan2(-fx, -fz); player.pitch = -0.05; }
   player.y = heightAt(player.x, player.z); player.vx = player.vz = player.vy = 0; player.climb = null; player.grounded = true;
+  if (P && isFinite(P.y) && houseFloorAt(player.x, player.z, P.y) !== null) player.y = HOUSE.deck;
   // what's in your pockets, and traps left out on the sand
   traps.slice().forEach(t => { if (t.occupant) releaseTrap(t, true, true); scene.remove(t.g); });
   traps.length = 0;
@@ -6730,7 +6766,7 @@ function applySnapshot(s) {
   inv.apples = clamp(s.inv && isFinite(s.inv.apples) ? Math.floor(s.inv.apples) : 0, 0, MAX_APPLES);
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
-  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); fluffLoad(s.fluff); carlosLoad(s.carlos); tealLoad(s.teal);
+  gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); fluffLoad(s.fluff); carlosLoad(s.carlos); houseLoad(s.house); tealLoad(s.teal);
   refreshResidents(); bondBag = [];
 }
 // a short description of a save, for the slot list
@@ -7057,7 +7093,7 @@ function showLine() {
   dlgItem.hidden = true;
   if (L.give) giveItem(L.give);
   if (L.act) L.act();
-  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else if (dlgWho === 'fluff') fluffSfx.talk(); else if (dlgWho === 'carlos') carlosSfx.talk(); else sfx.profTalk(); }
+  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else if (dlgWho === 'fluff') fluffSfx.talk(); else if (dlgWho === 'carlos') carlosSfx.talk(); else if (dlgWho === 'bouncy') hopSfx.talk(); else sfx.profTalk(); }
   dlgChoicesEl.hidden = true; dlgChoicesEl.innerHTML = ''; dlgChoice = 0;
   if (L.choices) L.choices.forEach((c, i) => { const b = document.createElement('button'); b.textContent = c.label; b.addEventListener('click', e => { e.stopPropagation(); dlgChoice = i; pickChoice(); }); b.addEventListener('mouseenter', () => { dlgChoice = i; renderChoices(); }); dlgChoicesEl.appendChild(b); });
   renderChoices();
@@ -7554,7 +7590,7 @@ function refreshScrim() {
   const ctl = ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> ';
   let html = '';
   if (m.mode === 'carlos') {
-    html = it ? (it.id === 'deed' && carlosState.deed ? 'Already yours. Somewhere out there is a house...' : `<b></b> for <i class="coin"></i>${CARLOS_PRICE[it.id]}. Pick it to buy`) : '';
+    html = it ? (carlosSold(it.id) ? (it.id === 'deed' ? 'Already yours. Somewhere out there is a house...' : 'Already in your treehouse') : `<b></b> for <i class="coin"></i>${CARLOS_PRICE[it.id]}. Pick it to buy`) : '';
     html += ctl + 'close';
   } else if (m.mode === 'shop') {
     if (!it) html = 'You haven’t got any scrumblies to set free.';
@@ -7711,9 +7747,9 @@ function setDialogSpeaker(who) {
   dlgWho = who;
   const pic = dlgEl.querySelector('.prof-pic'), name = dlgEl.querySelector('.dbody b');
   if (profDlgPic === null) profDlgPic = pic.innerHTML;
-  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : who === 'fluff' ? FLUFF_PIC : who === 'carlos' ? CARLOS_PIC : profDlgPic;
-  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : who === 'fluff' ? 'Lady Fluffytail' : who === 'carlos' ? 'Carlos the Capitalist' : 'Professor Loveopolis';
-  ['scrim', 'teal', 'hop', 'fluff', 'carlos'].forEach(k => dlgEl.classList.toggle(k, who === k));
+  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : who === 'fluff' ? FLUFF_PIC : who === 'carlos' ? CARLOS_PIC : who === 'bouncy' ? BOUNCY_PIC : profDlgPic;
+  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : who === 'fluff' ? 'Lady Fluffytail' : who === 'carlos' ? 'Carlos the Capitalist' : who === 'bouncy' ? 'Lord Bouncybun' : 'Professor Loveopolis';
+  ['scrim', 'teal', 'hop', 'fluff', 'carlos', 'bouncy'].forEach(k => dlgEl.classList.toggle(k, who === k));
 }
 
 /* ---------- saving ---------- */
@@ -8134,10 +8170,10 @@ function collideForest(x, z) {
 }
 
 /* ---------- Sir Hopsalot: a brown rabbit knight, one at each gap ---------- */
-function makeHopMesh() {
+function makeHopMesh(o = {}) {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
-  const fur = new THREE.MeshLambertMaterial({ color: 0x9a6a44, emissive: 0x2a1a0e }), cream = lam(0xf3e2c8), pinkM = lam(0xffa6c0);
-  const steel = new THREE.MeshLambertMaterial({ color: 0xd8dde6, emissive: 0x30343c }), gold = lam(0xe0b030), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const fur = new THREE.MeshLambertMaterial({ color: o.fur || 0x9a6a44, emissive: o.furE || 0x2a1a0e }), cream = lam(o.cream || 0xf3e2c8), pinkM = lam(0xffa6c0);
+  const steel = new THREE.MeshLambertMaterial({ color: o.steel || 0xd8dde6, emissive: o.steelE || 0x30343c }), gold = lam(o.trim || 0xe0b030), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
   const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
   [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.1, 0.12, 0.5, 10), fur, s * 0.18, 0.28, 0); add(new THREE.SphereGeometry(0.17, 12, 8), fur, s * 0.2, 0.06, 0.16, 0.9, 0.45, 2.0); });
   add(new THREE.SphereGeometry(0.4, 20, 14), fur, 0, 0.95, 0, 1, 1.2, 0.85);
@@ -8147,7 +8183,7 @@ function makeHopMesh() {
   add(new THREE.TorusGeometry(0.405, 0.025, 6, 26), gold, 0, 1.37, 0.02, 1, 1, 0.86).rotation.x = Math.PI / 2;
   add(new THREE.SphereGeometry(0.08, 10, 8), gold, 0, 1.15, 0.38);
   add(new THREE.SphereGeometry(0.16, 10, 8), lam(0xfff6e8), 0, 0.75, -0.38);
-  const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.15), new THREE.MeshLambertMaterial({ color: 0xc8283c, emissive: 0x2a0408, side: THREE.DoubleSide }));
+  const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.15), new THREE.MeshLambertMaterial({ color: o.cape || 0xc8283c, emissive: o.capeE || 0x2a0408, side: THREE.DoubleSide }));
   cape.position.set(0, 0.92, -0.38); cape.rotation.x = 0.12; body.add(cape);
   const head = new THREE.Group(); head.position.y = 1.72; body.add(head);
   add(new THREE.SphereGeometry(0.3, 18, 14), fur, 0, 0, 0, 1, 0.95, 0.95, head);
@@ -8162,7 +8198,7 @@ function makeHopMesh() {
   // a steel helmet with a red plume, long ears poking out through it
   add(new THREE.SphereGeometry(0.315, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), steel, 0, 0.02, -0.01, 1, 1, 1, head);
   add(new THREE.BoxGeometry(0.05, 0.12, 0.62), steel, 0, 0.28, -0.01, 1, 1, 1, head);
-  [[0, 0.38, -0.05, 0.1], [0, 0.45, -0.18, 0.09], [0, 0.42, -0.3, 0.08]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 10, 8), lam(0xe8384f), x, y, z, 0.7, 1, 1.2, head));
+  [[0, 0.38, -0.05, 0.1], [0, 0.45, -0.18, 0.09], [0, 0.42, -0.3, 0.08]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 10, 8), lam(o.plume || 0xe8384f), x, y, z, 0.7, 1, 1.2, head));
   const ears = [-1, 1].map(s => {
     const piv = new THREE.Group(); piv.position.set(s * 0.15, 0.22, -0.02); piv.rotation.z = -s * 0.22; head.add(piv);
     add(new THREE.SphereGeometry(0.09, 12, 10), fur, 0, 0.36, 0, 1, 4.2, 0.55, piv);
@@ -8180,7 +8216,7 @@ function makeHopMesh() {
   add(new THREE.CylinderGeometry(0.03, 0.035, 2.6, 8), lam(0x8a5a33), 0, 0.6, 0, 1, 1, 1, lance);
   add(new THREE.ConeGeometry(0.07, 0.3, 8), steel, 0, 2.05, 0, 1, 1, 1, lance);
   const pen = new THREE.Shape(); pen.moveTo(0, 0); pen.lineTo(0.5, -0.1); pen.lineTo(0, -0.22); pen.lineTo(0, 0);
-  const pennant = new THREE.Mesh(new THREE.ShapeGeometry(pen), new THREE.MeshLambertMaterial({ color: 0xffd23f, side: THREE.DoubleSide })); pennant.position.set(0.02, 1.85, 0); lance.add(pennant);
+  const pennant = new THREE.Mesh(new THREE.ShapeGeometry(pen), new THREE.MeshLambertMaterial({ color: o.pennant || 0xffd23f, side: THREE.DoubleSide })); pennant.position.set(0.02, 1.85, 0); lance.add(pennant);
   const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.65); mark.renderOrder = 7; mark.position.y = 3.0; root.add(mark);
   scene.add(root);
   const pupils = []; head.traverse(o => { if (o.name === 'pupil') pupils.push(o); });
@@ -8446,7 +8482,7 @@ const FLUFF = (() => {
   let best = null;
   for (let i = 0; i < 600 && !best; i++) {
     const th = GAP_TH[1] + (i % 2 ? 1 : -1) * (0.1 + Math.random() * 0.12), d = HEDGE_OUT + 10 + Math.random() * 10, [x, z] = polar(th, d);
-    if (!forestFree(x, z, d, 3) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 4.5) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 6) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 7)) continue;
+    if (!forestFree(x, z, d, 3) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 4.5) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 6) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 7) || underHouse(x, z, 20)) continue;
     best = { th, x, z };
   }
   if (!best) { const th = GAP_TH[1] + 0.15, [x, z] = polar(th, HEDGE_OUT + 14); best = { th, x, z }; }
@@ -8702,7 +8738,7 @@ const CARLOS = (() => {
   let best = null;
   for (let i = 0; i < 600 && !best; i++) {
     const th = GAP_TH[3] + (i % 2 ? 1 : -1) * (0.08 + Math.random() * 0.12), d = HEDGE_OUT + 8 + Math.random() * 10, [x, z] = polar(th, d);
-    if (!forestFree(x, z, d, 3) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 4.5) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 6) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 7) || Math.hypot(FLUFF.x - x, FLUFF.z - z) < 30) continue;
+    if (!forestFree(x, z, d, 3) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 4.5) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 6) || rosePatches.some(p => Math.hypot(p.x - x, p.z - z) < 7) || Math.hypot(FLUFF.x - x, FLUFF.z - z) < 30 || underHouse(x, z, 20)) continue;
     best = { th, x, z };
   }
   if (!best) { const th = GAP_TH[3] + 0.12, [x, z] = polar(th, HEDGE_OUT + 12); best = { th, x, z }; }
@@ -8811,7 +8847,7 @@ function collideCarlos(x, z) {
   return [x, z];
 }
 // you talk to him across the counter
-function carlosInReach() { if (!scrimHere() || !carlos.root.visible || player.climb) return false; const [cx, cz] = carlosWorld(0, 0); return facingPoint(cx, cz, 3.2) || facingPoint(carlos.x, carlos.z, 3.6); }
+function carlosInReach() { if (!scrimHere() || !carlos.root.visible || player.climb || carlos.inHouse || houseUp()) return false; const [cx, cz] = carlosWorld(0, 0); return facingPoint(cx, cz, 3.2) || facingPoint(carlos.x, carlos.z, 3.6); }
 const carlosSfx = {
   talk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) { const f = 240 + Math.random() * 140; tone(t + i * 0.06, f * 1.25, f, 0.05, 0.06, 'square'); } },
   hello() { if (!actx) return; const t = actx.currentTime; tone(t, 1200, 2600, 0.12, 0.05, 'sine'); tone(t + 0.16, 2600, 1100, 0.2, 0.05, 'sine'); },   // a wolf whistle, naturally
@@ -8831,28 +8867,53 @@ const CARLOS_BUY = {
   rock: ['A fine stone. Hand-picked. By hand. Mine.', 'That rock? Very rare. There are only... several million of them.', 'Top-grade throwing stone. Aerodynamic. I think. What does aerodynamic mean?', 'Ooh, a classic. You won’t find a rockier rock anywhere on this island.'],
   apple: ['Crisp, juicy, fresh off the tree! Which tree? A tree. Don’t worry about it.', 'An apple a day keeps the Froggle away. That’s not true. Don’t test it.', 'Organic, artisanal, locally sourced. Sourced from right over there.', 'The scrumblies go crazy for these. Crazy, I tell you.']
 };
+// once the treehouse is yours, he sells furnishings for it (one of each)
+Object.assign(CARLOS_PRICE, { furn: 200, posters: 200, link: 300, chute: 300, board: 300 });
+const FURN_ICONS = {
+  furn: '<svg viewBox="0 0 48 48"><rect x="4" y="22" width="22" height="9" rx="2" fill="#fff6ee" stroke="#a8703c" stroke-width="2"/><rect x="4" y="14" width="4" height="22" rx="1" fill="#a8703c"/><rect x="6" y="18" width="7" height="5" rx="2" fill="#fff"/><rect x="13" y="20" width="13" height="5" rx="1" fill="#ff8ab8"/><rect x="24" y="31" width="2.5" height="5" fill="#a8703c"/><ellipse cx="37" cy="26" rx="8" ry="2.6" fill="#a8703c"/><rect x="35.8" y="27" width="2.4" height="10" fill="#a8703c"/><rect x="31" y="36" width="12" height="2" rx="1" fill="#a8703c"/><circle cx="37" cy="21" r="2.4" fill="#ff6fa5"/><rect x="36.4" y="22" width="1.2" height="3.5" fill="#5cc277"/></svg>',
+  posters: '<svg viewBox="0 0 48 48"><rect x="4" y="8" width="18" height="24" rx="1.5" fill="#ffe1ec" stroke="#fff" stroke-width="2" transform="rotate(-6 13 20)"/><rect x="24" y="12" width="20" height="26" rx="1.5" fill="#fff3b8" stroke="#fff" stroke-width="2" transform="rotate(5 34 25)"/><path d="M8 26 C7 20 10 15 13 15 C16 15 19 20 18 26 Z" fill="#fffbf4" stroke="#e6d3c4" transform="rotate(-6 13 20)"/><ellipse cx="34" cy="25" rx="6" ry="5" fill="#ffd23f"/><path d="M29 23 h10 M29 27 h10" stroke="#2c2552" stroke-width="1.6"/><circle cx="13" cy="9" r="1.6" fill="#e8384f"/><circle cx="34" cy="12" r="1.6" fill="#e8384f"/></svg>',
+  link: '<svg viewBox="0 0 48 48"><path d="M14 44 V22 a8 8 0 0 1 8 -8 H40" fill="none" stroke="#3fb56a" stroke-width="10" stroke-linecap="round"/><ellipse cx="14" cy="22" rx="7" ry="3" fill="#2c2552"/><rect x="26" y="26" width="18" height="10" rx="2" fill="#fff8e6" stroke="#3fb56a" stroke-width="2"/><path d="M29 31 h12" stroke="#2c2552" stroke-width="2"/><path d="M40 10 l4 4 -4 4" fill="none" stroke="#2c2552" stroke-width="2"/></svg>',
+  chute: '<svg viewBox="0 0 48 48"><path d="M10 6 H34 L28 18 V42 H18 V18 Z" fill="#b58be6" stroke="#7a4cc0" stroke-width="2" stroke-linejoin="round"/><ellipse cx="22" cy="7" rx="12" ry="3" fill="#2c2552"/><path d="M32 30 q6 -4 10 2" fill="none" stroke="#2c2552" stroke-width="2"/><path d="M40 28 l3 5 -5 0" fill="#2c2552"/><g transform="translate(23 30)"><circle cx="0" cy="-2.6" r="2" fill="#fff"/><circle cx="2.6" cy="0" r="2" fill="#fff"/><circle cx="0" cy="2.6" r="2" fill="#fff"/><circle cx="-2.6" cy="0" r="2" fill="#fff"/><circle r="1.6" fill="#ffd23f"/></g></svg>',
+  board: '<svg viewBox="0 0 48 48"><rect x="4" y="8" width="40" height="30" rx="2" fill="#d9a066" stroke="#8a5a33" stroke-width="3"/><rect x="9" y="13" width="11" height="9" fill="#fff8e6" transform="rotate(-5 14 17)"/><rect x="24" y="12" width="13" height="10" fill="#ffe1ec" transform="rotate(4 30 17)"/><rect x="13" y="25" width="12" height="9" fill="#fff3b8" transform="rotate(3 19 29)"/><rect x="29" y="25" width="10" height="9" fill="#dff6e0"/><circle cx="14" cy="13" r="1.4" fill="#e8384f"/><circle cx="30" cy="12" r="1.4" fill="#e8384f"/><circle cx="19" cy="25" r="1.4" fill="#e8384f"/><circle cx="34" cy="25" r="1.4" fill="#e8384f"/><path d="M14 44 V38 M34 44 V38" stroke="#8a5a33" stroke-width="3"/></svg>'
+};
 const CARLOS_STOCK = [
   { id: 'rock', name: 'Throwing Stone', blurb: 'Hand-picked. Practically a gemstone.' },
   { id: 'apple', name: 'Juicy Apple', blurb: 'Fresh off the tree. Some tree.' },
-  { id: 'deed', name: 'Deed to a House', blurb: 'Genuine! Official! One house, yours forever.' }
+  { id: 'deed', name: 'Deed to a House', blurb: 'Genuine! Official! One house, yours forever.' },
+  { id: 'furn', name: 'Basic Furniture Kit', blurb: 'A bed, a table, two chairs. Practically a palace.', furn: true },
+  { id: 'posters', name: 'Poster Pack', blurb: 'Scrumbly posters for every wall. Signed! By me.', furn: true },
+  { id: 'link', name: 'Ranch Link', blurb: 'A pipe straight to the Professor’s Box. Don’t ask how.', furn: true },
+  { id: 'chute', name: 'Easy Release Chute', blurb: 'A pipe to Scrimple’s. Sell from your sofa!', furn: true },
+  { id: 'board', name: 'Bulletin Board', blurb: 'Scrimple’s requests, pinned up at home.', furn: true }
 ];
-const carlosIcon = id => id === 'deed' ? DEED_ICON : ITEM_DEFS[id].icon;
+// the deed's card goes once the house is open; furnishings appear after Carlos's visit
+const carlosStock = () => CARLOS_STOCK.filter(w => w.furn ? houseState.stage === 'furnish' : w.id !== 'deed' || !houseStageAt('carlos'));
+const carlosSold = id => id === 'deed' ? carlosState.deed : HOUSE_ITEMS.includes(id) ? houseOwns(id) : false;
+const carlosIcon = id => id === 'deed' ? DEED_ICON : FURN_ICONS[id] || ITEM_DEFS[id].icon;
 const carlosHave = id => id === 'rock' ? `${inv.rocks}/${MAX_ROCKS}` : id === 'apple' ? `${inv.apples}/${MAX_APPLES}` : carlosState.deed ? 'Yours!' : '';
 function buildCarlosShop(m) {
-  m.items = CARLOS_STOCK; m.cols = 3;
-  scrimBody.innerHTML = `<h3>Carlos’ Deals <span>all sales final</span></h3><div class="board-cards ware-cards"></div>`;
+  m.items = carlosStock(); m.cols = m.items.length > 3 ? 4 : 3;
+  scrimBody.innerHTML = `<h3>Carlos’ Deals <span>all sales final</span></h3><div class="board-cards ware-cards${m.cols === 4 ? ' four' : ''}"></div>`;
   const wrap = scrimBody.querySelector('.board-cards');
   m.items.forEach((w, i) => {
-    const el = document.createElement('button'), sold = w.id === 'deed' && carlosState.deed;
-    el.className = 'req ware' + (w.id === 'deed' ? ' deed' : '') + (sold ? ' sold' : '');
-    el.style.setProperty('--tilt', `${[-1, 1.2, -0.6][i]}deg`);
-    el.innerHTML = `<h4>${w.id === 'deed' ? 'ONCE IN A LIFETIME' : 'HOT DEAL'}</h4><span class="ric">${carlosIcon(w.id)}</span><span class="what">${w.name}</span><span class="plea">${w.blurb}</span><span class="reward">${sold ? 'SOLD' : `<i class="coin"></i>${CARLOS_PRICE[w.id]}`}</span><span class="have">${w.id === 'deed' ? (sold ? 'It’s yours!' : 'Only one left!') : `You have ${carlosHave(w.id)}`}</span>`;
+    const el = document.createElement('button'), sold = carlosSold(w.id), one = w.id === 'deed' || w.furn;
+    el.className = 'req ware' + (w.id === 'deed' ? ' deed' : '') + (w.furn ? ' furnish' : '') + (sold ? ' sold' : '');
+    el.style.setProperty('--tilt', `${[-1, 1.2, -0.6, 0.8][i % 4]}deg`);
+    el.innerHTML = `<h4>${w.id === 'deed' ? 'ONCE IN A LIFETIME' : w.furn ? 'HOME SWEET HOME' : 'HOT DEAL'}</h4><span class="ric">${carlosIcon(w.id)}</span><span class="what">${w.name}</span><span class="plea">${w.blurb}</span><span class="reward">${sold ? 'SOLD' : `<i class="coin"></i>${CARLOS_PRICE[w.id]}`}</span><span class="have">${one ? (sold ? (w.furn ? 'In your treehouse!' : 'It’s yours!') : 'Only one left!') : `You have ${carlosHave(w.id)}`}</span>`;
     hookItem(el, i); wrap.appendChild(el); m.els.push(el);
   });
 }
+const FURN_LINES = {
+  furn: ['A bed! A table! CHAIRS, plural! You’re living the dream, chief. I’ll have it sent up the tree. Somehow.', 'Furniture kit, coming right up. Some assembly required. I already assembled it. You’re welcome.'],
+  posters: ['Posters! Every one signed by the artist. The artist is me. I can’t draw. They’re still great.', 'Nothing says “home” like a big Froggle staring at you while you sleep.'],
+  link: ['The Ranch Link! One end in your house, the other end at the Professor’s. Shh. He doesn’t know.', 'Hook it up and you can rummage through your Box without leaving home. Lazy? No. EFFICIENT.'],
+  chute: ['The Easy Release Chute! Drop ’em in, they pop out at Scrimple’s. I may have, er, borrowed his drainpipe.', 'Sell scrumblies from the comfort of your own home! The hippy will never know. Okay, he’ll know.'],
+  board: ['A Bulletin Board! All of Scrimple’s requests, pinned up at home. I copied them. Don’t tell him.', 'Never miss a deal again! Trust me, I never do.']
+};
 function carlosActivate(it) {
   const price = CARLOS_PRICE[it.id];
   if (it.id === 'deed' && carlosState.deed) return scrimNope('Already sold you that one, chief! One house per customer. One... mystery house.');
+  if (HOUSE_ITEMS.includes(it.id) && houseOwns(it.id)) return scrimNope('Already up in your treehouse, chief! One per customer. Don’t get greedy. That’s MY job.');
   if (gold < price) return scrimNope(pick1(['Ooh, a little short there, amigo. Carlos doesn’t do credit. Carlos got burned on credit.', `That’s ${price} gold, my friend. You’ve got ${gold}. I can do maths. Sometimes.`, 'Come back when your purse is heavier! I’ll be right here. Probably.']));
   if (it.id === 'rock') {
     if (inv.rocks >= MAX_ROCKS) return scrimNope('Your pockets are bulging, my friend! Even Carlos can’t sell you what you can’t carry. Believe me, I’ve tried.');
@@ -8864,6 +8925,12 @@ function carlosActivate(it) {
     inv.apples++; inv.owned.apple = true;
   }
   gold -= price; carlosSfx.till(); renderHotbar(); renderGold();
+  if (HOUSE_ITEMS.includes(it.id)) {
+    houseState.items[it.id] = true; showFurnishings(); saveGame();
+    scrimSay(pick1(FURN_LINES[it.id])); buildScrim();
+    toast(`The ${it.name} has been delivered to your treehouse!`);
+    return;
+  }
   if (it.id === 'deed') {
     carlosState.deed = true; saveGame(); closeScrim();
     setTimeout(() => openDialog([
@@ -8878,6 +8945,7 @@ function carlosActivate(it) {
   scrimSay(pick1(CARLOS_BUY[it.id])); saveGame(); buildScrim();
 }
 function talkToCarlos() {
+  if (houseState.stage === 'carlos') return carlosHouseTalk();
   carlos.wave = 1.4; carlosSfx.hello();
   if (!carlosState.met) {
     carlosState.met = true; saveGame();
@@ -8905,7 +8973,7 @@ function updateCarlos(dt) {
   // a cool little lean and a head bob, like there's music only he can hear
   carlos.body.rotation.z = 0.05 + Math.sin(time * 2.2) * 0.02;
   carlos.head.rotation.z = Math.sin(time * 4.4) * 0.05; carlos.head.rotation.x = Math.max(0, Math.sin(time * 4.4)) * 0.06;
-  if (!carlos.greeted && d < 16 && playing) {
+  if (!carlos.greeted && d < 16 && playing && !carlos.inHouse) {
     carlos.greeted = true; carlos.wave = 1.6; carlosSfx.hello();
     toast(carlosState.met ? 'Carlos: "My favourite customer! Come on over, chief!"' : 'A rabbit in sunglasses behind a rickety stall gives you a finger-gun and a wink...');
   }
@@ -8919,6 +8987,340 @@ function updateCarlos(dt) {
   carlos.mark.visible = !carlosState.met;
   if (carlos.mark.visible) carlos.mark.position.y = 2.75 + Math.abs(Math.sin(time * 3)) * 0.25;
   if (carlos.tag) carlos.tag.visible = d < 12 && d > 4.5 && !dialogOpen && !scrimOpen;
+}
+
+/* =========================================================
+   Your treehouse: a big house up an old oak in Glimmerwood
+   Lord Bouncybun guards the ladder until the rightful owner returns with
+   the deed. Up top, Carlos is somehow already waiting; after that he
+   sells furnishings at his stall: furniture, posters, a Ranch Link pipe
+   (the Box), an Easy Release Chute (Scrimple's shop) and a Bulletin
+   Board (Scrimple's requests).
+   ========================================================= */
+const HOUSE_STAGES = ['locked', 'carlos', 'furnish'];
+const HOUSE_ITEMS = ['furn', 'posters', 'link', 'chute', 'board'];
+const houseState = { stage: 'locked', met: false, items: {} };
+const houseOwns = id => !!houseState.items[id];
+
+// where you can stand up top: the room, the porch, and the doorway between them
+const ROOM = { u: 3.75, v0: -3.75, v1: 3.2 }, PORCH = { u: 4.3, v0: 3.85, v1: 5.3 };
+const onDeckOK = (u, v) => (Math.abs(u) <= ROOM.u && v >= ROOM.v0 && v <= ROOM.v1) || (Math.abs(u) <= PORCH.u && v >= PORCH.v0 && v <= PORCH.v1) || (Math.abs(u) <= 0.6 && v >= ROOM.v1 - 0.1 && v <= PORCH.v0 + 0.1);
+const inDeckFootprint = (u, v) => Math.abs(u) <= 4.7 && v >= -4.7 && v <= 5.7;
+function houseUp() { if (!scrimHere()) return false; const [u, v] = houseLocal(player.x, player.z); return player.y > HOUSE.deck - 1.5 && inDeckFootprint(u, v); }
+function houseFloorAt(x, z, y) { if (y === undefined || y < HOUSE.deck - 1.5) return null; const [u, v] = houseLocal(x, z); return inDeckFootprint(u, v) ? HOUSE.deck : null; }
+
+/* ---------- the tree and the house ---------- */
+const treehouse = (() => {
+  const root = new THREE.Group(); root.position.set(HOUSE.x, HOUSE.gy, HOUSE.z); root.rotation.y = HOUSE.yaw; scene.add(root); root.updateMatrixWorld(true);
+  const bark = new THREE.MeshLambertMaterial({ color: 0x7a5233, emissive: 0x1a0e04 }), barkD = lam(0x5e3e24);
+  const plank = new THREE.MeshLambertMaterial({ color: 0xc89660, emissive: 0x241608 }), plankD = lam(0xa87a48), roofM = new THREE.MeshLambertMaterial({ color: 0xd8566e, emissive: 0x2a0a10 });
+  const D = 6, add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = root) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  // a huge old oak trunk with flared roots, all the way up through the roof
+  add(new THREE.CylinderGeometry(1.0, TRUNK_R, 13, 16), bark, 0, 6.5, 0);
+  for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.3, r = add(new THREE.CylinderGeometry(0.25, 0.55, 2.2, 7), bark, Math.cos(a) * 1.25, 0.6, Math.sin(a) * 1.25); r.rotation.set(Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9); }
+  for (let k = 0; k < 10; k++) { const a = k * 2.4, y = 1 + k * 1.1; add(new THREE.BoxGeometry(0.08, 0.5 + (k % 3) * 0.3, 0.08), barkD, Math.cos(a) * 1.13, y, Math.sin(a) * 1.13).rotation.y = -a; }
+  // branches and a big leafy crown above the roof, dotted with pink blossom
+  [[2.6, 10.5, 1.4], [-2.8, 11, -0.8], [0.6, 11.5, -2.8], [-1, 10.2, 2.6]].forEach(([x, y, z]) => { const b = add(new THREE.CylinderGeometry(0.18, 0.35, 4, 7), bark, x * 0.5, y, z * 0.5); b.lookAt(new THREE.Vector3(x, y + 1.5, z).applyMatrix4(root.matrixWorld)); b.rotateX(Math.PI / 2); });
+  const leaf = [0x4fb56a, 0x5cc277, 0x45a862, 0x63c879];
+  [[0, 14, 0, 4.2], [3.4, 12.6, 1.6, 3.0], [-3.4, 12.8, -1.2, 3.1], [1, 13, -3.4, 3.0], [-1.4, 12.4, 3.4, 2.9], [0, 16, 0, 2.8]].forEach(([x, y, z, r], k) => add(new THREE.IcosahedronGeometry(r, 1), new THREE.MeshLambertMaterial({ color: leaf[k % 4], flatShading: true }), x, y, z));
+  for (let k = 0; k < 26; k++) { const a = k * 2.39, e = (k % 6) / 6; add(new THREE.SphereGeometry(0.22, 6, 4), lam(k % 3 ? 0xffc6e0 : 0xffffff), Math.cos(a) * 4.4 * (1 - e * 0.35), 12.6 + e * 3.6, Math.sin(a) * 4.4 * (1 - e * 0.35)); }
+  // the deck, on beams and diagonal braces
+  add(new THREE.BoxGeometry(9.4, 0.3, 10.4), plank, 0, D - 0.15, 0.5);
+  for (let k = 0; k < 10; k++) add(new THREE.BoxGeometry(9.42, 0.02, 0.04), plankD, 0, D + 0.005, -4.6 + k * 1.04);
+  [[-4.4, -4.4], [4.4, -4.4], [-4.4, 5.4], [4.4, 5.4]].forEach(([u, v]) => { add(new THREE.BoxGeometry(0.3, 0.3, 0.3), plankD, u, D - 0.4, v); const br = add(new THREE.CylinderGeometry(0.12, 0.14, 2 * Math.hypot(Math.hypot(u, v) / 2, 1.9), 6), barkD, u * 0.5, D - 2.2, v * 0.5); br.lookAt(new THREE.Vector3(u, D - 0.3, v).applyMatrix4(root.matrixWorld)); br.rotateX(Math.PI / 2); });
+  // walls (a doorway in the front), round windows, and a peaked pink roof
+  const W = HOUSE_WALL_H;
+  add(new THREE.BoxGeometry(8.2, W, 0.2), plank, 0, D + W / 2, -4.0);
+  [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.2, W, 7.7), plank, s * 4.0, D + W / 2, -0.25));
+  [-1, 1].forEach(s => add(new THREE.BoxGeometry(3.3, W, 0.2), plank, s * 2.45, D + W / 2, 3.5));
+  add(new THREE.BoxGeometry(1.6, W - 2.3, 0.2), plank, 0, D + 2.3 + (W - 2.3) / 2, 3.5);
+  for (let k = 0; k < 7; k++) { const y = D + 0.25 + k * 0.45; add(new THREE.BoxGeometry(8.24, 0.03, 0.24), plankD, 0, y, -4.0); [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.24, 0.03, 7.74), plankD, s * 4.0, y, -0.25)); }
+  // round windows, inside and out ([u, v, outward normal])
+  [[-4.0, -2.0, -1, 0], [4.0, -2.0, 1, 0], [0, -4.0, 0, -1]].forEach(([u, v, nu, nv]) => [-1, 1].forEach(sd => {
+    const x = u + nu * 0.11 * sd, z = v + nv * 0.11 * sd, ry = Math.atan2(nu * sd, nv * sd);
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(0.42, 18), new THREE.MeshBasicMaterial({ color: 0xbfe8ff }));
+    glass.position.set(x, D + 2.0, z); glass.rotation.y = ry; root.add(glass);
+    add(new THREE.TorusGeometry(0.45, 0.07, 6, 20), lam(0xffffff), x, D + 2.0, z).rotation.y = ry;
+  }));
+  const roof = add(new THREE.ConeGeometry(6.4, 2.8, 4, 1, true), roofM, 0, D + W + 1.4, -0.25); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 1.05);
+  roof.material = new THREE.MeshLambertMaterial({ color: 0xd8566e, emissive: 0x2a0a10, side: THREE.DoubleSide });
+  add(new THREE.BoxGeometry(8.6, 0.12, 8.4), plankD, 0, D + W + 0.02, -0.25);   // the ceiling
+  // porch railing (gap at the front for nothing: it's just for leaning on)
+  for (let k = 0; k <= 8; k++) add(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6), plankD, -4.5 + k * 1.125, D + 0.5, 5.55);
+  [-1, 1].forEach(s => { for (let k = 0; k < 2; k++) add(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6), plankD, s * 4.55, D + 0.5, 4.1 + k * 0.75); add(new THREE.BoxGeometry(0.1, 0.08, 2.0), plank, s * 4.55, D + 1.0, 4.6); });
+  add(new THREE.BoxGeometry(9.2, 0.08, 0.1), plank, 0, D + 1.0, 5.55);
+  // a ladder nailed up the front of the trunk, through a trapdoor in the floor
+  [-0.32, 0.32].forEach(u => add(new THREE.BoxGeometry(0.08, D + 0.4, 0.08), plankD, u, (D + 0.4) / 2, TRUNK_R + 0.12));
+  for (let k = 0; k < 14; k++) add(new THREE.BoxGeometry(0.72, 0.06, 0.07), plank, 0, 0.35 + k * 0.43, TRUNK_R + 0.14);
+  add(new THREE.BoxGeometry(0.9, 0.04, 0.9), lam(0x5e3e24), 0, D + 0.01, 1.65);   // the trapdoor
+  add(new THREE.TorusGeometry(0.08, 0.02, 6, 12), lam(0x9aa6b8), 0, D + 0.04, 1.95).rotation.x = Math.PI / 2;
+  // a hanging lantern and a lonely crate: rather drab, really
+  add(new THREE.CylinderGeometry(0.01, 0.01, 0.6, 4), lam(0x4a5060), 2.2, D + W - 0.3, 0.6);
+  add(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), 2.2, D + W - 0.7, 0.6);
+  add(new THREE.BoxGeometry(0.7, 0.6, 0.7), plankD, -3.1, D + 0.3, 2.5).rotation.y = 0.3;
+  // a doormat and a little nameplate by the door
+  add(new THREE.BoxGeometry(1.2, 0.03, 0.7), lam(0xd8566e), 0, D + 0.02, 4.3);
+  root.traverse(o => { if (o.isMesh) o.castShadow = o.position.y < D - 0.1 || o.position.y > D + W + 0.5; });
+  return root;
+})();
+compactCreature({ root: treehouse });
+
+/* ---------- furnishings (each its own group, shown once bought) ---------- */
+const houseFurn = {};
+const furnGroup = id => { const g = new THREE.Group(); g.position.set(HOUSE.x, HOUSE.deck, HOUSE.z); g.rotation.y = HOUSE.yaw; g.visible = false; scene.add(g); houseFurn[id] = g; return g; };
+{
+  // the furniture kit: a bed with a patchwork quilt, a round table and two chairs, a rug
+  const g = furnGroup('furn'), wood = lam(0xa8703c), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
+  add(new THREE.BoxGeometry(1.5, 0.4, 2.3), wood, -2.75, 0.25, -2.6);
+  add(new THREE.BoxGeometry(1.5, 0.9, 0.12), wood, -2.75, 0.5, -3.75);
+  add(new THREE.BoxGeometry(1.36, 0.22, 2.1), lam(0xfff6ee), -2.75, 0.55, -2.55);
+  add(new THREE.BoxGeometry(1.0, 0.18, 0.45), lam(0xffffff), -2.75, 0.72, -3.35);
+  [0xff8ab8, 0xffd23f, 0x7fd8c8, 0xb58be6].forEach((c, k) => add(new THREE.BoxGeometry(0.69, 0.08, 0.7), lam(c), -2.75 + (k % 2 ? 0.34 : -0.34), 0.68, -2.25 + (k > 1 ? 0.7 : 0)));
+  add(new THREE.CylinderGeometry(0.75, 0.75, 0.08, 20), wood, 2.5, 0.78, -2.3);
+  add(new THREE.CylinderGeometry(0.1, 0.18, 0.75, 8), wood, 2.5, 0.38, -2.3);
+  add(new THREE.CylinderGeometry(0.06, 0.06, 0.14, 8), lam(0xffffff), 2.4, 0.89, -2.25);
+  add(new THREE.SphereGeometry(0.09, 8, 6), lam(0xff6fa5), 2.4, 1.0, -2.25);
+  [-1, 1].forEach(s => {
+    const cx = 2.5 + s * 1.15;
+    add(new THREE.BoxGeometry(0.55, 0.08, 0.55), wood, cx, 0.48, -2.3);
+    [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]].forEach(([a, b]) => add(new THREE.BoxGeometry(0.06, 0.48, 0.06), wood, cx + a, 0.24, -2.3 + b));
+    add(new THREE.BoxGeometry(0.08, 0.6, 0.55), wood, cx + s * 0.25, 0.8, -2.3);
+    add(new THREE.BoxGeometry(0.5, 0.06, 0.5), lam(0xff8ab8), cx, 0.54, -2.3);
+  });
+  add(new THREE.CylinderGeometry(1.6, 1.6, 0.02, 28), lam(0x7fd8c8), 0.3, 0.02, 2.25, 1, 1, 0.6);
+}
+{
+  // the poster pack: scrumbly posters on every wall
+  const g = furnGroup('posters');
+  const posters = [['bobo', 0xffe1ec, -1.6, -3.88, 0], ['beeappy', 0xfff3b8, 1.6, -3.88, 0], ['glimmery', 0xe8dcff, -3.88, -0.5, Math.PI / 2], ['raebit', 0xdff6e0, 3.88, -0.6, -Math.PI / 2], ['speshul', 0xe0f2ff, -3.88, 2.4, Math.PI / 2], ['froggle', 0xe8f8c8, 3.88, 2.5, -Math.PI / 2], ['bink', 0xffe1ec, 1.9, 3.38, Math.PI]];
+  posters.forEach(([sp, bg, u, v, ry]) => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 320; const x = c.getContext('2d');
+    x.fillStyle = '#' + bg.toString(16).padStart(6, '0'); x.fillRect(0, 0, 256, 320);
+    x.strokeStyle = '#ffffff'; x.lineWidth = 14; x.strokeRect(7, 7, 242, 306);
+    for (let k = 0; k < 18; k++) { x.fillStyle = `rgba(255,255,255,${0.35 + Math.random() * 0.4})`; x.beginPath(); x.arc(Math.random() * 256, Math.random() * 320, 2 + Math.random() * 4, 0, 7); x.fill(); }
+    x.textAlign = 'center'; x.font = '700 38px "Fredoka", "Baloo 2", sans-serif'; x.fillStyle = '#2c2552'; x.fillText(SPECIES[sp].name.toUpperCase(), 128, 290);
+    const tex = new THREE.CanvasTexture(c), img = new Image();
+    img.onload = () => { x.drawImage(img, 28, 22, 200, 200); tex.needsUpdate = true; };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SPECIES[sp].icon.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" '));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.25), new THREE.MeshLambertMaterial({ map: tex }));
+    m.position.set(u, 1.75, v); m.rotation.y = ry; g.add(m);
+  });
+}
+// a pipe that runs off down the tree: a bend, a hatch and a little sign
+function pipeFurn(id, u, colour, label, sign) {
+  const g = furnGroup(id), pm = new THREE.MeshPhongMaterial({ color: colour, shininess: 60, specular: 0x666666 }), dark = lam(0x2c2552);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
+  const side = Math.sign(u);
+  add(new THREE.CylinderGeometry(0.32, 0.32, 1.4, 16), pm, u, 0.7, 1.2);
+  add(new THREE.TorusGeometry(0.36, 0.06, 8, 20), pm, u, 1.4, 1.2).rotation.x = Math.PI / 2;
+  const elbow = add(new THREE.CylinderGeometry(0.32, 0.32, 0.6, 16), pm, u + side * 0.28, 1.25, 1.2); elbow.rotation.z = Math.PI / 2;
+  add(new THREE.CircleGeometry(0.27, 16), dark, u, 1.401, 1.2).rotation.x = -Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.345, 0.345, 0.12, 16), lam(0xffffff), u, 0.9, 1.2);
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
+  x.fillStyle = '#fff8e6'; x.fillRect(0, 0, 256, 96); x.strokeStyle = '#' + colour.toString(16).padStart(6, '0'); x.lineWidth = 10; x.strokeRect(5, 5, 246, 86);
+  x.textAlign = 'center'; x.fillStyle = '#2c2552'; x.font = '700 34px "Fredoka", sans-serif'; x.fillText(label, 128, 48); x.font = '700 20px "Nunito", sans-serif'; x.fillText(sign, 128, 76);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.36), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }));
+  plate.position.set(u - side * 0.11 + side * 0.0, 2.2, 1.2); plate.position.x = side * 3.88; plate.rotation.y = -side * Math.PI / 2; g.add(plate);
+}
+pipeFurn('link', -3.35, 0x3fb56a, 'RANCH LINK', 'straight to the Box');
+pipeFurn('chute', 3.35, 0xb58be6, 'EASY RELEASE', 'chute to Scrimple’s');
+{
+  // the bulletin board: a cork board with pinned notes, by the door
+  const g = furnGroup('board'), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
+  add(new THREE.BoxGeometry(1.6, 1.1, 0.06), lam(0x8a5a33), -2.2, 1.6, 3.36);
+  add(new THREE.BoxGeometry(1.45, 0.95, 0.02), lam(0xd9a066), -2.2, 1.6, 3.32);
+  [[-0.45, 0.2, 0xfff8e6], [0.1, 0.15, 0xffe1ec], [0.5, -0.15, 0xfff3b8], [-0.2, -0.25, 0xdff6e0]].forEach(([dx, dy, c]) => { add(new THREE.BoxGeometry(0.36, 0.3, 0.01), lam(c), -2.2 + dx, 1.6 + dy, 3.305).rotation.z = dx * 0.3; add(new THREE.SphereGeometry(0.03, 6, 4), lam(0xe8384f), -2.2 + dx, 1.73 + dy, 3.29); });
+}
+Object.values(houseFurn).forEach(g => compactCreature({ root: g }));
+function showFurnishings() { HOUSE_ITEMS.forEach(id => { if (houseFurn[id]) houseFurn[id].visible = houseOwns(id); }); }
+
+/* ---------- Lord Bouncybun: a cream rabbit knight in gold, guarding the ladder ---------- */
+const bouncy = makeHopMesh({ fur: 0xeee2d0, furE: 0x2e2a24, cream: 0xffffff, steel: 0xf2d27a, steelE: 0x3a2c08, trim: 0xffffff, cape: 0x6a3cb0, capeE: 0x140828, plume: 0xffffff, pennant: 0x6a3cb0 });
+bouncy.root.scale.setScalar(1.08);
+Object.assign(bouncy, { face: 0, wave: 0, blink: 1.5, greeted: false, x: 0, z: 0, baseYaw: HOUSE.yaw });
+bouncy.tag = nameTag('Lord Bouncybun'); bouncy.tag.position.y = 2.75; bouncy.root.add(bouncy.tag);
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => { bouncy.root.remove(bouncy.tag); bouncy.tag = nameTag('Lord Bouncybun'); bouncy.tag.position.y = 2.75; bouncy.root.add(bouncy.tag); });
+function placeBouncy() {
+  const [x, z] = houseStageAt('carlos') ? houseWorld(2.0, 2.6) : houseWorld(0, 2.55);
+  bouncy.x = x; bouncy.z = z; bouncy.root.position.set(x, heightAt(x, z), z);
+}
+const houseStageAt = s => HOUSE_STAGES.indexOf(houseState.stage) >= HOUSE_STAGES.indexOf(s);
+placeBouncy();
+const BOUNCY_IDLE = [
+  'Welcome home, my liege! I have kept the ladder warm. Well, I have stood near it.',
+  'Sir Hopsalot is my cousin. He guards a hedge. I guard a HOUSE. We don’t talk about it at family dinners.',
+  'All quiet down here, my liege. One squirrel. I gave it a stern look.',
+  'A fine treehouse deserves a fine knight at the bottom of it. You’re welcome.',
+  'I could have sworn I saw a rabbit in sunglasses climbing the back of the tree once. Surely not.',
+  'Funny. I always thought the rightful owner would be taller.'
+];
+function talkToBouncy() {
+  bouncy.wave = 1.6; hopSfx.hello();
+  if (houseStageAt('carlos')) return openDialog([{ text: pick1(BOUNCY_IDLE) }], null, 'bouncy');
+  if (carlosState.deed) {
+    openDialog([
+      { text: 'HALT! None shall climb the Great Oak! None shall... wait. What’s that you’re holding?' },
+      { text: 'Is that... a DEED? With a seal and everything? Let me see. “This deed grants the bearer one (1) treehouse.”' },
+      { text: 'It’s real! You’re the rightful owner! After all these years, you’ve finally come home!' },
+      { text: 'I’ve polished this armour four thousand times waiting for you. Welcome home, my liege! The ladder is yours.' },
+      { text: '...Funny. I always thought you’d be taller.' }
+    ], () => { houseState.stage = 'carlos'; placeBouncy(); placeCarlos(); saveGame(); sfx.caught(); toast('Lord Bouncybun stepped aside. Climb the ladder up to your treehouse!'); }, 'bouncy');
+    return;
+  }
+  if (!houseState.met) {
+    houseState.met = true; saveGame();
+    openDialog([
+      { text: 'HALT! None shall climb the Great Oak! I am Lord Bouncybun, Keeper of the Ladder and protector of this fine treehouse!' },
+      { text: 'Its rightful owner went away a long, long time ago. I swore I would guard it until they return.' },
+      { text: 'Are YOU the rightful owner? Hmm. You don’t look like an owner. Owners carry deeds. Official ones. With seals.' },
+      { text: 'Until somebody shows me the deed, not one paw shall touch this ladder. Good day!' }
+    ], null, 'bouncy');
+    return;
+  }
+  openDialog([{ text: pick1([
+    'Still no deed? Then the ladder stays guarded. Rules are rules. I wrote them.',
+    'The rightful owner will return one day, deed in hand. I can feel it in my ears.',
+    'A deed, traveller. A piece of paper that says “this house is yours”. Have you seen one lying around anywhere?',
+    'My cousin Sir Hopsalot takes gold. I do not take gold. I take DEEDS.'
+  ]) }], null, 'bouncy');
+}
+const BOUNCY_PIC = '<svg viewBox="0 0 64 64"><ellipse cx="22" cy="14" rx="5.5" ry="14" fill="#eee2d0" transform="rotate(-12 22 14)"/><ellipse cx="42" cy="14" rx="5.5" ry="14" fill="#eee2d0" transform="rotate(12 42 14)"/><ellipse cx="22" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(-12 22 15)"/><ellipse cx="42" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(12 42 15)"/><circle cx="32" cy="38" r="18" fill="#eee2d0"/><path d="M13 34 A19 19 0 0 1 51 34 L51 30 A19 17 0 0 0 13 30 Z" fill="#f2d27a" stroke="#c9a227" stroke-width="1.5"/><path d="M14 33 A18 17 0 0 1 50 33" fill="none" stroke="#f2d27a" stroke-width="6"/><ellipse cx="32" cy="17" rx="4" ry="6" fill="#fff"/><circle cx="25" cy="38" r="2.8" fill="#1d1b22"/><circle cx="39" cy="38" r="2.8" fill="#1d1b22"/><circle cx="24" cy="37" r=".9" fill="#fff"/><circle cx="38" cy="37" r=".9" fill="#fff"/><ellipse cx="32" cy="46" rx="7.5" ry="5.5" fill="#fff"/><ellipse cx="32" cy="43.5" rx="2.4" ry="1.7" fill="#ffa6c0"/><rect x="30" y="47.5" width="4" height="3" rx=".6" fill="#fff" stroke="#ddd" stroke-width=".5"/><path d="M18 45 h-8 M18 48 h-7 M46 45 h8 M46 48 h7" stroke="#1d1b22" stroke-width=".9"/><path d="M16 64 L20 56 L44 56 L48 64 Z" fill="#6a3cb0"/><path d="M27 58 L32 62 L37 58" stroke="#f2d27a" stroke-width="2" fill="none"/></svg>';
+
+/* ---------- climbing the ladder (a little ride up or down the trunk) ---------- */
+let houseRide = null;
+const LADDER_FOOT = () => houseWorld(0, 2.15), HATCH_TOP = () => houseWorld(0, 2.0);
+function startHouseRide(up) {
+  const [fx, fz] = LADDER_FOOT(), [tx, tz] = HATCH_TOP();
+  houseRide = { up, t: 0, dur: 2.2, x0: player.x, z0: player.z, y0: player.y, fx, fz, tx, tz, yaw0: player.yaw, step: 0 };
+  player.vx = player.vz = player.vy = 0; player.climb = null;
+  for (const k in keys) keys[k] = false;
+}
+function updateHouseRide(dt) {
+  const r = houseRide; r.t += dt; const k = clamp(r.t / r.dur, 0, 1);
+  const faceTrunk = Math.atan2(Math.sin(HOUSE.yaw), Math.cos(HOUSE.yaw));    // looking along -v, at the trunk
+  if (r.up) {
+    // step to the foot of the ladder, climb, then hop out of the trapdoor
+    const a = clamp(k / 0.15, 0, 1), b = clamp((k - 0.15) / 0.75, 0, 1), c = clamp((k - 0.9) / 0.1, 0, 1);
+    player.x = lerp(lerp(r.x0, r.fx, a), r.tx, c); player.z = lerp(lerp(r.z0, r.fz, a), r.tz, c);
+    player.y = lerp(r.y0, HOUSE.deck, b * b * (3 - 2 * b)) + Math.sin(b * Math.PI) * 0.0;
+    player.yaw += angDiff(player.yaw, c > 0 ? faceTrunk + Math.PI : faceTrunk) * Math.min(1, dt * 6);
+    player.pitch = lerp(player.pitch, b > 0 && b < 1 ? 0.5 : 0, Math.min(1, dt * 4));
+  } else {
+    const a = clamp(k / 0.1, 0, 1), b = clamp((k - 0.1) / 0.75, 0, 1), c = clamp((k - 0.85) / 0.15, 0, 1);
+    const gy = heightAt(r.fx, r.fz);
+    player.x = lerp(lerp(r.x0, r.tx, a), r.fx, c); player.z = lerp(lerp(r.z0, r.tz, a), r.fz, c);
+    player.y = lerp(r.y0, gy, b * b * (3 - 2 * b));
+    player.yaw += angDiff(player.yaw, c > 0 ? faceTrunk + Math.PI : faceTrunk) * Math.min(1, dt * 6);
+    player.pitch = lerp(player.pitch, b > 0 && b < 1 ? -0.5 : 0, Math.min(1, dt * 4));
+  }
+  const st = Math.floor(r.t * 4); if (st !== r.step && k > 0.15 && k < 0.9) { r.step = st; sfxClimbStep(); }
+  camera.position.set(player.x, player.y + 1.65 + Math.sin(r.t * 12) * 0.02, player.z);
+  if (k >= 1) {
+    houseRide = null; player.grounded = true; player.vy = 0;
+    if (r.up) onReachHouse();
+  }
+}
+let houseHints = {};
+function onReachHouse() {
+  if (!houseHints.up) { houseHints.up = true; }
+  if (houseState.stage === 'carlos') toast('Somebody’s already up here...');
+  else if (!HOUSE_ITEMS.some(houseOwns) && !houseHints.bare) { houseHints.bare = true; toast('Your very own treehouse! It’s a bit bare in here...'); }
+}
+
+/* ---------- what you can do around the house ---------- */
+let nearHouse = null;
+function houseTarget() {
+  if (!scrimHere() || player.climb || houseRide) return null;
+  const up = houseUp();
+  if (!up) {
+    if (!houseStageAt('carlos')) return facingPoint(bouncy.x, bouncy.z, 3.6) ? { label: 'talk to Lord Bouncybun', act: talkToBouncy } : null;
+    // the ladder wins if you're at its foot looking at the trunk; otherwise his lordship
+    const [lx, lz] = LADDER_FOOT();
+    if (Math.hypot(player.x - lx, player.z - lz) < 2.2 && facingPoint(HOUSE.x, HOUSE.z, 4.5)) return { label: 'climb up to your treehouse', act: () => startHouseRide(true) };
+    if (facingPoint(bouncy.x, bouncy.z, 3.0)) return { label: 'talk to Lord Bouncybun', act: talkToBouncy };
+    return null;
+  }
+  if (houseState.stage === 'carlos' && facingPoint(carlos.x, carlos.z, 3.4)) return { label: 'talk to Carlos', act: talkToCarlos };
+  const [hx, hz] = houseWorld(0, 1.65);
+  const near = (u, v, r) => { const [x, z] = houseWorld(u, v); return facingPoint(x, z, r); };
+  if (houseOwns('link') && near(-3.35, 1.2, 2.2)) return { label: 'use the Ranch Link (open the Box)', act: () => { sfx.pickup(); openBox(); } };
+  if (houseOwns('chute') && near(3.35, 1.2, 2.2)) return { label: 'use the Easy Release Chute', act: () => openScrim('shop', 'Peace, friend! *crackle* Coming to you live down the chute. Who’s off to the wild?') };
+  if (houseOwns('board') && near(-2.2, 3.36, 2.4)) return { label: 'read the Bulletin Board', act: () => openScrim('board', 'Requests straight from the beach, friend. Pick one you can fill.') };
+  if (Math.hypot(player.x - hx, player.z - hz) < 1.5) return { label: 'climb back down', act: () => startHouseRide(false) };
+  return null;
+}
+function collideHouse(nx, nz) {
+  if (!scrimHere()) return [nx, nz];
+  if (houseUp()) {
+    const [pu, pv] = houseLocal(player.x, player.z), [nu, nv] = houseLocal(nx, nz);
+    let u = nu, v = nv;
+    if (!onDeckOK(nu, nv)) { if (onDeckOK(nu, pv)) v = pv; else if (onDeckOK(pu, nv)) u = pu; else { u = pu; v = pv; } }
+    // keep clear of the trunk up here too
+    const d = Math.hypot(u, v), rr = 1.02 + PLAYER_R; if (d < rr) { const k = rr / Math.max(d, 1e-3); u *= k; v *= k; if (!onDeckOK(u, v)) { u = pu; v = pv; } }
+    return houseWorld(u, v);
+  }
+  // down below: don't walk through his lordship
+  const dx = nx - bouncy.x, dz = nz - bouncy.z, d = Math.hypot(dx, dz), rr = 0.45 + PLAYER_R;
+  if (d < rr) { const k = (rr - d) / Math.max(d, 1e-3); nx += dx * k; nz += dz * k; }
+  return [nx, nz];
+}
+
+/* ---------- Carlos, somehow already up there ---------- */
+function placeCarlos() {
+  if (houseState.stage === 'carlos') {
+    const [x, z] = houseWorld(2.1, 2.7); carlos.x = x; carlos.z = z; carlos.baseYaw = HOUSE.yaw + Math.PI; carlos.root.position.set(x, HOUSE.deck, z); carlos.inHouse = true;
+  } else {
+    const [x, z] = carlosWorld(0, -1.0); carlos.x = x; carlos.z = z; carlos.baseYaw = CARLOS.yaw; carlos.root.position.set(x, heightAt(x, z), z); carlos.inHouse = false;
+  }
+}
+function carlosHouseTalk() {
+  carlos.wave = 1.4; carlosSfx.hello();
+  openDialog([
+    { text: 'Hey! Chief! Welcome home! Nice place, huh? Great bones. FANTASTIC bones.' },
+    { text: 'How did I get up here before you? Ha. Haha. Great question. You’re full of great questions today.' },
+    { text: 'Let’s not get bogged down in the details. Back door, back stairs, back of the tree... the point is, I’m here. For you.' },
+    { text: 'And the REAL problem? Look at this place. Bare walls. Bare floor. Not even a chair! It’s drab, my friend. Drab, drab, DRAB.' },
+    { text: 'Lucky for you, Carlos knows a guy. The guy is me. Swing by my stall and I’ll hook you up with some primo furnishings.' },
+    { text: 'Gotta bounce! Business waits for no rabbit. Ciao!' }
+  ], () => {
+    for (let i = 0; i < 12; i++) spawnSparkle(carlos.x, HOUSE.deck + 1, carlos.z);
+    houseState.stage = 'furnish'; placeCarlos(); saveGame();
+    toast('Carlos vanished out of the door. When you look, he’s nowhere to be seen. His stall now sells furnishings!');
+  }, 'carlos');
+}
+
+/* ---------- saving and every frame ---------- */
+function houseSave() { return { stage: houseState.stage, met: houseState.met, items: HOUSE_ITEMS.filter(houseOwns) }; }
+function houseLoad(o) {
+  o = o && typeof o === 'object' ? o : {};
+  houseState.stage = HOUSE_STAGES.includes(o.stage) ? o.stage : 'locked'; houseState.met = !!o.met;
+  houseState.items = {}; (Array.isArray(o.items) ? o.items : []).forEach(id => { if (HOUSE_ITEMS.includes(id)) houseState.items[id] = true; });
+  houseRide = null; placeBouncy(); placeCarlos(); showFurnishings(); bouncy.greeted = false;
+}
+function updateHouse(dt) {
+  const here = scrimHere();
+  bouncy.root.visible = here;
+  if (houseRide) return;
+  if (!here) return;
+  const d = Math.hypot(player.x - bouncy.x, player.z - bouncy.z);
+  if (d > 60) return;
+  const up = houseUp();
+  const want = d < 12 && !up ? Math.atan2(player.x - bouncy.x, player.z - bouncy.z) - bouncy.baseYaw : 0;
+  bouncy.face += angDiff(bouncy.face, want) * Math.min(1, dt * 3);
+  bouncy.root.rotation.y = bouncy.baseYaw + bouncy.face;
+  if (!bouncy.greeted && d < 14 && playing && !up) {
+    bouncy.greeted = true; bouncy.wave = 1.6; hopSfx.hello();
+    toast(houseStageAt('carlos') ? 'Lord Bouncybun: "Welcome home, my liege!"' : 'A knight in golden armour stands proudly at the foot of an enormous treehouse...');
+  }
+  if (bouncy.wave > 0) bouncy.wave -= dt;
+  const talking = dialogOpen && dlgWho === 'bouncy';
+  bouncy.arms[0].rotation.z = bouncy.wave > 0 ? -2.6 + Math.sin(time * 9) * 0.3 : talking ? -0.9 + Math.sin(time * 6) * 0.3 : -0.25;
+  bouncy.blink -= dt; const blinking = bouncy.blink < 0.12; if (bouncy.blink < 0) bouncy.blink = 2 + Math.random() * 3;
+  bouncy.pupils.forEach(p => { p.scale.y = blinking ? 0.15 : 1; });
+  bouncy.pennant.rotation.y = Math.sin(time * 2.4) * 0.3;
+  bouncy.mark.visible = !houseStageAt('carlos') && (!houseState.met || carlosState.deed);
+  if (bouncy.mark.visible) bouncy.mark.position.y = 3.0 + Math.abs(Math.sin(time * 3)) * 0.25;
+  if (bouncy.tag) bouncy.tag.visible = d < 12 && d > 4.5 && !dialogOpen && !up;
 }
 
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
@@ -9055,6 +9457,7 @@ function tick(dt) {
   updateTeal(dt);
   updateFluff(dt);
   updateCarlos(dt);
+  updateHouse(dt);
   updateForest(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
   updateSparkles(dt);
@@ -9114,7 +9517,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
