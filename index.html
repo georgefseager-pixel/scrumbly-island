@@ -1086,14 +1086,34 @@ const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true
 
 /* ---------- Glimmerwood: a magical fairy forest ---------- */
 const forestColliders = [];                 // tree trunks and stumps you walk into
-const forestFree = (x, z, d, gap = 1.5) => d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 2 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + gap && !(gapArc(x, z) < 5 && d < 82)
+const forestFreeBase = (x, z, d, gap = 1.5) => d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 2 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + gap && !(gapArc(x, z) < 5 && d < 82);
+// the site for your treehouse, chosen with its own seeded dice before anything else is planted in the forest,
+// so it's always in the same spot and the forest grows round it: a glade under the deck, and a clear view to the beach
+const TRUNK_R = 1.3, HOUSE_WALL_H = 3.4;
+const HOUSE = (() => {
+  const r = mulberry32(31337); let best = null;
+  for (let i = 0; i < 3000 && !best; i++) {
+    const th = r() * 6.28, d = HEDGE_OUT + 16 + r() * 8, [x, z] = polar(th, d);
+    if (!forestFreeBase(x, z, d, 9) || GAP_TH.some(g => Math.abs(Math.atan2(Math.sin(g - th), Math.cos(g - th))) < 0.16)) continue;
+    best = { th, x, z };
+  }
+  if (!best) { const th = GAP_TH[0] + 0.5, [x, z] = polar(th, HEDGE_OUT + 18); best = { th, x, z }; }
+  const [ox, oz] = polar(best.th, HEDGE_OUT);
+  const yaw = Math.atan2(ox - best.x, oz - best.z), gy = heightAt(best.x, best.z);
+  return { ...best, yaw, gy, deck: gy + 10, c: Math.cos(yaw), s: Math.sin(yaw) };
+})();
+const houseWorld = (u, v) => [HOUSE.x + HOUSE.c * u + HOUSE.s * v, HOUSE.z - HOUSE.s * u + HOUSE.c * v];
+const houseLocal = (x, z) => { const dx = x - HOUSE.x, dz = z - HOUSE.z; return [HOUSE.c * dx - HOUSE.s * dz, HOUSE.s * dx + HOUSE.c * dz]; };
+const houseGlade = (x, z, pad = 0) => { const dx = x - HOUSE.x, dz = z - HOUSE.z, dd = Math.hypot(dx, dz) || 1; return dd < 12 + pad || ((dx * HOUSE.s + dz * HOUSE.c) / dd > 0.3 && dd < 26 + pad); };
+const forestFree = (x, z, d, gap = 1.5) => forestFreeBase(x, z, d, gap) && !houseGlade(x, z, Math.min(gap, 3))
   && !appleTrees.some(t => Math.abs(t.x - x) < 2.6 && Math.abs(t.z - z) < 2.6 && Math.hypot(t.x - x, t.z - z) < 2.4);   // keep apple trunks clear to climb
 const BRIDGE_TH = GAP_TH.flatMap(g => [g + 0.07, g + Math.PI / 4]);
 const bridges = [];
 function forestSpot(minGap, list, tries = 60) {
   for (let i = 0; i < tries; i++) {
     const th = rr(0, Math.PI * 2), d = rr(HEDGE_OUT + 2, FOREST_OUT - 3), [x, z] = polar(th, d);
-    if (!forestFree(x, z, d)) continue;
+    // trees, stumps and rocks keep out of the treehouse glade; flowers and toadstools can still carpet it
+    if (minGap >= 2 ? !forestFree(x, z, d) : !forestFreeBase(x, z, d) || Math.hypot(x - HOUSE.x, z - HOUSE.z) < 1.8) continue;
     if (bridges.some(b => Math.hypot(b.cx - x, b.cz - z) < b.L + 3)) continue;
     if (list.some(o => Math.hypot(o.x - x, o.z - z) < minGap)) continue;
     return { x, z, d, th };
@@ -4312,26 +4332,10 @@ function updateBlorbos(dt) {
    one, so the only time to trap it is on the way in.
    ========================================================= */
 // rabbit holes: little earthy mounds with a dark burrow mouth
-// the site for your treehouse, chosen with its own seeded dice so it's in the same spot every visit
-// (before the rabbit holes, rose patches and islanders, which all keep clear of it)
-const TRUNK_R = 1.2, HOUSE_WALL_H = 3.2;
-const HOUSE = (() => {
-  const r = mulberry32(31337); let best = null;
-  for (let i = 0; i < 3000 && !best; i++) {
-    const th = r() * 6.28, d = HEDGE_OUT + 15 + r() * 8, [x, z] = polar(th, d);
-    if (!forestFree(x, z, d, 7) || GAP_TH.some(g => Math.abs(angDiff(g, th)) < 0.12) || forestColliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 8) || appleTrees.some(t => Math.hypot(t.x - x, t.z - z) < 10)) continue;
-    best = { th, x, z };
-  }
-  if (!best) { const th = GAP_TH[0] + 0.5, [x, z] = polar(th, HEDGE_OUT + 18); best = { th, x, z }; }
-  const [ox, oz] = polar(best.th, HEDGE_OUT);
-  const yaw = Math.atan2(ox - best.x, oz - best.z), gy = heightAt(best.x, best.z);
-  return { ...best, yaw, gy, deck: gy + 6, c: Math.cos(yaw), s: Math.sin(yaw) };
-})();
-const houseWorld = (u, v) => [HOUSE.x + HOUSE.c * u + HOUSE.s * v, HOUSE.z - HOUSE.s * u + HOUSE.c * v];
-const houseLocal = (x, z) => { const dx = x - HOUSE.x, dz = z - HOUSE.z; return [HOUSE.c * dx - HOUSE.s * dz, HOUSE.s * dx + HOUSE.c * dz]; };
+// your treehouse's trunk (its site is chosen before the forest grows; see HOUSE)
 forestColliders.push({ x: HOUSE.x, z: HOUSE.z, r: TRUNK_R + 0.1 });
 // nothing else gets placed under the deck
-const underHouse = (x, z, pad = 0) => Math.hypot(x - HOUSE.x, z - HOUSE.z) < 7.5 + pad;
+const underHouse = (x, z, pad = 0) => Math.hypot(x - HOUSE.x, z - HOUSE.z) < 11 + pad;
 const rabbitHoles = [];
 {
   const parts = [];
@@ -4382,12 +4386,23 @@ function makeWillowetMesh() {
   scene.add(root);
   return { root, body, head, ears, arms, ex };
 }
-const WILLOW_COUNT = 5, WILLOW_SEE = 9, WILLOW_SPEED = 4.6;
+const WILLOW_COUNT = 5, WILLOW_SEE = 9, WILLOW_SPEED = 4.2;
+// they graze out in the clearings, well away from their burrow, so there's time to get a trap in the way
+const WILLOW_GRAZE = [9, 15];
+function willowGrazeSpot(h, near) {
+  for (let i = 0; i < 30; i++) {
+    const a = near ? Math.atan2(near.z - h.mz, near.x - h.mx) + (Math.random() - 0.5) * 1.2 : Math.random() * 6.28, r = WILLOW_GRAZE[0] + Math.random() * (WILLOW_GRAZE[1] - WILLOW_GRAZE[0]), x = h.mx + Math.cos(a) * r, z = h.mz + Math.sin(a) * r;
+    const d = inland(x, z);
+    if (d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 1.5 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + 0.5 && rabbitHoles.every(o => Math.hypot(o.mx - x, o.mz - z) > 7)) return [x, z];
+  }
+  return null;
+}
 const willowets = [];
 const nearestHole = (x, z, not) => rabbitHoles.filter(h => h !== not).reduce((b, h) => { const d = Math.hypot(h.mx - x, h.mz - z); return d < b.d ? { d, h } : b; }, { d: 1e9, h: null }).h;
 function newWillowet(i) {
   const h = rabbitHoles[(i * 3) % rabbitHoles.length];
-  const w = Object.assign(compactCreature(makeWillowetMesh()), { species: 'willowet', hole: h, x: h.mx + 2, z: h.mz, y: 0, tx: h.mx, tz: h.mz, face: Math.random() * 6.28, state: 'graze', t: 0, wait: 1, hop: 0, under: 0, calm: 0 });
+  const g0 = willowGrazeSpot(h) || [h.mx + 9, h.mz];
+  const w = Object.assign(compactCreature(makeWillowetMesh()), { species: 'willowet', hole: h, x: g0[0], z: g0[1], y: 0, tx: g0[0], tz: g0[1], face: Math.random() * 6.28, state: 'graze', t: 0, wait: 1, hop: 0, under: 0, calm: 0 });
   applySize(w, rollSize()); applyShiny(w, rollShiny());
   willowets.push(w);
   return w;
@@ -4414,8 +4429,8 @@ function updateWillowets(dt) {
       case 'graze': {
         // nibbling the clover near its burrow, hopping a few steps now and then
         const mx = w.tx - w.x, mz = w.tz - w.z, md = Math.hypot(mx, mz);
-        if (md > 0.15) { const sp = 1.2 * dt; w.x += mx / md * Math.min(sp, md); w.z += mz / md * Math.min(sp, md); w.face += angDiff(w.face, Math.atan2(mx, mz)) * Math.min(1, dt * 6); moving = 1; }
-        else { nibble = 1; w.wait -= dt; if (w.wait <= 0) { w.wait = 1.5 + Math.random() * 3; for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = 1.5 + Math.random() * 5, x = w.hole.mx + Math.cos(a) * r, z = w.hole.mz + Math.sin(a) * r; if (canWalk(x, z) && Math.abs(riverOff(x, z, inland(x, z))) > RIVER_HALF) { w.tx = x; w.tz = z; break; } } } }
+        if (md > 0.15) { const sp = (Math.hypot(w.x - w.hole.mx, w.z - w.hole.mz) < WILLOW_GRAZE[0] - 1 ? 2.8 : 1.2) * dt; w.x += mx / md * Math.min(sp, md); w.z += mz / md * Math.min(sp, md); w.face += angDiff(w.face, Math.atan2(mx, mz)) * Math.min(1, dt * 6); moving = 1; }
+        else { nibble = 1; w.wait -= dt; if (w.wait <= 0) { w.wait = 1.5 + Math.random() * 3; const g = willowGrazeSpot(w.hole, w); if (g) { w.tx = g[0]; w.tz = g[1]; } } }
         w.calm = Math.max(0, w.calm - dt);
         if (!willowHints.seen && dist < 22 && playing) { willowHints.seen = true; toast('A fluffy grey bunny is nibbling clover by a rabbit hole...'); }
         if (dist < WILLOW_SEE && w.calm <= 0 && !player.climb && playing && !knocked) willowFlee(w);
@@ -4453,7 +4468,7 @@ function updateWillowets(dt) {
       }
       case 'emerge': {
         const h = w.hole; w.under = Math.max(0, 1 - w.t / 0.5); w.x = lerp(h.x, h.mx, Math.min(1, w.t / 0.6)); w.z = lerp(h.z, h.mz, Math.min(1, w.t / 0.6)); earUp = 1;
-        if (w.t > 0.7) { w.state = 'graze'; w.t = 0; w.tx = w.x; w.tz = w.z; w.wait = 1; w.calm = 2; }
+        if (w.t > 0.7) { w.state = 'graze'; w.t = 0; const g = willowGrazeSpot(h); [w.tx, w.tz] = g || [w.x, w.z]; w.wait = 1; w.calm = 2; }
         break;
       }
       case 'trapped': { nibble = 0.5; earUp = Math.sin(w.t * 3) * 0.5; break; }
@@ -6989,14 +7004,14 @@ function debugForestSave() {
   return {
     tutorial: 'done', metProf: true, owned: { net: true, dex: true, tele: true, apple: false }, trapsOwned: 2,
     party: [pk('bobo')], box: BEACH_SPECIES.map(pk), scanned: BEACH_SPECIES, caught: BEACH_SPECIES,
-    gold: 999, scrim: { met: true, sold: 1, boardOn: true, profComplained: true, requests: [] },
+    gold: 9999, scrim: { met: true, sold: 1, boardOn: true, profComplained: true, requests: [] },
     teal: { stage: 'ranch', ambushDone: true }, forest: { open: true, hopMet: true },
     player: { x, z, yaw: Math.atan2(x, z), pitch: -0.05 }, inv: { rocks: 0, traps: 2, apples: 0 }, music: musicOn
   };
 }
 function skipToForest() {
   applySnapshot(debugForestSave()); fillRequests(); beginGame();
-  toast('Debug: skipped to Glimmerwood. Beach done, 999 gold, one of every beach scrumbly in your Box.');
+  toast('Debug: skipped to Glimmerwood. Beach done, 9999 gold, one of every beach scrumbly in your Box.');
 }
 skipForest.addEventListener('click', () => {
   if (readSave(SAVE_KEY) && !skipArmed) { skipArmed = true; skipForest.textContent = 'Replace the autosave? Click again'; return; }
@@ -9045,9 +9060,13 @@ const houseState = { stage: 'locked', met: false, items: {} };
 const houseOwns = id => !!houseState.items[id];
 
 // where you can stand up top: the room, the porch, and the doorway between them
-const ROOM = { u: 3.75, v0: -3.75, v1: 3.2 }, PORCH = { u: 4.3, v0: 3.85, v1: 5.3 };
-const onDeckOK = (u, v) => (Math.abs(u) <= ROOM.u && v >= ROOM.v0 && v <= ROOM.v1) || (Math.abs(u) <= PORCH.u && v >= PORCH.v0 && v <= PORCH.v1) || (Math.abs(u) <= 0.6 && v >= ROOM.v1 - 0.1 && v <= PORCH.v0 + 0.1);
-const inDeckFootprint = (u, v) => Math.abs(u) <= 4.7 && v >= -4.7 && v <= 5.7;
+// the layout up top (local u across, v towards the door): a 10 x 9 m room round the trunk,
+// with a balcony running all the way round it
+const HW = { u: 5, v0: -5, v1: 4 }, DECK = { u: 7, v0: -7, v1: 6.5 };
+const inRoom = (u, v) => Math.abs(u) <= HW.u - 0.45 && v >= HW.v0 + 0.45 && v <= HW.v1 - 0.45;
+const inBalcony = (u, v) => Math.abs(u) <= DECK.u - 0.45 && v >= DECK.v0 + 0.45 && v <= DECK.v1 - 0.45 && !(Math.abs(u) < HW.u + 0.45 && v > HW.v0 - 0.45 && v < HW.v1 + 0.45);
+const onDeckOK = (u, v) => inRoom(u, v) || inBalcony(u, v) || (Math.abs(u) <= 0.6 && v >= HW.v1 - 0.6 && v <= HW.v1 + 0.6);
+const inDeckFootprint = (u, v) => Math.abs(u) <= DECK.u + 0.2 && v >= DECK.v0 - 0.2 && v <= DECK.v1 + 0.2;
 function houseUp() { if (!scrimHere()) return false; const [u, v] = houseLocal(player.x, player.z); return player.y > HOUSE.deck - 1.5 && inDeckFootprint(u, v); }
 function houseFloorAt(x, z, y) { if (y === undefined || y < HOUSE.deck - 1.5) return null; const [u, v] = houseLocal(x, z); return inDeckFootprint(u, v) ? HOUSE.deck : null; }
 
@@ -9055,53 +9074,97 @@ function houseFloorAt(x, z, y) { if (y === undefined || y < HOUSE.deck - 1.5) re
 const treehouse = (() => {
   const root = new THREE.Group(); root.position.set(HOUSE.x, HOUSE.gy, HOUSE.z); root.rotation.y = HOUSE.yaw; scene.add(root); root.updateMatrixWorld(true);
   const bark = new THREE.MeshLambertMaterial({ color: 0x7a5233, emissive: 0x1a0e04 }), barkD = lam(0x5e3e24);
-  const plank = new THREE.MeshLambertMaterial({ color: 0xc89660, emissive: 0x241608 }), plankD = lam(0xa87a48), roofM = new THREE.MeshLambertMaterial({ color: 0xd8566e, emissive: 0x2a0a10 });
-  const D = 6, add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = root) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
-  // a huge old oak trunk with flared roots, all the way up through the roof
-  add(new THREE.CylinderGeometry(1.0, TRUNK_R, 13, 16), bark, 0, 6.5, 0);
-  for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.3, r = add(new THREE.CylinderGeometry(0.25, 0.55, 2.2, 7), bark, Math.cos(a) * 1.25, 0.6, Math.sin(a) * 1.25); r.rotation.set(Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9); }
-  for (let k = 0; k < 10; k++) { const a = k * 2.4, y = 1 + k * 1.1; add(new THREE.BoxGeometry(0.08, 0.5 + (k % 3) * 0.3, 0.08), barkD, Math.cos(a) * 1.13, y, Math.sin(a) * 1.13).rotation.y = -a; }
-  // branches and a big leafy crown above the roof, dotted with pink blossom
-  [[2.6, 10.5, 1.4], [-2.8, 11, -0.8], [0.6, 11.5, -2.8], [-1, 10.2, 2.6]].forEach(([x, y, z]) => { const b = add(new THREE.CylinderGeometry(0.18, 0.35, 4, 7), bark, x * 0.5, y, z * 0.5); b.lookAt(new THREE.Vector3(x, y + 1.5, z).applyMatrix4(root.matrixWorld)); b.rotateX(Math.PI / 2); });
+  const plank = new THREE.MeshLambertMaterial({ color: 0xd6a46c, emissive: 0x241608 }), plankD = lam(0xa87a48), plankL = lam(0xe8bf88), trim = lam(0xfff6ee);
+  const roofM = new THREE.MeshLambertMaterial({ color: 0xd8566e, emissive: 0x2a0a10 }), roofD = lam(0xb23d56);
+  const D = HOUSE.deck - HOUSE.gy, W = HOUSE_WALL_H, add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = root) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  const toward = (o, x, y, z) => { o.lookAt(new THREE.Vector3(x, y, z).applyMatrix4(root.matrixWorld)); o.rotateX(Math.PI / 2); return o; };
+  const ground = (u, v) => { const [x, z] = houseWorld(u, v); return heightAt(x, z) - HOUSE.gy; };
+  // a huge old oak, flared roots, up through the roof into a big leafy crown
+  add(new THREE.CylinderGeometry(0.95, 1.3, D + 8.5, 18), bark, 0, (D + 8.5) / 2, 0);
+  for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28 + 0.3, r = add(new THREE.CylinderGeometry(0.25, 0.6, 2.6, 7), bark, Math.cos(a) * 1.4, 0.6, Math.sin(a) * 1.4); r.rotation.set(Math.sin(a) * 0.95, 0, -Math.cos(a) * 0.95); }
+  for (let k = 0; k < 14; k++) { const a = k * 2.4, y = 1 + k * 0.7; add(new THREE.BoxGeometry(0.08, 0.5 + (k % 3) * 0.3, 0.08), barkD, Math.cos(a) * 1.22, y, Math.sin(a) * 1.22).rotation.y = -a; }
+  [[3.4, D + 7, 1.8], [-3.6, D + 7.4, -1], [0.8, D + 7.8, -3.6], [-1.4, D + 6.8, 3.4], [3, D + 7.6, -2.6]].forEach(([x, y, z]) => toward(add(new THREE.CylinderGeometry(0.2, 0.4, 5, 7), bark, x * 0.5, y, z * 0.5), x, y + 2, z));
   const leaf = [0x4fb56a, 0x5cc277, 0x45a862, 0x63c879];
-  [[0, 14, 0, 4.2], [3.4, 12.6, 1.6, 3.0], [-3.4, 12.8, -1.2, 3.1], [1, 13, -3.4, 3.0], [-1.4, 12.4, 3.4, 2.9], [0, 16, 0, 2.8]].forEach(([x, y, z, r], k) => add(new THREE.IcosahedronGeometry(r, 1), new THREE.MeshLambertMaterial({ color: leaf[k % 4] }), x, y, z));
-  for (let k = 0; k < 26; k++) { const a = k * 2.39, e = (k % 6) / 6; add(new THREE.SphereGeometry(0.22, 6, 4), lam(k % 3 ? 0xffc6e0 : 0xffffff), Math.cos(a) * 4.4 * (1 - e * 0.35), 12.6 + e * 3.6, Math.sin(a) * 4.4 * (1 - e * 0.35)); }
-  // the deck, on beams and diagonal braces
-  add(new THREE.BoxGeometry(9.4, 0.3, 10.4), plank, 0, D - 0.15, 0.5);
-  for (let k = 0; k < 10; k++) add(new THREE.BoxGeometry(9.42, 0.02, 0.04), plankD, 0, D + 0.005, -4.6 + k * 1.04);
-  [[-4.4, -4.4], [4.4, -4.4], [-4.4, 5.4], [4.4, 5.4]].forEach(([u, v]) => { add(new THREE.BoxGeometry(0.3, 0.3, 0.3), plankD, u, D - 0.4, v); const br = add(new THREE.CylinderGeometry(0.12, 0.14, 2 * Math.hypot(Math.hypot(u, v) / 2, 1.9), 6), barkD, u * 0.5, D - 2.2, v * 0.5); br.lookAt(new THREE.Vector3(u, D - 0.3, v).applyMatrix4(root.matrixWorld)); br.rotateX(Math.PI / 2); });
-  // walls (a doorway in the front), round windows, and a peaked pink roof
-  const W = HOUSE_WALL_H;
-  add(new THREE.BoxGeometry(8.2, W, 0.2), plank, 0, D + W / 2, -4.0);
-  [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.2, W, 7.7), plank, s * 4.0, D + W / 2, -0.25));
-  [-1, 1].forEach(s => add(new THREE.BoxGeometry(3.3, W, 0.2), plank, s * 2.45, D + W / 2, 3.5));
-  add(new THREE.BoxGeometry(1.6, W - 2.3, 0.2), plank, 0, D + 2.3 + (W - 2.3) / 2, 3.5);
-  for (let k = 0; k < 7; k++) { const y = D + 0.25 + k * 0.45; add(new THREE.BoxGeometry(8.24, 0.03, 0.24), plankD, 0, y, -4.0); [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.24, 0.03, 7.74), plankD, s * 4.0, y, -0.25)); }
-  // round windows, inside and out ([u, v, outward normal])
-  [[-4.0, -2.0, -1, 0], [4.0, -2.0, 1, 0], [0, -4.0, 0, -1]].forEach(([u, v, nu, nv]) => [-1, 1].forEach(sd => {
-    const x = u + nu * 0.11 * sd, z = v + nv * 0.11 * sd, ry = Math.atan2(nu * sd, nv * sd);
-    const glass = new THREE.Mesh(new THREE.CircleGeometry(0.42, 18), new THREE.MeshBasicMaterial({ color: 0xbfe8ff }));
-    glass.position.set(x, D + 2.0, z); glass.rotation.y = ry; root.add(glass);
-    add(new THREE.TorusGeometry(0.45, 0.07, 6, 20), lam(0xffffff), x, D + 2.0, z).rotation.y = ry;
-  }));
-  const roof = add(new THREE.ConeGeometry(6.4, 2.8, 4, 1, true), roofM, 0, D + W + 1.4, -0.25); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 1.05);
-  roof.material = new THREE.MeshLambertMaterial({ color: 0xd8566e, emissive: 0x2a0a10, side: THREE.DoubleSide });
-  add(new THREE.BoxGeometry(8.6, 0.12, 8.4), plankD, 0, D + W + 0.02, -0.25);   // the ceiling
-  // porch railing (gap at the front for nothing: it's just for leaning on)
-  for (let k = 0; k <= 8; k++) add(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6), plankD, -4.5 + k * 1.125, D + 0.5, 5.55);
-  [-1, 1].forEach(s => { for (let k = 0; k < 2; k++) add(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6), plankD, s * 4.55, D + 0.5, 4.1 + k * 0.75); add(new THREE.BoxGeometry(0.1, 0.08, 2.0), plank, s * 4.55, D + 1.0, 4.6); });
-  add(new THREE.BoxGeometry(9.2, 0.08, 0.1), plank, 0, D + 1.0, 5.55);
-  // a ladder nailed up the front of the trunk, through a trapdoor in the floor
+  [[0, D + 10.5, 0, 5.2], [4.4, D + 9, 2, 3.6], [-4.4, D + 9.2, -1.4, 3.8], [1.2, D + 9.4, -4.4, 3.6], [-1.8, D + 8.8, 4.2, 3.4], [3.6, D + 9.8, -3, 3.2], [0, D + 13, 0, 3.4]].forEach(([x, y, z, r], k) => add(new THREE.IcosahedronGeometry(r, 1), lam(leaf[k % 4]), x, y, z));
+  for (let k = 0; k < 40; k++) { const a = k * 2.39, e = (k % 7) / 7; add(new THREE.SphereGeometry(0.25, 6, 4), lam(k % 3 ? 0xffc6e0 : 0xffffff), Math.cos(a) * 5.6 * (1 - e * 0.35), D + 8.6 + e * 4.4, Math.sin(a) * 5.6 * (1 - e * 0.35)); }
+  // the deck: planks on joists, held up by the trunk, braces and four stilts
+  const dv = (DECK.v0 + DECK.v1) / 2, dl = DECK.v1 - DECK.v0;
+  add(new THREE.BoxGeometry(DECK.u * 2, 0.3, dl), plank, 0, D - 0.15, dv);
+  for (let k = 0; k <= Math.floor(dl / 0.7); k++) add(new THREE.BoxGeometry(DECK.u * 2 + 0.02, 0.02, 0.05), plankD, 0, D + 0.005, DECK.v0 + k * 0.7);
+  [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.25, 0.4, dl), plankD, s * (DECK.u - 0.1), D - 0.45, dv));
+  [[-DECK.u + 0.3, DECK.v0 + 0.3], [DECK.u - 0.3, DECK.v0 + 0.3], [-DECK.u + 0.3, DECK.v1 - 0.3], [DECK.u - 0.3, DECK.v1 - 0.3]].forEach(([u, v]) => {
+    const g = ground(u, v) - 0.4, h = D - g;
+    add(new THREE.CylinderGeometry(0.2, 0.26, h, 8), barkD, u, g + h / 2, v);
+    toward(add(new THREE.CylinderGeometry(0.12, 0.14, 2 * Math.hypot(Math.hypot(u, v) / 2, 2.4), 6), barkD, u * 0.5, D - 2.8, v * 0.5), u, D - 0.3, v);
+  });
+  // walls with real window openings (so you can see out), white trim and flower boxes
+  const wall = (along, fixed, from, to, holes, inward) => {
+    // along: 'u' (front/back walls) or 'v' (side walls); holes: [centre, width, sill, top]
+    const piece = (a0, a1, y0, y1) => { if (a1 - a0 < 0.01 || y1 - y0 < 0.01) return; const c = (a0 + a1) / 2, len = a1 - a0, h = y1 - y0; along === 'u' ? add(new THREE.BoxGeometry(len, h, 0.2), plank, c, D + y0 + h / 2, fixed) : add(new THREE.BoxGeometry(0.2, h, len), plank, fixed, D + y0 + h / 2, c); };
+    let a = from;
+    holes.sort((p, q) => p[0] - q[0]).forEach(([c, w, y0, y1]) => {
+      piece(a, c - w / 2, 0, W); piece(c - w / 2, c + w / 2, 0, y0); piece(c - w / 2, c + w / 2, y1, W); a = c + w / 2;
+      // trim round the opening, a sill, and (for windows) a flower box outside
+      const frame = (l, h, x, y) => along === 'u' ? add(new THREE.BoxGeometry(l, h, 0.26), trim, x, D + y, fixed) : add(new THREE.BoxGeometry(0.26, h, l), trim, fixed, D + y, x);
+      frame(w + 0.24, 0.12, c, y1 + 0.06); [-1, 1].forEach(s => frame(0.12, y1 - y0, c + s * (w / 2 + 0.06), (y0 + y1) / 2));
+      if (y0 > 0.1) {
+        frame(w + 0.3, 0.08, c, y0 - 0.04);
+        const out = -inward * 0.28, bx = along === 'u' ? c : fixed + out, bz = along === 'u' ? fixed + out : c;
+        add(along === 'u' ? new THREE.BoxGeometry(w, 0.22, 0.3) : new THREE.BoxGeometry(0.3, 0.22, w), lam(0x8fd48a), bx, D + y0 - 0.2, bz);
+        for (let k = 0; k < 5; k++) { const t = (k + 0.5) / 5 - 0.5; add(new THREE.SphereGeometry(0.09, 6, 4), lam([0xff6fa5, 0xffd23f, 0xffffff, 0xb58be6, 0xff9cc0][k]), along === 'u' ? c + t * w : bx, D + y0 - 0.02, along === 'u' ? bz : c + t * w); }
+      }
+    });
+    piece(a, to, 0, W);
+  };
+  wall('u', HW.v0, -HW.u - 0.1, HW.u + 0.1, [[0, 2.0, 1.0, 2.5]], 1);
+  wall('u', HW.v1, -HW.u - 0.1, HW.u + 0.1, [[0, 1.3, 0, 2.5], [-3.0, 1.6, 1.0, 2.5], [3.0, 1.6, 1.0, 2.5]], -1);
+  [-1, 1].forEach(s => wall('v', s * HW.u, HW.v0, HW.v1, [[-2.6, 1.8, 1.0, 2.5], [1.6, 1.8, 1.0, 2.5]], -s));
+  // skirting and corner posts
+  [-1, 1].forEach(s => [HW.v0, HW.v1].forEach(v => add(new THREE.BoxGeometry(0.34, W + 0.1, 0.34), plankD, s * HW.u, D + W / 2, v)));
+  // an open door, swung inwards
+  const door = new THREE.Group(); door.position.set(-0.65, D, HW.v1 - 0.1); door.rotation.y = -1.9; root.add(door);
+  add(new THREE.BoxGeometry(1.25, 2.45, 0.08), lam(0x8a5a33), 0.62, 1.23, 0, 1, 1, 1, door);
+  add(new THREE.SphereGeometry(0.05, 8, 6), lam(0xf2c230), 1.1, 1.15, 0.06, 1, 1, 1, door);
+  add(new THREE.CircleGeometry(0.22, 16), lam(0xbfe8ff), 0.62, 1.85, 0.045, 1, 1, 1, door);
+  // a gable roof with a deep overhang, a ridge beam and a chimney
+  const run = HW.u + 0.9, rise = 2.6, slope = Math.atan2(rise, run), rl = Math.hypot(run, rise), rlen = (HW.v1 - HW.v0) + 1.8, rv = (HW.v0 + HW.v1) / 2;
+  [-1, 1].forEach(s => { const r = add(new THREE.BoxGeometry(rl, 0.2, rlen), roofM, s * run / 2, D + W + rise / 2 + 0.1, rv); r.rotation.z = -s * slope; });
+  for (let k = 0; k < 9; k++) [-1, 1].forEach(s => { const r = add(new THREE.BoxGeometry(rl, 0.06, 0.08), roofD, s * run / 2, D + W + rise / 2 + 0.22, HW.v0 - 0.8 + k * (rlen - 0.2) / 8); r.rotation.z = -s * slope; });
+  add(new THREE.BoxGeometry(0.3, 0.3, rlen + 0.1), roofD, 0, D + W + rise + 0.1, rv);
+  const gable = new THREE.Shape(); gable.moveTo(-HW.u - 0.1, 0); gable.lineTo(HW.u + 0.1, 0); gable.lineTo(0, rise * (HW.u + 0.1) / run); gable.lineTo(-HW.u - 0.1, 0);
+  [HW.v0 - 0.1, HW.v1 - 0.1].forEach(v => add(new THREE.ExtrudeGeometry(gable, { depth: 0.2, bevelEnabled: false }), plank, 0, D + W, v));
+  [HW.v0 - 0.12, HW.v1 + 0.12].forEach(v => { const r = add(new THREE.CircleGeometry(0.4, 18), lam(0xbfe8ff), 0, D + W + 1.0, v); r.rotation.y = v < 0 ? Math.PI : 0; add(new THREE.TorusGeometry(0.42, 0.06, 6, 20), trim, 0, D + W + 1.0, v); });
+  add(new THREE.BoxGeometry(0.6, 1.6, 0.6), lam(0xb85a3c), 3.2, D + W + 2.0, -2.4); add(new THREE.BoxGeometry(0.72, 0.15, 0.72), lam(0x8a3f2a), 3.2, D + W + 2.8, -2.4);
+  // ceiling beams and two hanging lanterns
+  [-2.6, 0, 2.6].forEach(v => add(new THREE.BoxGeometry(HW.u * 2, 0.16, 0.16), plankD, 0, D + W, v));
+  [[-2.4, 1.6], [2.4, -1.4]].forEach(([u, v]) => { add(new THREE.CylinderGeometry(0.01, 0.01, 0.7, 4), lam(0x4a5060), u, D + W - 0.35, v); add(new THREE.SphereGeometry(0.17, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), u, D + W - 0.8, v); add(new THREE.CylinderGeometry(0.12, 0.2, 0.1, 10), lam(0x4a5060), u, D + W - 0.62, v); });
+  // the balcony railing, all the way round, strung with fairy lights
+  const rail = (x0, z0, x1, z1) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(len / 1.1)), ang = Math.atan2(x1 - x0, z1 - z0);
+    for (let k = 0; k <= n; k++) add(new THREE.BoxGeometry(0.1, 1.0, 0.1), plankD, lerp(x0, x1, k / n), D + 0.5, lerp(z0, z1, k / n));
+    add(new THREE.BoxGeometry(0.12, 0.08, len + 0.1), plankL, (x0 + x1) / 2, D + 1.02, (z0 + z1) / 2).rotation.y = ang;
+    add(new THREE.BoxGeometry(0.05, 0.05, len), plankD, (x0 + x1) / 2, D + 0.55, (z0 + z1) / 2).rotation.y = ang;
+    for (let k = 0; k < n * 2; k++) { const t = (k + 0.5) / (n * 2); add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: [0xffe27a, 0xff9cc0, 0x9ef0ff, 0xc8ffb0][k % 4] }), lerp(x0, x1, t), D + 0.98 - Math.sin(t * n * Math.PI) ** 2 * 0.12, lerp(z0, z1, t)); }
+  };
+  const ru = DECK.u - 0.08, r0 = DECK.v0 + 0.08, r1 = DECK.v1 - 0.08;
+  rail(-ru, r0, ru, r0); rail(-ru, r1, ru, r1); rail(-ru, r0, -ru, r1); rail(ru, r0, ru, r1);
+  // a brass telescope on the front balcony, pointed at the beach, and a bench to sit and look
+  const scope = new THREE.Group(); scope.position.set(4.6, D, 5.6); root.add(scope);
+  [-1, 0, 1].forEach(k => { const l = add(new THREE.CylinderGeometry(0.025, 0.025, 1.1, 5), plankD, Math.sin(k * 2.1) * 0.22, 0.5, Math.cos(k * 2.1) * 0.22, 1, 1, 1, scope); l.rotation.set(Math.cos(k * 2.1) * 0.35, 0, -Math.sin(k * 2.1) * 0.35); });
+  const tube = add(new THREE.CylinderGeometry(0.07, 0.11, 1.0, 12), lam(0xd9a83a), 0, 1.15, 0.15, 1, 1, 1, scope); tube.rotation.x = 1.25;
+  add(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 12), lam(0x8a5a33), 0, 1.31, 0.62, 1, 1, 1, scope).rotation.x = 1.25;
+  add(new THREE.BoxGeometry(2.2, 0.1, 0.5), plankL, -3.6, D + 0.48, 5.6); [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.1, 0.45, 0.45), plankD, -3.6 + s * 0.95, D + 0.23, 5.6));
+  add(new THREE.BoxGeometry(2.2, 0.5, 0.08), plankL, -3.6, D + 0.8, 5.85);
+  // potted plants at the balcony corners
+  [[-6.3, -6.3], [6.3, -6.3], [-6.3, 5.8], [6.3, 5.8]].forEach(([u, v]) => { add(new THREE.CylinderGeometry(0.3, 0.22, 0.45, 12), lam(0xe88a5a), u, D + 0.23, v); add(new THREE.IcosahedronGeometry(0.42, 0), lam(0x5cc277), u, D + 0.75, v); });
+  // the ladder, up the front of the trunk through a trapdoor in the floor
   [-0.32, 0.32].forEach(u => add(new THREE.BoxGeometry(0.08, D + 0.4, 0.08), plankD, u, (D + 0.4) / 2, TRUNK_R + 0.12));
-  for (let k = 0; k < 14; k++) add(new THREE.BoxGeometry(0.72, 0.06, 0.07), plank, 0, 0.35 + k * 0.43, TRUNK_R + 0.14);
-  add(new THREE.BoxGeometry(0.9, 0.04, 0.9), lam(0x5e3e24), 0, D + 0.01, 1.65);   // the trapdoor
-  add(new THREE.TorusGeometry(0.08, 0.02, 6, 12), lam(0x9aa6b8), 0, D + 0.04, 1.95).rotation.x = Math.PI / 2;
-  // a hanging lantern and a lonely crate: rather drab, really
-  add(new THREE.CylinderGeometry(0.01, 0.01, 0.6, 4), lam(0x4a5060), 2.2, D + W - 0.3, 0.6);
-  add(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), 2.2, D + W - 0.7, 0.6);
-  add(new THREE.BoxGeometry(0.7, 0.6, 0.7), plankD, -3.1, D + 0.3, 2.5).rotation.y = 0.3;
-  // a doormat and a little nameplate by the door
-  add(new THREE.BoxGeometry(1.2, 0.03, 0.7), lam(0xd8566e), 0, D + 0.02, 4.3);
+  for (let k = 0; k < Math.floor(D / 0.43); k++) add(new THREE.BoxGeometry(0.72, 0.06, 0.07), plankL, 0, 0.35 + k * 0.43, TRUNK_R + 0.14);
+  add(new THREE.BoxGeometry(0.95, 0.04, 0.95), lam(0x5e3e24), 0, D + 0.01, 1.65);
+  add(new THREE.TorusGeometry(0.08, 0.02, 6, 12), lam(0x9aa6b8), 0, D + 0.04, 1.98).rotation.x = Math.PI / 2;
+  // a lonely crate by the door: rather drab, really
+  add(new THREE.BoxGeometry(0.7, 0.6, 0.7), plankD, -4.0, D + 0.3, 3.0).rotation.y = 0.3;
+  add(new THREE.BoxGeometry(1.3, 0.03, 0.75), lam(0xd8566e), 0, D + 0.02, HW.v1 + 0.6);    // a doormat
   root.traverse(o => { if (o.isMesh) o.castShadow = o.position.y < D - 0.1 || o.position.y > D + W + 0.5; });
   return root;
 })();
@@ -9111,31 +9174,56 @@ compactCreature({ root: treehouse });
 const houseFurn = {};
 const furnGroup = id => { const g = new THREE.Group(); g.position.set(HOUSE.x, HOUSE.deck, HOUSE.z); g.rotation.y = HOUSE.yaw; g.visible = false; scene.add(g); houseFurn[id] = g; return g; };
 {
-  // the furniture kit: a bed with a patchwork quilt, a round table and two chairs, a rug
-  const g = furnGroup('furn'), wood = lam(0xa8703c), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
-  add(new THREE.BoxGeometry(1.5, 0.4, 2.3), wood, -2.75, 0.25, -2.6);
-  add(new THREE.BoxGeometry(1.5, 0.9, 0.12), wood, -2.75, 0.5, -3.75);
-  add(new THREE.BoxGeometry(1.36, 0.22, 2.1), lam(0xfff6ee), -2.75, 0.55, -2.55);
-  add(new THREE.BoxGeometry(1.0, 0.18, 0.45), lam(0xffffff), -2.75, 0.72, -3.35);
-  [0xff8ab8, 0xffd23f, 0x7fd8c8, 0xb58be6].forEach((c, k) => add(new THREE.BoxGeometry(0.69, 0.08, 0.7), lam(c), -2.75 + (k % 2 ? 0.34 : -0.34), 0.68, -2.25 + (k > 1 ? 0.7 : 0)));
-  add(new THREE.CylinderGeometry(0.75, 0.75, 0.08, 20), wood, 2.5, 0.78, -2.3);
-  add(new THREE.CylinderGeometry(0.1, 0.18, 0.75, 8), wood, 2.5, 0.38, -2.3);
-  add(new THREE.CylinderGeometry(0.06, 0.06, 0.14, 8), lam(0xffffff), 2.4, 0.89, -2.25);
-  add(new THREE.SphereGeometry(0.09, 8, 6), lam(0xff6fa5), 2.4, 1.0, -2.25);
+  // the furniture kit: a four-poster bed with a patchwork quilt and a bedside lamp, a round table
+  // with a cloth and teapot, two cushioned chairs, a bookshelf, a rug and a plant
+  const g = furnGroup('furn'), wood = lam(0xa8703c), woodD = lam(0x8a5a33), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
+  const bx = -3.5, bz = -3.55;
+  add(new THREE.BoxGeometry(1.7, 0.35, 2.4), wood, bx, 0.3, bz);
+  [[-0.8, -1.15], [0.8, -1.15], [-0.8, 1.15], [0.8, 1.15]].forEach(([a, b]) => add(new THREE.CylinderGeometry(0.06, 0.06, b < 0 ? 1.7 : 1.0, 8), woodD, bx + a, b < 0 ? 0.85 : 0.5, bz + b));
+  add(new THREE.BoxGeometry(1.66, 0.8, 0.08), wood, bx, 0.95, bz - 1.15);
+  const heart = new THREE.Shape(); heart.moveTo(0, -0.18); heart.bezierCurveTo(-0.3, 0.02, -0.18, 0.24, 0, 0.1); heart.bezierCurveTo(0.18, 0.24, 0.3, 0.02, 0, -0.18);
+  add(new THREE.ExtrudeGeometry(heart, { depth: 0.04, bevelEnabled: false }), lam(0xff6fa5), bx, 1.05, bz - 1.1);
+  add(new THREE.BoxGeometry(1.56, 0.22, 2.2), lam(0xfff6ee), bx, 0.58, bz + 0.05);
+  [-0.38, 0.38].forEach(a => add(new THREE.BoxGeometry(0.62, 0.16, 0.38), lam(0xffffff), bx + a, 0.76, bz - 0.8));
+  [0xff8ab8, 0xffd23f, 0x7fd8c8, 0xb58be6, 0xffb36b, 0x9ef0a8].forEach((c, k) => add(new THREE.BoxGeometry(0.53, 0.08, 0.5), lam(c), bx - 0.53 + (k % 3) * 0.53, 0.72, bz - 0.15 + Math.floor(k / 3) * 0.52));
+  add(new THREE.BoxGeometry(1.6, 0.05, 0.12), lam(0xffffff), bx, 0.76, bz - 0.43);
+  // bedside table and lamp
+  add(new THREE.BoxGeometry(0.6, 0.6, 0.55), wood, bx + 1.35, 0.3, bz - 0.85);
+  add(new THREE.CylinderGeometry(0.06, 0.1, 0.32, 10), lam(0xffffff), bx + 1.35, 0.76, bz - 0.85);
+  add(new THREE.CylinderGeometry(0.14, 0.22, 0.24, 12), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), bx + 1.35, 1.02, bz - 0.85);
+  // round table with a gingham cloth, a teapot and a vase, and two chairs
+  const tx = 3.3, tz = -3.2;
+  add(new THREE.CylinderGeometry(0.8, 0.8, 0.07, 22), wood, tx, 0.8, tz);
+  add(new THREE.CylinderGeometry(0.86, 0.95, 0.24, 22), lam(0xffe1ec), tx, 0.7, tz);
+  add(new THREE.CylinderGeometry(0.1, 0.2, 0.78, 10), wood, tx, 0.39, tz);
+  add(new THREE.SphereGeometry(0.15, 12, 10), lam(0x7fd8c8), tx + 0.25, 0.95, tz + 0.1, 1, 0.8, 1);
+  add(new THREE.CylinderGeometry(0.02, 0.03, 0.14, 6), lam(0x7fd8c8), tx + 0.42, 0.98, tz + 0.1).rotation.z = -0.9;
+  add(new THREE.CylinderGeometry(0.06, 0.05, 0.16, 8), lam(0xffffff), tx - 0.25, 0.92, tz - 0.15);
+  add(new THREE.SphereGeometry(0.08, 8, 6), lam(0xff6fa5), tx - 0.25, 1.06, tz - 0.15);
   [-1, 1].forEach(s => {
-    const cx = 2.5 + s * 1.15;
-    add(new THREE.BoxGeometry(0.55, 0.08, 0.55), wood, cx, 0.48, -2.3);
-    [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]].forEach(([a, b]) => add(new THREE.BoxGeometry(0.06, 0.48, 0.06), wood, cx + a, 0.24, -2.3 + b));
-    add(new THREE.BoxGeometry(0.08, 0.6, 0.55), wood, cx + s * 0.25, 0.8, -2.3);
-    add(new THREE.BoxGeometry(0.5, 0.06, 0.5), lam(0xff8ab8), cx, 0.54, -2.3);
+    const cx = tx + s * 1.15;
+    add(new THREE.BoxGeometry(0.58, 0.08, 0.58), wood, cx, 0.48, tz);
+    [[-0.23, -0.23], [0.23, -0.23], [-0.23, 0.23], [0.23, 0.23]].forEach(([a, b]) => add(new THREE.CylinderGeometry(0.03, 0.03, 0.48, 6), woodD, cx + a, 0.24, tz + b));
+    add(new THREE.BoxGeometry(0.08, 0.62, 0.56), wood, cx + s * 0.26, 0.82, tz);
+    add(new THREE.BoxGeometry(0.52, 0.07, 0.52), lam(0xff8ab8), cx, 0.55, tz);
   });
-  add(new THREE.CylinderGeometry(1.6, 1.6, 0.02, 28), lam(0x7fd8c8), 0.3, 0.02, 2.25, 1, 1, 0.6);
+  // a bookshelf of colourful books, by the right-hand wall
+  add(new THREE.BoxGeometry(0.4, 1.9, 1.3), wood, 4.65, 0.95, 3.0);
+  for (let r = 0; r < 4; r++) {
+    add(new THREE.BoxGeometry(0.42, 0.05, 1.22), woodD, 4.62, 0.12 + r * 0.46, 3.0);
+    for (let k = 0; k < 7; k++) { const h = 0.26 + ((k * 7 + r * 3) % 5) * 0.03; add(new THREE.BoxGeometry(0.28, h, 0.12), lam([0xe8384f, 0xffd23f, 0x3fb56a, 0x5ab4f0, 0xb58be6, 0xff8ab8, 0xffb36b][(k + r) % 7]), 4.5, 0.15 + r * 0.46 + h / 2, 2.5 + k * 0.165).rotation.x = (k === 6 && r % 2) ? 0.25 : 0; }
+  }
+  // a big round rug by the bed, and a potted plant
+  add(new THREE.CylinderGeometry(1.4, 1.4, 0.02, 28), lam(0x7fd8c8), -1.9, 0.02, -1.6, 1, 1, 0.75);
+  add(new THREE.TorusGeometry(1.3, 0.04, 6, 32), lam(0xffffff), -1.9, 0.03, -1.6, 1, 0.75, 1).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.28, 0.2, 0.42, 12), lam(0xe88a5a), 4.3, 0.21, -1.6);
+  add(new THREE.IcosahedronGeometry(0.4, 0), lam(0x4fb56a), 4.3, 0.7, -1.6); add(new THREE.IcosahedronGeometry(0.28, 0), lam(0x63c879), 4.25, 1.02, -1.55);
 }
 {
-  // the poster pack: scrumbly posters on every wall
+  // the poster pack: scrumbly posters on the walls between the windows
   const g = furnGroup('posters');
-  const posters = [['bobo', 0xffe1ec, -1.6, -3.88, 0], ['beeappy', 0xfff3b8, 1.6, -3.88, 0], ['glimmery', 0xe8dcff, -3.88, -0.5, Math.PI / 2], ['raebit', 0xdff6e0, 3.88, -0.6, -Math.PI / 2], ['speshul', 0xe0f2ff, -3.88, 2.4, Math.PI / 2], ['froggle', 0xe8f8c8, 3.88, 2.5, -Math.PI / 2], ['bink', 0xffe1ec, 1.9, 3.38, Math.PI]];
-  posters.forEach(([sp, bg, u, v, ry]) => {
+  const posters = [['bobo', 0xffe1ec, -3.5, HW.v0 + 0.12, 0, 2.2], ['beeappy', 0xfff3b8, 3.3, HW.v0 + 0.12, 0, 1.9], ['glimmery', 0xe8dcff, -HW.u + 0.12, 3.2, Math.PI / 2, 1.75], ['raebit', 0xdff6e0, HW.u - 0.12, -4.2, -Math.PI / 2, 1.9], ['speshul', 0xe0f2ff, -HW.u + 0.12, -4.2, Math.PI / 2, 2.0], ['froggle', 0xe8f8c8, 1.55, HW.v1 - 0.12, Math.PI, 1.75], ['bink', 0xffe1ec, -4.4, HW.v1 - 0.12, Math.PI, 1.9]];
+  posters.forEach(([sp, bg, u, v, ry, y]) => {
     const c = document.createElement('canvas'); c.width = 256; c.height = 320; const x = c.getContext('2d');
     x.fillStyle = '#' + bg.toString(16).padStart(6, '0'); x.fillRect(0, 0, 256, 320);
     x.strokeStyle = '#ffffff'; x.lineWidth = 14; x.strokeRect(7, 7, 242, 306);
@@ -9144,34 +9232,37 @@ const furnGroup = id => { const g = new THREE.Group(); g.position.set(HOUSE.x, H
     const tex = new THREE.CanvasTexture(c), img = new Image();
     img.onload = () => { x.drawImage(img, 28, 22, 200, 200); tex.needsUpdate = true; };
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SPECIES[sp].icon.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" '));
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.25), new THREE.MeshLambertMaterial({ map: tex }));
-    m.position.set(u, 1.75, v); m.rotation.y = ry; g.add(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.12), new THREE.MeshLambertMaterial({ map: tex }));
+    m.position.set(u, y, v); m.rotation.y = ry; g.add(m);
   });
 }
-// a pipe that runs off down the tree: a bend, a hatch and a little sign
+// a pipe that comes up through the floor by a wall: a bend, a hatch and a little sign
+const PIPE_V = -0.6;
 function pipeFurn(id, u, colour, label, sign) {
   const g = furnGroup(id), pm = new THREE.MeshPhongMaterial({ color: colour, shininess: 60, specular: 0x666666 }), dark = lam(0x2c2552);
   const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
   const side = Math.sign(u);
-  add(new THREE.CylinderGeometry(0.32, 0.32, 1.4, 16), pm, u, 0.7, 1.2);
-  add(new THREE.TorusGeometry(0.36, 0.06, 8, 20), pm, u, 1.4, 1.2).rotation.x = Math.PI / 2;
-  const elbow = add(new THREE.CylinderGeometry(0.32, 0.32, 0.6, 16), pm, u + side * 0.28, 1.25, 1.2); elbow.rotation.z = Math.PI / 2;
-  add(new THREE.CircleGeometry(0.27, 16), dark, u, 1.401, 1.2).rotation.x = -Math.PI / 2;
-  add(new THREE.CylinderGeometry(0.345, 0.345, 0.12, 16), lam(0xffffff), u, 0.9, 1.2);
+  add(new THREE.CylinderGeometry(0.34, 0.34, 1.4, 16), pm, u, 0.7, PIPE_V);
+  add(new THREE.TorusGeometry(0.38, 0.06, 8, 20), pm, u, 1.4, PIPE_V).rotation.x = Math.PI / 2;
+  const elbow = add(new THREE.CylinderGeometry(0.34, 0.34, 0.6, 16), pm, u + side * 0.3, 1.2, PIPE_V); elbow.rotation.z = Math.PI / 2;
+  add(new THREE.CircleGeometry(0.29, 16), dark, u, 1.401, PIPE_V).rotation.x = -Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.36, 0.36, 0.12, 16), lam(0xffffff), u, 0.9, PIPE_V);
   const c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
   x.fillStyle = '#fff8e6'; x.fillRect(0, 0, 256, 96); x.strokeStyle = '#' + colour.toString(16).padStart(6, '0'); x.lineWidth = 10; x.strokeRect(5, 5, 246, 86);
   x.textAlign = 'center'; x.fillStyle = '#2c2552'; x.font = '700 34px "Fredoka", sans-serif'; x.fillText(label, 128, 48); x.font = '700 20px "Nunito", sans-serif'; x.fillText(sign, 128, 76);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.36), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }));
-  plate.position.set(u - side * 0.11 + side * 0.0, 2.2, 1.2); plate.position.x = side * 3.88; plate.rotation.y = -side * Math.PI / 2; g.add(plate);
+  plate.position.set(side * (HW.u - 0.12), 2.0, PIPE_V); plate.rotation.y = -side * Math.PI / 2; g.add(plate);
 }
-pipeFurn('link', -3.35, 0x3fb56a, 'RANCH LINK', 'straight to the Box');
-pipeFurn('chute', 3.35, 0xb58be6, 'EASY RELEASE', 'chute to Scrimple’s');
+pipeFurn('link', -(HW.u - 0.65), 0x3fb56a, 'RANCH LINK', 'straight to the Box');
+pipeFurn('chute', HW.u - 0.65, 0xb58be6, 'EASY RELEASE', 'chute to Scrimple’s');
+const BOARD_AT = [-1.55, HW.v1 - 0.12];
 {
-  // the bulletin board: a cork board with pinned notes, by the door
+  // the bulletin board: a cork board with pinned notes, beside the door
   const g = furnGroup('board'), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
-  add(new THREE.BoxGeometry(1.6, 1.1, 0.06), lam(0x8a5a33), -2.2, 1.6, 3.36);
-  add(new THREE.BoxGeometry(1.45, 0.95, 0.02), lam(0xd9a066), -2.2, 1.6, 3.32);
-  [[-0.45, 0.2, 0xfff8e6], [0.1, 0.15, 0xffe1ec], [0.5, -0.15, 0xfff3b8], [-0.2, -0.25, 0xdff6e0]].forEach(([dx, dy, c]) => { add(new THREE.BoxGeometry(0.36, 0.3, 0.01), lam(c), -2.2 + dx, 1.6 + dy, 3.305).rotation.z = dx * 0.3; add(new THREE.SphereGeometry(0.03, 6, 4), lam(0xe8384f), -2.2 + dx, 1.73 + dy, 3.29); });
+  const [u, v] = BOARD_AT;
+  add(new THREE.BoxGeometry(1.25, 1.0, 0.06), lam(0x8a5a33), u, 1.6, v + 0.02);
+  add(new THREE.BoxGeometry(1.1, 0.86, 0.02), lam(0xd9a066), u, 1.6, v - 0.02);
+  [[-0.32, 0.18, 0xfff8e6], [0.1, 0.15, 0xffe1ec], [0.35, -0.15, 0xfff3b8], [-0.15, -0.22, 0xdff6e0]].forEach(([dx, dy, c]) => { add(new THREE.BoxGeometry(0.3, 0.26, 0.01), lam(c), u + dx, 1.6 + dy, v - 0.035).rotation.z = dx * 0.3; add(new THREE.SphereGeometry(0.03, 6, 4), lam(0xe8384f), u + dx, 1.71 + dy, v - 0.05); });
 }
 Object.values(houseFurn).forEach(g => compactCreature({ root: g }));
 function showFurnishings() { HOUSE_ITEMS.forEach(id => { if (houseFurn[id]) houseFurn[id].visible = houseOwns(id); }); }
@@ -9233,7 +9324,7 @@ let houseRide = null;
 const LADDER_FOOT = () => houseWorld(0, 2.15), HATCH_TOP = () => houseWorld(0, 2.0);
 function startHouseRide(up) {
   const [fx, fz] = LADDER_FOOT(), [tx, tz] = HATCH_TOP();
-  houseRide = { up, t: 0, dur: 2.2, x0: player.x, z0: player.z, y0: player.y, fx, fz, tx, tz, yaw0: player.yaw, step: 0 };
+  houseRide = { up, t: 0, dur: 3.2, x0: player.x, z0: player.z, y0: player.y, fx, fz, tx, tz, yaw0: player.yaw, step: 0 };
   player.vx = player.vz = player.vy = 0; player.climb = null;
   for (const k in keys) keys[k] = false;
 }
@@ -9285,10 +9376,10 @@ function houseTarget() {
   if (houseState.stage === 'carlos' && facingPoint(carlos.x, carlos.z, 3.4)) return { label: 'talk to Carlos', act: talkToCarlos };
   const [hx, hz] = houseWorld(0, 1.65);
   const near = (u, v, r) => { const [x, z] = houseWorld(u, v); return facingPoint(x, z, r); };
-  if (petSlots() > 0 && near(2.75, 2.45, 2.4)) return { label: 'choose your house pets', act: openPetPicker };
-  if (houseOwns('link') && near(-3.35, 1.2, 2.2)) return { label: 'use the Ranch Link (open the Box)', act: () => { sfx.pickup(); openBox(); } };
-  if (houseOwns('chute') && near(3.35, 1.2, 2.2)) return { label: 'use the Easy Release Chute', act: () => openScrim('shop', 'Peace, friend! *crackle* Coming to you live down the chute. Who’s off to the wild?') };
-  if (houseOwns('board') && near(-2.2, 3.36, 2.4)) return { label: 'read the Bulletin Board', act: () => openScrim('board', 'Requests straight from the beach, friend. Pick one you can fill.') };
+  if (petSlots() > 0 && near(3.3, 2.5, 2.4)) return { label: 'choose your house pets', act: openPetPicker };
+  if (houseOwns('link') && near(-(HW.u - 0.65), PIPE_V, 2.2)) return { label: 'use the Ranch Link (open the Box)', act: () => { sfx.pickup(); openBox(); } };
+  if (houseOwns('chute') && near(HW.u - 0.65, PIPE_V, 2.2)) return { label: 'use the Easy Release Chute', act: () => openScrim('shop', 'Peace, friend! *crackle* Coming to you live down the chute. Who’s off to the wild?') };
+  if (houseOwns('board') && near(BOARD_AT[0], BOARD_AT[1], 2.4)) return { label: 'read the Bulletin Board', act: () => openScrim('board', 'Requests straight from the beach, friend. Pick one you can fill.') };
   if (Math.hypot(player.x - hx, player.z - hz) < 1.5) return { label: 'climb back down', act: () => startHouseRide(false) };
   return null;
 }
@@ -9299,7 +9390,7 @@ function collideHouse(nx, nz) {
     let u = nu, v = nv;
     if (!onDeckOK(nu, nv)) { if (onDeckOK(nu, pv)) v = pv; else if (onDeckOK(pu, nv)) u = pu; else { u = pu; v = pv; } }
     // keep clear of the trunk up here too
-    const d = Math.hypot(u, v), rr = 1.02 + PLAYER_R; if (d < rr) { const k = rr / Math.max(d, 1e-3); u *= k; v *= k; if (!onDeckOK(u, v)) { u = pu; v = pv; } }
+    const d = Math.hypot(u, v), rr = 1.15 + PLAYER_R; if (d < rr) { const k = rr / Math.max(d, 1e-3); u *= k; v *= k; if (!onDeckOK(u, v)) { u = pu; v = pv; } }
     return houseWorld(u, v);
   }
   // down below: don't walk through his lordship
@@ -9373,10 +9464,10 @@ function updateHouse(dt) {
    ========================================================= */
 const PET_TIERS = [
   { id: 'pet1', name: 'Basic Pet License', price: 300, blurb: 'Keep a scrumbly at home! Totally legal. Probably.' },
-  { id: 'pet2', name: 'Standard Pet License', price: 500, blurb: 'Room for a second pet. Stamped twice for extra legality.' },
-  { id: 'pet3', name: 'Advanced Pet License', price: 800, blurb: 'Three pets! Now with a shiny gold border.' },
-  { id: 'pet4', name: 'Expert Pet License', price: 1200, blurb: 'Four pets. Laminated. Very official. Very shiny.' },
-  { id: 'pet5', name: 'Master Pet License', price: 2000, blurb: 'Five pets! The finest paperwork money can buy.' }
+  { id: 'pet2', name: 'Standard Pet License', price: 300, blurb: 'Room for a second pet. Stamped twice for extra legality.' },
+  { id: 'pet3', name: 'Advanced Pet License', price: 300, blurb: 'Three pets! Now with a shiny gold border.' },
+  { id: 'pet4', name: 'Expert Pet License', price: 300, blurb: 'Four pets. Laminated. Very official. Very shiny.' },
+  { id: 'pet5', name: 'Master Pet License', price: 300, blurb: 'Five pets! The finest paperwork money can buy.' }
 ];
 PET_TIERS.forEach((t, i) => { CARLOS_PRICE[t.id] = t.price; CARLOS_STOCK.push({ id: t.id, name: t.name, blurb: t.blurb, furn: true, tier: i + 1 }); });
 FURN_ICONS.pet = '<svg viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="30" rx="3" fill="#fff8e6" stroke="#3f8a2a" stroke-width="2.5"/><path d="M12 13 h16 M12 18 h12" stroke="#2c2552" stroke-width="2"/><circle cx="33" cy="16" r="4.5" fill="#ffd23f" stroke="#c99a1a" stroke-width="1.5"/><path d="M14 29 C10 25 11 22 14 22 C15.5 22 16.5 23 17 24 C17.5 23 18.5 22 20 22 C23 22 24 25 20 29 L17 31.5 Z" fill="#ff6fa5"/><ellipse cx="34" cy="38" rx="9" ry="5" fill="#c9a066"/><ellipse cx="34" cy="36" rx="7" ry="3" fill="#ff8ab8"/><path d="M30 32 C28 28 31 26 34 28 C37 26 40 28 38 32" fill="#fffbf4" stroke="#e6d3c4"/></svg>';
@@ -9389,13 +9480,14 @@ const FURN_LINES_PET = [
 // the pet basket: a woven basket with a pink cushion, a little sign and a framed licence on the wall
 {
   const g = furnGroup('pets'), add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => campAdd(geo, mat, x, y, z, g, sx, sy, sz);
-  add(new THREE.CylinderGeometry(0.62, 0.5, 0.32, 20), lam(0xc9a066), 2.75, 0.16, 2.45);
-  add(new THREE.TorusGeometry(0.6, 0.07, 8, 24), lam(0xb08850), 2.75, 0.32, 2.45).rotation.x = Math.PI / 2;
-  add(new THREE.CylinderGeometry(0.52, 0.52, 0.12, 20), lam(0xff8ab8), 2.75, 0.3, 2.45);
-  for (let k = 0; k < 8; k++) add(new THREE.BoxGeometry(0.03, 0.3, 0.01), lam(0xa87a48), 2.75 + Math.cos(k / 8 * 6.28) * 0.56, 0.16, 2.45 + Math.sin(k / 8 * 6.28) * 0.56).rotation.y = -k / 8 * 6.28;
-  add(new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6), lam(0x8a5a33), 3.35, 0.35, 1.95);
+  const BX = 3.3, BZ = 2.5;
+  add(new THREE.CylinderGeometry(0.62, 0.5, 0.32, 20), lam(0xc9a066), BX, 0.16, BZ);
+  add(new THREE.TorusGeometry(0.6, 0.07, 8, 24), lam(0xb08850), BX, 0.32, BZ).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.52, 0.52, 0.12, 20), lam(0xff8ab8), BX, 0.3, BZ);
+  for (let k = 0; k < 8; k++) add(new THREE.BoxGeometry(0.03, 0.3, 0.01), lam(0xa87a48), BX + Math.cos(k / 8 * 6.28) * 0.56, 0.16, BZ + Math.sin(k / 8 * 6.28) * 0.56).rotation.y = -k / 8 * 6.28;
+  add(new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6), lam(0x8a5a33), BX + 0.6, 0.35, BZ - 0.55);
   const heart = new THREE.Shape(); heart.moveTo(0, -0.14); heart.bezierCurveTo(-0.22, 0, -0.14, 0.18, 0, 0.08); heart.bezierCurveTo(0.14, 0.18, 0.22, 0, 0, -0.14);
-  add(new THREE.ExtrudeGeometry(heart, { depth: 0.03, bevelEnabled: false }), lam(0xff6fa5), 3.35, 0.78, 1.95).rotation.y = -Math.PI / 4;
+  add(new THREE.ExtrudeGeometry(heart, { depth: 0.03, bevelEnabled: false }), lam(0xff6fa5), BX + 0.6, 0.78, BZ - 0.55).rotation.y = -Math.PI / 4;
   // the framed licence, on the right-hand wall
   const c = document.createElement('canvas'); c.width = 256; c.height = 192; const x = c.getContext('2d');
   x.fillStyle = '#fff8e6'; x.fillRect(0, 0, 256, 192); x.strokeStyle = '#c99a1a'; x.lineWidth = 12; x.strokeRect(6, 6, 244, 180);
@@ -9403,7 +9495,7 @@ const FURN_LINES_PET = [
   x.font = '700 18px "Nunito", sans-serif'; x.fillText('this treehouse may keep', 128, 92); x.fillText('scrumblies as pets', 128, 114);
   x.fillStyle = '#e8384f'; x.beginPath(); x.arc(196, 150, 18, 0, 7); x.fill(); x.fillStyle = '#2c2552'; x.font = 'italic 700 18px "Nunito", sans-serif'; x.fillText('~ Carlos', 92, 158);
   const frame = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.52), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }));
-  frame.position.set(3.88, 1.35, 1.5); frame.rotation.y = -Math.PI / 2; g.add(frame);
+  frame.position.set(HW.u - 0.12, 1.5, 0.3); frame.rotation.y = -Math.PI / 2; g.add(frame);
   compactCreature({ root: g });
 }
 const _showFurnishings = showFurnishings;
@@ -9442,17 +9534,16 @@ function openPetPicker() { openScrim('pets', petSlots() > 1 ? `Your licence lets
 /* ---------- house pets hopping about the room ---------- */
 let housePets = [];
 function petSpot() {
-  for (let i = 0; i < 60; i++) {
-    const u = -3.2 + Math.random() * 6.4, v = -3.2 + Math.random() * 6.0;
-    if (Math.hypot(u, v) < 1.8 || (Math.abs(u) < 0.8 && v > 1.0 && v < 2.5)) continue;                         // the trunk and the trapdoor
-    if (houseOwns('furn') && ((u < -1.7 && v < -1.2) || (u > 1.0 && v < -1.0))) continue;                      // the bed and the table
-    if ((houseOwns('link') && u < -2.6 && Math.abs(v - 1.2) < 0.8) || (houseOwns('chute') && u > 2.6 && Math.abs(v - 1.2) < 0.8)) continue;
-    if ((petSlots() > 0 && Math.hypot(u - 2.75, v - 2.45) < 0.8) || Math.hypot(u + 3.1, v - 2.5) < 0.8) continue;   // the basket and the crate
+  for (let i = 0; i < 80; i++) {
+    const u = -4.3 + Math.random() * 8.6, v = -4.3 + Math.random() * 7.6;
+    if (Math.hypot(u, v) < 1.9 || (Math.abs(u) < 0.8 && v > 1.0 && v < 2.6)) continue;                                   // the trunk and the trapdoor
+    if (houseOwns('furn') && ((u < -2.3 && v < -2.1) || (u > 1.8 && v < -2.2) || (u > 4.0 && v > 2.1) || Math.hypot(u - 4.3, v + 1.6) < 0.7)) continue;   // bed, table, bookshelf, plant
+    if ((houseOwns('link') && u < -3.6 && Math.abs(v - PIPE_V) < 0.9) || (houseOwns('chute') && u > 3.6 && Math.abs(v - PIPE_V) < 0.9)) continue;
+    if ((petSlots() > 0 && Math.hypot(u - 3.3, v - 2.5) < 0.9) || Math.hypot(u + 4.0, v - 3.0) < 0.8) continue;           // the basket and the crate
     return [u, v];
   }
-  return [-1.5, 1.6];
-}
-function refreshHousePets() {
+  return [-1.8, 1.2];
+}function refreshHousePets() {
   housePets.forEach(r => scene.remove(r.c.root));
   party.forEach(p => { p.home = false; });                  // anyone you take out in your party stops living at home
   housePets = homePets().map(p => {
