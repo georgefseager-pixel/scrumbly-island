@@ -4620,7 +4620,7 @@ function makeRositaMesh() {
   // a tall soft stem with two pairs of leaves
   add(new THREE.CylinderGeometry(0.045, 0.055, 0.95, 10), stemM, 0, 0.47, 0);
   [[0.34, 0.9], [0.62, 0.7]].forEach(([y, k]) => [-1, 1].forEach(s => { const l = add(new THREE.SphereGeometry(0.09, 12, 8), stemM, s * 0.12 * k, y, 0.02, 1.6 * k, 0.25, 0.75 * k); l.rotation.z = s * 0.5; }));
-  const head = new THREE.Group(); head.position.y = 1.12; body.add(head);
+  const head = new THREE.Group(); head.position.y = 1.2; head.scale.setScalar(1.55); body.add(head);
   [-1, 0, 1].forEach(s => { const l = add(new THREE.SphereGeometry(0.09, 12, 8), stemM, s * 0.14, -0.15, 0.02, 1.4, 0.3, 0.9, head); l.rotation.z = s * 0.6; });
   // the bloom: red petals wrapped round a round tan face
   add(new THREE.SphereGeometry(0.21, 18, 14), red, 0, 0.02, -0.06, 1.1, 1.05, 0.9, head);
@@ -4745,8 +4745,9 @@ function growSita() {
    Charges and bites on sight, snaps at nets and smashes traps. Unless,
    that is, your partner is a Bobo: then it goes all soppy and gentle.
    ========================================================= */
+const FROGGLE_SCALE = 1.35;   // a properly big frog
 function makeFroggleMesh() {
-  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const root = new THREE.Group(), scaler = new THREE.Group(), body = new THREE.Group(); scaler.scale.setScalar(FROGGLE_SCALE); scaler.add(body); root.add(scaler);
   const lime = new THREE.MeshLambertMaterial({ color: 0x9ccc2e, emissive: 0x1e2a08 }), cream = new THREE.MeshLambertMaterial({ color: 0xf0ecd2, emissive: 0x2c2a20 });
   const white = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x444444 }), black = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 100, specular: 0x9999bb });
   const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; parent.add(o); return o; };
@@ -4773,15 +4774,22 @@ function makeFroggleMesh() {
     add(new THREE.SphereGeometry(0.22, 14, 10), lime, s * 0.46, 0.32, -0.42, 0.9, 1.1, 1.3);
     add(new THREE.SphereGeometry(0.14, 12, 8), lime, s * 0.5, 0.06, -0.2, 1.2, 0.5, 1.8);
   });
-  // shaggy fur all over (fused into one mesh)
-  for (let i = 0; i < 90; i++) {
-    const u = Math.random() * 2 - 1, a = Math.random() * 6.28, r = Math.sqrt(1 - u * u), nx = r * Math.cos(a), ny = Math.abs(u) * 0.8 + 0.2, nz = r * Math.sin(a);
-    const onHead = i < 35, c = Math.random() < 0.18 ? cream : lime;
-    const t = onHead ? add(new THREE.ConeGeometry(0.04, 0.12, 5), c, nx * 0.42, ny * 0.28, nz * 0.34, 1, 1, 1, head) : add(new THREE.ConeGeometry(0.045, 0.14, 5), c, nx * 0.48, 0.48 + ny * 0.33, -0.05 + nz * 0.55, 1, 1, 1);
-    if (onHead && nz > 0.5 && ny < 0.55) t.visible = false;                  // keep the face clear
-    t.lookAt(t.position.clone().multiplyScalar(2).add(new THREE.Vector3(0, 0.2, 0))); t.rotateX(Math.PI / 2);
-  }
-  const mad = new THREE.Sprite(new THREE.SpriteMaterial({ map: angerTex, depthTest: false })); mad.position.set(0.35, 1.35, 0.3); mad.scale.setScalar(0.45); mad.visible = false; mad.renderOrder = 5; root.add(mad);
+  // thick shaggy fur that hangs down like a rug (fused into one mesh)
+  const dark = new THREE.MeshLambertMaterial({ color: 0x86b424, emissive: 0x1a2606 }), UP = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
+  const tuft = (parent, cx, cy, cz, rx, ry, rz, n, len, rad, skipFace) => {
+    for (let i = 0; i < n; i++) {
+      const u = Math.random() * 1.3 - 0.35, a = Math.random() * 6.28, r = Math.sqrt(1 - Math.min(1, u * u)), nx = r * Math.cos(a), ny = u, nz = r * Math.sin(a);
+      if (skipFace && nz > 0.35 && ny < 0.75) continue;                  // keep the face clear
+      const roll = Math.random(), c = roll < 0.06 ? cream : roll < 0.5 ? dark : lime;
+      const l = len * (0.75 + Math.random() * 0.6);
+      dir.set(nx, ny - 0.9, nz).normalize();                             // droop downwards
+      const t = add(new THREE.ConeGeometry(rad, l, 5), c, cx + nx * rx + dir.x * l * 0.4, cy + ny * ry + dir.y * l * 0.4, cz + nz * rz + dir.z * l * 0.4, 1, 1, 1, parent);
+      t.quaternion.setFromUnitVectors(UP, dir);
+    }
+  };
+  tuft(body, 0, 0.48, -0.05, 0.47, 0.32, 0.54, 150, 0.26, 0.075, false);
+  tuft(head, 0, 0.04, -0.02, 0.43, 0.28, 0.36, 120, 0.2, 0.065, true);
+  const mad = new THREE.Sprite(new THREE.SpriteMaterial({ map: angerTex, depthTest: false })); mad.position.set(0.45, 1.8, 0.4); mad.scale.setScalar(0.55); mad.visible = false; mad.renderOrder = 5; root.add(mad);
   scene.add(root);
   return { root, body, head, jaw, mad };
 }
@@ -4821,7 +4829,7 @@ function netFroggles() {
 }
 function rockHitsFroggle(r) {
   for (const f of froggles) {
-    if (!f.root.visible || ['caught', 'gone'].includes(f.state) || Math.hypot(r.x - f.x, r.y - (f.y + 0.5 * f.s), r.z - f.z) > 0.6 * f.s + 0.25) continue;
+    if (!f.root.visible || ['caught', 'gone'].includes(f.state) || Math.hypot(r.x - f.x, r.y - (f.y + 0.65 * f.s), r.z - f.z) > 0.8 * f.s + 0.25) continue;
     if (f.state !== 'smitten') { f.state = 'charge'; f.t = 0; froggleSfx.croak(1); }
     return f;
   }
@@ -4848,13 +4856,13 @@ function updateFroggles(dt) {
       case 'charge': {
         tx = player.x; tz = player.z; speed = FROGGLE_SPEED;
         if (bobosLove()) { f.state = 'woo'; f.t = 0; break; }
-        if (dist < 1.4 && !player.climb && player.y - f.y < 1.6) { f.state = 'bite'; f.t = 0; froggleSfx.snap(1); }
+        if (dist < 1.7 && !player.climb && player.y - f.y < 1.6) { f.state = 'bite'; f.t = 0; froggleSfx.snap(1); }
         if (dist > 32 || !froggleInForest(player.x, player.z) || knocked) { f.state = 'wander'; f.t = 0; f.tx = f.hx; f.tz = f.hz; }
         break;
       }
       case 'bite': {
         jawWant = 1; tx = player.x; tz = player.z;
-        if (f.t > 0.18 && f.t - dt <= 0.18 && dist < 1.8 && !player.climb && player.y - f.y < 1.6 && !knocked) {
+        if (f.t > 0.18 && f.t - dt <= 0.18 && dist < 2.1 && !player.climb && player.y - f.y < 1.6 && !knocked) {
           const k = 1 / (dist || 1); player.vx = (player.x - f.x) * k * 7; player.vz = (player.z - f.z) * k * 7; player.vy = 3;
           hurtPlayer(1);
         }
@@ -4873,7 +4881,7 @@ function updateFroggles(dt) {
         const pr = partner.c.root.position, pd = Math.hypot(pr.x - f.x, pr.z - f.z);
         tx = pr.x; tz = pr.z; if (pd > 2.3) speed = 2.2;
         else {
-          f.state = 'smitten'; f.t = 0; froggleSfx.swoon(1); for (let i = 0; i < 8; i++) setTimeout(() => spawnHeart(f.x, f.y + 1.2 * f.s, f.z), i * 150);
+          f.state = 'smitten'; f.t = 0; froggleSfx.swoon(1); for (let i = 0; i < 8; i++) setTimeout(() => spawnHeart(f.x, f.y + 1.6 * f.s, f.z), i * 150);
           toast(`The Froggle seems enamoured by ${party[0].name}!`);
         }
         break;
@@ -4883,7 +4891,7 @@ function updateFroggles(dt) {
         if (!bobosLove()) { f.state = 'wander'; f.t = 0; f.hx = f.x; f.hz = f.z; f.tx = f.x; f.tz = f.z; break; }
         const pr = partner.c.root.position, pd = Math.hypot(pr.x - f.x, pr.z - f.z);
         tx = pr.x; tz = pr.z; if (pd > 3.2) speed = 2.6;
-        f.heartT -= dt; if (f.heartT <= 0) { f.heartT = 0.6 + Math.random() * 0.6; spawnHeart(f.x, f.y + 1.15 * f.s, f.z); }
+        f.heartT -= dt; if (f.heartT <= 0) { f.heartT = 0.6 + Math.random() * 0.6; spawnHeart(f.x, f.y + 1.55 * f.s, f.z); }
         if (!froggleInForest(f.x, f.z) && pd > 12) { f.state = 'wander'; f.t = 0; }
         break;
       }
@@ -4910,7 +4918,7 @@ function updateFroggles(dt) {
         f.hop += dt * (speed > 3 ? 10 : 6);
       }
     } else if (['bite', 'smitten', 'woo'].includes(f.state)) f.face += angDiff(f.face, Math.atan2((f.state === 'bite' ? player.x : (partner ? partner.c.root.position.x : player.x)) - f.x, (f.state === 'bite' ? player.z : (partner ? partner.c.root.position.z : player.z)) - f.z)) * Math.min(1, dt * 6);
-    if (!['smitten', 'trapped'].includes(f.state)) for (const t of traps.slice()) if (Math.hypot(t.x - f.x, t.z - f.z) < 1.0 * f.s) {
+    if (!['smitten', 'trapped'].includes(f.state)) for (const t of traps.slice()) if (Math.hypot(t.x - f.x, t.z - f.z) < 1.3 * f.s) {
       if (t.occupant) releaseTrap(t, true, true);
       scene.remove(t.g); traps.splice(traps.indexOf(t), 1); inv.traps++; renderHotbar(); blorboSfx.smash();
       if (dist < 40) toast('CRUNCH! The Froggle stomped your trap flat. You gather up the bits and bend it back into shape.');
@@ -6134,6 +6142,8 @@ function updateHearts(dt) {
 /* ---------- residents: a few boxed scrumblies living in the pen ---------- */
 const RESIDENTS_MAX = 5;
 let residents = [];
+// tall scrumblies wear their name tag higher, clear of their faces
+const TAG_HIGH = { rosita: 1.85, froggle: 1.95 };
 function nameTag(text) {
   const t = spriteTex((g) => {
     g.canvas.width = 512; g.canvas.height = 80;
@@ -6160,7 +6170,7 @@ function refreshResidents() {
     const water = p.species === 'mermiggly' || p.species === 'duckshark';
     const c = makeSpeciesMesh(p.species);
     applySize(c, p.size); applyShiny(c, p.shiny, p.species);
-    const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = (water ? 1.5 : 1.15);
+    const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = TAG_HIGH[p.species] || (water ? 1.5 : 1.15);
     tag.scale.multiplyScalar(1 / c.s);
     const [u, v] = penSpot(water);
     return { p, c, water, tag, u, v, tu: u, tv: v, wait: Math.random() * 2, hop: 0, face: Math.random() * 6.28, loveT: 0, heartT: 0, coo: 0 };
@@ -6348,7 +6358,7 @@ function syncPartner() {
   const water = p.species === 'mermiggly';
   const c = makeSpeciesMesh(p.species);
   applySize(c, p.size); applyShiny(c, p.shiny, p.species);
-  const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = water ? 1.5 : 1.15; tag.scale.multiplyScalar(1 / c.s);
+  const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = TAG_HIGH[p.species] || (water ? 1.5 : 1.15); tag.scale.multiplyScalar(1 / c.s);
   // appear just behind you with a little puff
   const x = old ? old.x : player.x - fwd.x * 2, z = old ? old.z : player.z - fwd.z * 2;
   partner = { p, c, water, tag, x, z, y: heightAt(x, z), face: player.yaw + Math.PI, hop: 0, squish: 0, idle: 0 };
