@@ -459,7 +459,7 @@
     </ul>
     <div class="title-btns"><button class="play" id="playBtn">Play</button><button class="ghost" id="newBtn" hidden>New game</button><button class="ghost" id="titleLoad" hidden>Load game</button></div>
     <p class="continue-info" id="continueInfo" hidden></p>
-    <div class="debug-row"><button class="ghost debug" id="debugBtn" aria-expanded="false">Debug ▸</button><button class="ghost debug" id="skipForest" hidden>Skip to Forest</button></div>
+    <div class="debug-row"><button class="ghost debug" id="debugBtn" aria-expanded="false">Debug ▸</button><button class="ghost debug" id="skipForest" hidden>Skip to Forest</button><button class="ghost debug" id="skipMountain" hidden>Skip to Mountain</button></div>
   </div>
 </div>
 
@@ -595,6 +595,7 @@ const INLAND_LIMIT = 70;     // where the beach ends and the hedge around Glimme
    a river winding right round it, then a bramble thicket and the hills of the island's heart (for later) */
 const HEDGE_OUT = 74.5, FOREST_OUT = 142;
 const GAP_TH = [0, 1, 2, 3].map(k => 0.65 + k * Math.PI / 2);
+const MTN_ENTRY_TH = 2.44;       // the one way through the brambles to the mountain
 const RIVER_HALF = 4.4, RIVER_DEPTH = 1.0;
 const riverD = th => 108 + 7 * Math.sin(2 * th + 1) + 3.5 * Math.sin(5 * th + 2);
 const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -602,7 +603,7 @@ const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 function gapArc(x, z) { const th = Math.atan2(z, x), r = Math.hypot(x, z); let best = 1e9; for (const g of GAP_TH) best = Math.min(best, angGap(th, g) * r); return best; }
 function forestFloor(x, z, d) {
   let h = 3.15 + (d - INLAND_LIMIT) * 0.05 + (fbm(x * 0.05 + 3, z * 0.05 + 7) - 0.5) * 1.4 * smooth(70, 80, d);
-  if (d > FOREST_OUT) h += 16 * (1 - Math.exp(-(d - FOREST_OUT) / 10)) + (fbm(x * 0.03, z * 0.03) - 0.5) * 6 * smooth(FOREST_OUT, FOREST_OUT + 20, d);
+  if (d > FOREST_OUT) h += 1.2 * smooth(FOREST_OUT, FOREST_OUT + 8, d);     // the mountain's foothills (the mountain itself is built on top)
   return h;
 }
 const riverOff = (x, z, d) => d - riverD(Math.atan2(z, x));      // signed distance across the river (roughly metres)
@@ -1179,6 +1180,7 @@ function groundAt(x, z, y) {
   const h = heightAt(x, z);
   if (y !== undefined) {
     const f = houseFloorAt(x, z, y); if (f !== null) return f;
+    if (Math.abs(x) < 72 && Math.abs(z) < 72) { const m = mtnGround(x, z, y); if (m > h) return m; }
     if (Math.abs(x - FLUFF.x) < 4 && Math.abs(z - FLUFF.z) < 4) { const [gx, gz] = fluffWorld(0, 0); if (Math.hypot(x - gx, z - gz) < 2.7) return Math.max(h, FLUFF_Y + 0.05); }   // the princess's podium
   }
   for (const b of bridges) {
@@ -1325,15 +1327,15 @@ function showApple(ap, on, size = 1) {
   for (let i = 0; i < steps; i++) for (let row = 0; row < 2; row++) {
     const th = i / steps * Math.PI * 2 + rr(-0.01, 0.01) + row * 0.015, d = FOREST_OUT + 0.8 + row * 2.2 + rr(-0.4, 0.4), [x, z] = polar(th, d), s = rr(1.8, 2.7);
     const y = heightAt(x, z) + s * 0.55;
-    bushes.push({ x, z, y, ry: rr(0, 6), s: [s * 1.1, s * 1.2, s * 1.1], c: pick([0x2f6a52, 0x35604f, 0x3e5a6e, 0x4a4a72]) });
-    if (rand() < 0.5) for (let k = 0; k < 3; k++) { const a = rr(0, 6.28), e = rr(0, 1); berries.push({ x: x + Math.cos(a) * s * Math.cos(e), z: z + Math.sin(a) * s * Math.cos(e), y: y + Math.sin(e) * s, s: 0.12, c: pick([0xd38cff, 0xff4f8b, 0x7f8cff]) }); }
+    const inGap = angGap(th, MTN_ENTRY_TH) * Math.hypot(x, z) < 3.6, k0 = inGap ? 0.001 : 1;
+    bushes.push({ x, z, y, ry: rr(0, 6), s: [s * 1.1 * k0, s * 1.2 * k0, s * 1.1 * k0], c: pick([0x2f6a52, 0x35604f, 0x3e5a6e, 0x4a4a72]) });
+    if (rand() < 0.5) for (let k = 0; k < 3; k++) { const a = rr(0, 6.28), e = rr(0, 1); berries.push({ x: x + Math.cos(a) * s * Math.cos(e), z: z + Math.sin(a) * s * Math.cos(e), y: y + Math.sin(e) * s, s: inGap ? 0.001 : 0.12, c: pick([0xd38cff, 0xff4f8b, 0x7f8cff]) }); }
   }
   for (let i = 0; i < 200; i++) {
     const th = rr(0, Math.PI * 2), d = rr(FOREST_OUT + 6, ISLAND_R - 2), [x, z] = polar(th, d);
     if (Math.hypot(x, z) < 3) continue;
     const y = heightAt(x, z), h = rr(5, 9), s = rr(3, 5);
-    trunks.push({ x, z, y: y + h / 2, s: [1, h, 1], c: 0x6d5a52 });
-    tops.push({ x, z, y: y + h + s * 0.5, ry: rr(0, 6), s: [s, s * rr(0.7, 1), s], c: pick([0x2f7a58, 0x2a6e5a, 0x3a6a72, 0x46607e, 0x26685a]) });
+    const ry = rr(0, 6), sy = rr(0.7, 1), c = pick([0x2f7a58, 0x2a6e5a, 0x3a6a72, 0x46607e, 0x26685a]);   // (where the deep woods were: the mountain now)
   }
   instanced(blobGeo, flatMat, bushes, { receive: true, far: 1000, slices: 8 });
   instanced(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), berries, { far: 200, slices: 4 });
@@ -1814,6 +1816,7 @@ function updatePlayer(dt) {
 
   if (sleepT > 0) { updateSleep(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
   if (zipRide) { updateZip(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
+  if (rockClimb) { updateRockClimb(dt, ix, iz); swingQueued = pickQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
   if (houseRide) { updateHouseRide(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
 
   const ground = heightAt(player.x, player.z), wy = water.position.y;
@@ -1847,10 +1850,14 @@ function updatePlayer(dt) {
       if (!player.grounded || into > 0.6 || grabTimer > 0.1) { grabTimer = 0; player.x = nx; player.z = nz; startClimb(hit.p); return; }
     } else grabTimer = 0;
   } else grabTimer = 0;
-  if (canWalk(nx, nz)) { player.x = nx; player.z = nz; }
+  // the mountain: plateaus and rocks are walls unless you're high enough to step onto them (or it's a bumpy face to climb)
+  const okAt = (x, z) => canWalk(x, z) && !mtnWall(x, z, player.x, player.z, player.y);
+  const wall = mtnWall(nx, nz, player.x, player.z, player.y);
+  if (wall && mtnTryClimb(wall, tvx, tvz)) { updatePrompt(); return; }
+  if (okAt(nx, nz)) { player.x = nx; player.z = nz; }
   else {
-    if (canWalk(nx, player.z)) { player.x = nx; player.vz *= 0.5; }
-    else if (canWalk(player.x, nz)) { player.z = nz; player.vx *= 0.5; }
+    if (okAt(nx, player.z)) { player.x = nx; player.vz *= 0.5; }
+    else if (okAt(player.x, nz)) { player.z = nz; player.vx *= 0.5; }
     else { player.vx = player.vz = 0; }
     if (il > 0.1) blockedMessage(nx, nz);
   }
@@ -5484,7 +5491,7 @@ function updateRocks(dt) {
       const dx = r.x - tk.x, dzz = r.z - tk.z, d = Math.hypot(dx, dzz);
       if (d < tk.r + 0.12) { const nx = dx / (d || 1), nz = dzz / (d || 1), vn = r.vx * nx + r.vz * nz; if (vn < 0) { r.vx -= 1.6 * vn * nx; r.vz -= 1.6 * vn * nz; r.vx *= 0.5; r.vz *= 0.5; sfx.thud(); } r.x = tk.x + nx * (tk.r + 0.12); r.z = tk.z + nz * (tk.r + 0.12); }
     }
-    const g = heightAt(r.x, r.z), wy = water.position.y;
+    const g = Math.max(heightAt(r.x, r.z), mtnGround(r.x, r.z, r.y)), wy = water.position.y;
     if (!r.wet && r.y < wy && g < wy) { r.wet = true; splash(r.x, r.z, 10, 0.6); spawnRipple(r.x, r.z, 0.8); sfx.rockLand(true); r.vx *= 0.3; r.vz *= 0.3; r.vy *= 0.3; }
     if (r.y <= g + 0.07) {
       r.y = g + 0.07;
@@ -6516,10 +6523,11 @@ function updatePartner(dt) {
   let tx, tz;
   if (player.climb) { const tp = player.climb.p; tx = tp.x + (player.x - tp.x) * 1.8; tz = tp.z + (player.z - tp.z) * 1.8; }
   else if (houseRide || houseUp()) { [tx, tz] = houseWorld(-1.4, 2.6); }
+  else if (rockClimb || mtnUp()) { [tx, tz] = polar(MTN_ENTRY_TH + 0.03, FOREST_OUT + 7); }
   else { tx = player.x - fwd.x * (1.8 + s * 0.4) + right.x * 0.7; tz = player.z - fwd.z * (1.8 + s * 0.4) + right.z * 0.7; }
-  if (!canWalk(tx, tz)) { tx = player.x; tz = player.z; }
+  if (!canWalk(tx, tz) || mtnWall(tx, tz, tx + 99, tz + 99, MTN_B)) { tx = player.x; tz = player.z; }
   const dx = tx - P.x, dz = tz - P.z, d = Math.hypot(dx, dz), far = Math.hypot(player.x - P.x, player.z - P.z);
-  if (far > 30) { P.x = player.x - fwd.x * 2; P.z = player.z - fwd.z * 2; sandPuff(P.x, P.z, 10); }
+  if (far > 30 && !rockClimb && !mtnUp()) { P.x = player.x - fwd.x * 2; P.z = player.z - fwd.z * 2; sandPuff(P.x, P.z, 10); }
   let hopY = 0, sy = 1, sx = 1;
   // only set off once you've wandered a few metres away, then settle down near you
   const leash = 3.2 + s * 0.6;
@@ -7004,7 +7012,7 @@ titleLoad.addEventListener('click', () => openSaves('load', 'title'));
 /* ---------- debug: jump straight to the forest with the beach finished ---------- */
 const debugBtn = document.getElementById('debugBtn'), skipForest = document.getElementById('skipForest');
 let skipArmed = false;
-debugBtn.addEventListener('click', () => { skipForest.hidden = !skipForest.hidden; debugBtn.setAttribute('aria-expanded', String(!skipForest.hidden)); debugBtn.textContent = skipForest.hidden ? 'Debug ▸' : 'Debug ▾'; });
+debugBtn.addEventListener('click', () => { skipForest.hidden = !skipForest.hidden; document.getElementById('skipMountain').hidden = skipForest.hidden; debugBtn.setAttribute('aria-expanded', String(!skipForest.hidden)); debugBtn.textContent = skipForest.hidden ? 'Debug ▸' : 'Debug ▾'; });
 const BEACH_SPECIES = ['bobo', 'mermiggly', 'speshul', 'pengin', 'duckshark', 'weevil', 'beeappy', 'beeangy', 'bink'];
 function debugForestSave() {
   const pk = sp => ({ species: sp, name: SPECIES[sp].unique ? SPECIES[sp].name : pickName(), size: null, shiny: false });
@@ -7022,6 +7030,12 @@ function skipToForest() {
   applySnapshot(debugForestSave()); fillRequests(); beginGame();
   toast('Debug: skipped to Glimmerwood. Beach done, 9999 gold, one of every beach scrumbly in your Box.');
 }
+let skipMtnArmed = false;
+document.getElementById('skipMountain').addEventListener('click', e => {
+  if (readSave(SAVE_KEY) && !skipMtnArmed) { skipMtnArmed = true; e.target.textContent = 'Replace the autosave? Click again'; return; }
+  const s = debugForestSave(), [x, z] = polar(MTN_ENTRY_TH, FOREST_OUT + 8); s.player = { x, z, yaw: Math.atan2(x, z), pitch: 0.1 };
+  applySnapshot(s); fillRequests(); beginGame(); toast('Debug: skipped to the foot of Mount Scrumble. 9999 gold.');
+});
 skipForest.addEventListener('click', () => {
   if (readSave(SAVE_KEY) && !skipArmed) { skipArmed = true; skipForest.textContent = 'Replace the autosave? Click again'; return; }
   skipToForest();
@@ -8216,7 +8230,8 @@ function canWalk(x, z) {
   if (heightAt(x, z) < -MAX_DEPTH) return false;
   const d = inland(x, z);
   if (d <= INLAND_LIMIT) return true;
-  if (!forestState.open || d > FOREST_OUT - 0.5) return false;
+  if (!forestState.open) return false;
+  if (d > FOREST_OUT - 0.5) return d > FOREST_OUT + 5.2 || angGap(Math.atan2(z, x), MTN_ENTRY_TH) * Math.hypot(x, z) < 2.6;
   if (d < HEDGE_OUT + 0.5) return gapArc(x, z) < 1.9;
   return true;
 }
@@ -8362,7 +8377,7 @@ function talkToHop(h) {
 }
 function forestBlocked(x, z) {
   const d = inland(x, z);
-  if (d > FOREST_OUT - 1) return 'The brambles are far too thick here. Whatever lies at the heart of the island will have to wait...';
+  if (d > FOREST_OUT - 1) return 'The brambles are far too thick here. There must be a way through somewhere...';
   if (!forestState.open && gapArc(x, z) < 2.5) return scrimHere() ? 'Sir Hopsalot is standing right in the way. Perhaps have a word with him?' : 'Something rustles behind the hedge... Best help the Professor first.';
   return 'The hedge is far too thick to push through. There must be a way in somewhere...';
 }
@@ -9989,6 +10004,275 @@ function paintActivate(it) {
 }
 function openPaintPicker() { openScrim('paint', 'Dip the brush, pick a paper, roll out a carpet!'); }
 
+/* =========================================================
+   Mount Scrumble: the island's heart. Through one gap in the brambles,
+   foothills ring a mountain of stacked plateaus. Cliffs can only be
+   climbed where the rock is all lumps and bumps; two ravines split the
+   first plateau (hop across on rock pillars), boulders make stairs up to
+   the third plateau's handholds, and a spiral of rising pillars leads to
+   the flat peak.
+   Everything up here is a "plate": a shape with a flat top. You can step
+   up a little; anything taller is a wall unless it's a climbable face.
+   ========================================================= */
+const MTN_B = 8, MTN_STEP = 0.55, MTN_PAD = 0.35;
+const MTN_TOP = { p1: 17, p2: 26, p3: 35, peak: 42.5 };
+// the forest's inner edge, smoothed so the cliffs aren't jagged
+const mtnEdge = (() => {
+  const N = 360, raw = [], sm = [];
+  for (let i = 0; i < N; i++) { const [x, z] = polar(i / N * Math.PI * 2, FOREST_OUT); raw.push(Math.hypot(x, z)); }
+  for (let i = 0; i < N; i++) { let s = 0; for (let k = -14; k <= 14; k++) s += raw[(i + k + N) % N]; sm.push(s / 29); }
+  return th => { const f = ((th / (Math.PI * 2)) % 1 + 1) % 1 * N, i = Math.floor(f), t = f - i; return lerp(sm[i % N], sm[(i + 1) % N], t); };
+})();
+const mtnR1 = th => mtnEdge(th) - 11.5 + 0.7 * Math.sin(7 * th + 1) + 0.4 * Math.sin(13 * th + 2);
+const mtnR2 = th => Math.min(14.5 + 1.6 * Math.sin(2 * th + 1) + 1.1 * Math.sin(3 * th + 2) + 0.5 * Math.sin(7 * th), mtnR1(th) - 4.8);
+const mtnR3 = th => Math.min(9.6 + 0.7 * Math.sin(3 * th + 0.4) + 0.3 * Math.sin(8 * th + 1), mtnR2(th) - 4.6);
+const MTN_PEAK_R = 5.2;
+// two ravines cut the first plateau in half: [angle, half-width in metres]
+const MTN_RAVINES = [[MTN_ENTRY_TH + 1.55, 3.3], [MTN_ENTRY_TH - 1.95, 3.0]];
+const ravineAt = (th, r) => { for (const [a, w] of MTN_RAVINES) { const s = angGap(th, a) * r; if (s < w) return w - s; } return -1; };
+const plates = [];
+const radialPlate = (id, R, top, notch) => { const p = { id, kind: 'radial', R, top, notch }; plates.push(p); return p; };
+const P1 = radialPlate('p1', mtnR1, MTN_TOP.p1, true), P2 = radialPlate('p2', mtnR2, MTN_TOP.p2), P3 = radialPlate('p3', mtnR3, MTN_TOP.p3), PEAK = radialPlate('peak', () => MTN_PEAK_R, MTN_TOP.peak);
+const circlePlate = (x, z, r, top, kind = 'pillar') => { const p = { kind: 'circle', look: kind, x, z, r, top }; plates.push(p); return p; };
+// how far inside a plate a point is (negative = outside), with a margin for walls
+function plateDepth(p, x, z) {
+  if (p.kind === 'circle') return p.r - Math.hypot(x - p.x, z - p.z);
+  const r = Math.hypot(x, z), th = Math.atan2(z, x);
+  let d = p.R(th) - r;
+  if (p.notch) { const rv = ravineAt(th, r); if (rv >= 0) d = Math.min(d, -rv); else { for (const [a, w] of MTN_RAVINES) d = Math.min(d, angGap(th, a) * r - w); } }
+  return d;
+}
+const MTN_MAX_R = 70;
+const inMountain = (x, z) => Math.hypot(x, z) < MTN_MAX_R && inland(x, z) > FOREST_OUT - 1;
+// the floor under you: the highest plate top you're standing over (that isn't far above you)
+function mtnGround(x, z, y) {
+  if (Math.abs(x) > MTN_MAX_R || Math.abs(z) > MTN_MAX_R || !inMountain(x, z)) return -Infinity;
+  let g = -Infinity;
+  for (const p of plates) if (p.top > g && p.top <= y + MTN_STEP && plateDepth(p, x, z) >= 0) g = p.top;
+  return g;
+}
+// a wall in the way? (only blocks you moving further in, so you can always back out)
+function mtnWall(nx, nz, ox, oz, y) {
+  if (Math.abs(nx) > MTN_MAX_R || Math.abs(nz) > MTN_MAX_R || !inMountain(nx, nz)) return null;
+  let hit = null;
+  for (const p of plates) {
+    if (p.top <= y + MTN_STEP) continue;
+    const dn = plateDepth(p, nx, nz) + MTN_PAD;
+    if (dn > 0 && dn > plateDepth(p, ox, oz) + MTN_PAD + 1e-4 && (!hit || p.top < hit.top)) hit = p;
+  }
+  return hit;
+}
+const mtnUp = () => inMountain(player.x, player.z) && player.y > MTN_B + 3;
+
+/* ---------- the routes: climbable faces, ravine pillars, boulder stairs, the spiral ---------- */
+const R1at = MTN_ENTRY_TH + 0.55, R2at = MTN_ENTRY_TH + Math.PI + 0.2, R3at = MTN_ENTRY_TH + Math.PI * 0.5 + 0.3;
+const faces = [
+  { plate: P1, th: R1at, half: 2.6, yMin: MTN_B - 1 },
+  { plate: P2, th: R2at, half: 2.4, yMin: MTN_TOP.p1 - 0.3 },
+  { plate: P3, th: R3at, half: 2.0, yMin: MTN_TOP.p2 + 2.0 }
+];
+faces.forEach(f => { f.dth = f.half / f.plate.R(f.th); });
+const faceAt = (p, th, y) => faces.find(f => f.plate === p && angGap(th, f.th) < f.dth && y >= f.yMin - 0.35 && y < p.top - 0.5);
+// stepping stones across each ravine, just below the plateau top
+MTN_RAVINES.forEach(([a, w], k) => {
+  const rm = (mtnR1(a) + mtnR2(a)) / 2;
+  if (k === 0) circlePlate(Math.cos(a) * rm, Math.sin(a) * rm, 1.15, MTN_TOP.p1 - 0.25);
+  else { [-1, 1].forEach(s => { const r = rm + s * 1.6, aa = a + s * 0.9 / r; circlePlate(Math.cos(aa) * r, Math.sin(aa) * r, 0.85, MTN_TOP.p1 - (s > 0 ? 0.1 : 0.45)); }); }
+});
+// boulder stairs up to the third plateau's handholds
+{
+  const R = mtnR3(R3at), ux = Math.cos(R3at), uz = Math.sin(R3at), tx = -uz, tz = ux;
+  circlePlate(ux * (R + 0.95), uz * (R + 0.95), 0.95, MTN_TOP.p2 + 2.0, 'boulder');
+  circlePlate(ux * (R + 2.7) + tx * 1.6, uz * (R + 2.7) + tz * 1.6, 0.95, MTN_TOP.p2 + 1.0, 'boulder');
+}
+// the spiral of rising pillars from the third plateau to the peak
+const spiral = [];
+for (let k = 0; k < 7; k++) {
+  const a = R3at + 0.9 + k * 0.37, r = (mtnR3(a) + MTN_PEAK_R) / 2;
+  spiral.push(circlePlate(Math.cos(a) * r, Math.sin(a) * r, 0.85, MTN_TOP.p3 + 1 + k));
+}
+// boulders scattered about (you can hop up on the low ones)
+const mtnBoulders = [];
+{
+  const R = mulberry32(4242), free = (x, z, rad) => {
+    const th = Math.atan2(z, x);
+    if (faces.some(f => Math.hypot(x - Math.cos(f.th) * f.plate.R(f.th), z - Math.sin(f.th) * f.plate.R(f.th)) < 5.5)) return false;
+    if (plates.some(p => p.kind === 'circle' && Math.hypot(p.x - x, p.z - z) < p.r + rad + 1.6)) return false;
+    if (MTN_RAVINES.some(([a, w]) => angGap(th, a) * Math.hypot(x, z) < w + 1.5)) return false;
+    return true;
+  };
+  // scatter boulders on a floor (the foothills when `on` is null), clear of the next plateau up
+  const scatter = (n, on, next, maxH) => {
+    for (let i = 0, tries = 0; i < n && tries < n * 40; tries++) {
+      const th = R() * Math.PI * 2, r = 4 + R() * (MTN_MAX_R - 4), x = Math.cos(th) * r, z = Math.sin(th) * r, rad = 0.6 + R() * 0.8;
+      if (!inMountain(x, z) || !free(x, z, rad)) continue;
+      if (on ? plateDepth(on, x, z) < rad + 0.4 : inland(x, z) < FOREST_OUT + 6.5 || angGap(th, MTN_ENTRY_TH) * r < 4.5) continue;
+      if (plateDepth(next, x, z) > -(rad + 0.6)) continue;
+      const h = 0.55 + R() * maxH, floor = on ? on.top : heightAt(x, z), top = floor + h;
+      mtnBoulders.push({ x, z, rad, h, top, floor, look: R() });
+      circlePlate(x, z, rad * 0.85, top, 'boulder');
+      i++;
+    }
+  };
+  scatter(34, null, P1, 1.2);
+  scatter(22, P1, P2, 1.1);
+  scatter(10, P2, P3, 0.9);
+}
+/* ---------- how it looks ---------- */
+const mountain = (() => {
+  const root = new THREE.Group(); scene.add(root);
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), rockCols = [[0.66, 0.6, 0.74], [0.58, 0.54, 0.68], [0.72, 0.66, 0.78], [0.62, 0.56, 0.66]];
+  const faceCol = [0.86, 0.74, 0.6];
+  // a cliff wall following a plate's outline, from below the foothills to its top, bumpy and banded
+  function cliff(p, N, skip) {
+    const rows = 10, pos = [], col = [], idx = [], y0 = MTN_B - 2.5, y1 = p.top;
+    const cols = [];
+    for (let i = 0; i <= N; i++) {
+      const th = i / N * Math.PI * 2, R = p.R(th), onFace = faces.some(f => f.plate === p && angGap(th, f.th) < f.dth * 1.1);
+      for (let j = 0; j <= rows; j++) {
+        const y = lerp(y0, y1, j / rows), bump = (fbm(th * 9 + p.top, y * 0.5) - 0.55) * 0.7 - (j === rows ? 0.05 : 0), r = R + bump;
+        pos.push(Math.cos(th) * r, y, Math.sin(th) * r);
+        let c = rockCols[Math.floor((y + fbm(th * 3, 1) * 3) / 1.3) % rockCols.length];
+        if (onFace && y > (faces.find(f => f.plate === p && angGap(th, f.th) < f.dth * 1.1).yMin - 0.4)) c = faceCol;
+        const sh = 0.92 + fbm(th * 20, y) * 0.16; col.push(c[0] * sh, c[1] * sh, c[2] * sh);
+      }
+      cols.push(skip && skip(th));
+    }
+    for (let i = 0; i < N; i++) { if (cols[i] || cols[i + 1]) continue; for (let j = 0; j < rows; j++) { const a = i * (rows + 1) + j, b = a + rows + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; root.add(m);
+  }
+  // a flat grassy top: an annulus from the next plate in, out to the edge (minus the ravines)
+  function cap(p, rIn, N, grass, notch) {
+    const rings = 6, pos = [], col = [], idx = [];
+    for (let i = 0; i <= N; i++) {
+      const th = i / N * Math.PI * 2, R = p.R(th), r0 = Math.max(0, rIn(th) - 0.6);
+      for (let j = 0; j <= rings; j++) {
+        const r = lerp(r0, R - 0.04, j / rings);
+        pos.push(Math.cos(th) * r, p.top + 0.01, Math.sin(th) * r);
+        const n = fbm(Math.cos(th) * r * 0.15 + p.top, Math.sin(th) * r * 0.15), edge = smooth(R - 1.2, R, r);
+        const c = grass.map((v, k) => lerp(v, [0.8, 0.74, 0.86][k], smooth(0.6, 0.72, n) * 0.7));
+        col.push(...c.map((v, k) => lerp(v, rockCols[0][k], edge * 0.5) * (0.94 + n * 0.12)));
+      }
+    }
+    for (let i = 0; i < N; i++) for (let j = 0; j < rings; j++) {
+      const a = i * (rings + 1) + j, b = a + rings + 1;
+      if (notch) { const th = (i + 0.5) / N * Math.PI * 2, r = lerp(Math.max(0, rIn(th) - 0.6), p.R(th), (j + 0.5) / rings); if (ravineAt(th, r) >= -0.05) continue; }
+      idx.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat); m.receiveShadow = true; root.add(m);
+  }
+  cliff(P1, 720, th => ravineAt(th, P1.R(th)) >= -0.05); cap(P1, mtnR2, 720, [0.6, 0.8, 0.52], true);
+  cliff(P2, 360); cap(P2, mtnR3, 360, [0.56, 0.78, 0.56]);
+  cliff(P3, 240); cap(P3, () => MTN_PEAK_R, 240, [0.62, 0.8, 0.6]);
+  cliff(PEAK, 120); cap(PEAK, () => 0, 120, [0.96, 0.8, 0.86]);
+  // the ravine walls: rock faces down each side of the cuts
+  MTN_RAVINES.forEach(([a, w]) => [-1, 1].forEach(s => {
+    const pos = [], col = [], idx = [], steps = 24, rows = 8;
+    for (let i = 0; i <= steps; i++) {
+      const r = lerp(mtnR2(a) - 0.5, mtnR1(a) + 0.4, i / steps), th = a + s * w / r;
+      for (let j = 0; j <= rows; j++) { const y = lerp(MTN_B - 2.5, MTN_TOP.p1, j / rows), bump = (fbm(r * 0.9 + s * 7, y * 0.6) - 0.55) * 0.5, rr2 = th - s * bump / r; pos.push(Math.cos(rr2) * r, y, Math.sin(rr2) * r); const c = rockCols[(j + i) % 2 + 1]; col.push(...c); }
+    }
+    for (let i = 0; i < steps; i++) for (let j = 0; j < rows; j++) { const q = i * (rows + 1) + j, b = q + rows + 1; if (s > 0) idx.push(q, b, q + 1, q + 1, b, b + 1); else idx.push(q, q + 1, b, b, q + 1, b + 1); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); m.castShadow = m.receiveShadow = true; root.add(m);
+  }));
+  // rock pillars (stepping stones and the spiral): bumpy columns with grassy tops
+  const pillarParts = [];
+  for (const p of plates) if (p.kind === 'circle' && p.look === 'pillar') {
+    const h = p.top - (MTN_B - 2.5), geo = new THREE.CylinderGeometry(p.r * 0.95, p.r * 1.15, h, 10, 4);
+    const ps = geo.attributes.position; for (let i = 0; i < ps.count; i++) { const x = ps.getX(i), y = ps.getY(i), z = ps.getZ(i), n = 1 + (hash2(Math.round(x * 50 + p.x), Math.round(y * 30 + z * 50)) - 0.5) * 0.18; if (Math.abs(y) < h / 2 - 0.01) ps.setXYZ(i, x * n, y, z * n); }
+    pillarParts.push(bake(geo, 0xa99bb8).translate(p.x, (p.top + MTN_B - 2.5) / 2, p.z));
+    pillarParts.push(bake(new THREE.CylinderGeometry(p.r * 0.98, p.r * 0.98, 0.12, 12), 0x8fcf7a).translate(p.x, p.top - 0.04, p.z));
+  }
+  const pm = new THREE.Mesh(merge(pillarParts), vcLambert()); pm.castShadow = pm.receiveShadow = true; root.add(pm);
+  // boulders: squashed lumpy rocks, plus the stair boulders by the third plateau
+  const bparts = [];
+  const lump = (x, y0, z, rad, h, seed) => { const g = new THREE.DodecahedronGeometry(1, 1), ps = g.attributes.position; for (let i = 0; i < ps.count; i++) { const n = 1 + (hash2(i * 7 + seed, seed) - 0.5) * 0.25; ps.setXYZ(i, ps.getX(i) * n, ps.getY(i) * n, ps.getZ(i) * n); } g.scale(rad, h * 0.62, rad).translate(x, y0 + h * 0.45, z); return bake(g, [0xb3a6c4, 0x9f94b4, 0xc2b6cc, 0xa8a0b8][seed % 4]); };
+  mtnBoulders.forEach((b, i) => bparts.push(lump(b.x, b.top - b.h, b.z, b.rad, b.h, i)));
+  plates.filter(p => p.look === 'boulder' && !mtnBoulders.some(b => b.x === p.x && b.z === p.z)).forEach((p, i) => { const h = p.top - MTN_TOP.p2; bparts.push(lump(p.x, MTN_TOP.p2 - 0.3, p.z, p.r * 1.12, h + 0.35, 90 + i)); });
+  const bm = new THREE.Mesh(merge(bparts), vcLambert()); bm.castShadow = bm.receiveShadow = true; root.add(bm);
+  // the handholds: lots of chunky rounded knobs all over each climbable face, and a few vines
+  const knobs = []; const R = mulberry32(99);
+  faces.forEach(f => {
+    const p = f.plate, y0 = Math.max(f.yMin, MTN_B - 1), area = (p.top - y0) * f.half * 2, n = Math.round(area * 5);
+    for (let i = 0; i < n; i++) { const th = f.th + (R() * 2 - 1) * f.dth, y = lerp(y0 + 0.2, p.top - 0.15, R()), r = p.R(th) + 0.02, s = 0.14 + R() * 0.2; knobs.push({ x: Math.cos(th) * r, y, z: Math.sin(th) * r, s, c: [0xe8cfa8, 0xd8b894, 0xf2dcb8, 0xc9a882][i % 4] }); }
+    for (let v = 0; v < 3; v++) { const th = f.th + (v - 1) * f.dth * 0.7, r = p.R(th) + 0.08, len = (p.top - y0) * (0.5 + R() * 0.4); const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 5), lam(0x4fa64a)); vine.position.set(Math.cos(th) * r, p.top - len / 2, Math.sin(th) * r); root.add(vine); for (let k = 0; k < 6; k++) { const lf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), lam(0x63c879)); lf.scale.set(1, 0.5, 1.4); lf.position.set(Math.cos(th) * (r + 0.05), p.top - len * (k + 0.5) / 6, Math.sin(th) * (r + 0.05)); root.add(lf); } }
+  });
+  const kg = new THREE.IcosahedronGeometry(1, 1), km = new THREE.InstancedMesh(kg, new THREE.MeshLambertMaterial({ color: 0xffffff }), knobs.length), dm = new THREE.Object3D(), kc = new THREE.Color();
+  knobs.forEach((k, i) => { dm.position.set(k.x, k.y, k.z); dm.rotation.set(k.s * 9, k.s * 13, 0); dm.scale.set(k.s, k.s * 0.8, k.s); dm.updateMatrix(); km.setMatrixAt(i, dm.matrix); km.setColorAt(i, kc.setHex(k.c)); });
+  km.castShadow = true; root.add(km);
+  // the peak: a little cairn and a pink pennant you can see from below
+  const cairn = []; for (let k = 0; k < 5; k++) cairn.push(lump(0, MTN_TOP.peak + k * 0.32, 0, 0.55 - k * 0.08, 0.42, 200 + k));
+  const cm = new THREE.Mesh(merge(cairn), vcLambert()); cm.castShadow = true; root.add(cm);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.2, 6), lam(0x8a5a33)); pole.position.set(1.4, MTN_TOP.peak + 2.1, 0.6); root.add(pole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8), new THREE.MeshLambertMaterial({ color: 0xff6fa5, side: THREE.DoubleSide })); flag.position.set(2.1, MTN_TOP.peak + 3.7, 0.6); root.add(flag);
+  // a few clumps of pink alpine flowers on the peak
+  for (let k = 0; k < 14; k++) { const a = k * 2.39, r = 1.6 + (k % 5) * 0.7, f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), lam(k % 3 ? 0xff9cc0 : 0xffffff)); f.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.1, Math.sin(a) * r); root.add(f); }
+  return { root, flag };
+})();
+// a signpost by the way in
+{
+  const [x, z] = polar(MTN_ENTRY_TH + 0.05, FOREST_OUT - 2.5), c = document.createElement('canvas'); c.width = 512; c.height = 200; const g = c.getContext('2d');
+  g.fillStyle = '#d8a46c'; g.fillRect(0, 0, 512, 200); g.strokeStyle = '#8a5a33'; g.lineWidth = 14; g.strokeRect(7, 7, 498, 186);
+  g.textAlign = 'center'; g.fillStyle = '#5b3418'; g.font = '700 46px "Fredoka", sans-serif'; g.fillText('MOUNT SCRUMBLE', 256, 90); g.font = '700 30px "Nunito", sans-serif'; g.fillText('climbers only, please!', 256, 150);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.6, 8), lam(0x8a5a33)); post.position.set(x, heightAt(x, z) + 1.3, z); scene.add(post);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 0.08), [lam(0xb98352), lam(0xb98352), lam(0xb98352), lam(0xb98352), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) })]);
+  const out = polar(MTN_ENTRY_TH + 0.05, FOREST_OUT - 6); board.position.set(x, heightAt(x, z) + 2.2, z); board.lookAt(out[0], heightAt(x, z) + 2.2, out[1]); scene.add(board);
+}
+
+/* ---------- climbing the bumpy faces ---------- */
+let rockClimb = null, mtnHints = {};
+function startRockClimb(face, th) {
+  rockClimb = { face, th, phase: 0, lastStep: 0 };
+  player.vx = player.vz = player.vy = 0; player.grounded = false;
+  if (!mtnHints.climb) { mtnHints.climb = true; toast('W / S to climb · A / D to edge sideways · Space to jump off'); }
+}
+function updateRockClimb(dt, ix, iz) {
+  const c = rockClimb, f = c.face, p = f.plate;
+  if (jumpQueued) { jumpQueued = false; rockClimb = null; player.vx = Math.cos(c.th) * 4.2; player.vz = Math.sin(c.th) * 4.2; player.vy = 5.5; climbCooldown = 0.5; sfxJump(); return; }
+  // edge sideways along the face, but not off its sides
+  const R = p.R(c.th);
+  c.th += -ix * 1.6 * dt / R;
+  c.th = f.th + clamp(Math.atan2(Math.sin(c.th - f.th), Math.cos(c.th - f.th)), -f.dth * 0.92, f.dth * 0.92);
+  const dist = p.R(c.th) + MTN_PAD + 0.12;
+  player.x = Math.cos(c.th) * dist; player.z = Math.sin(c.th) * dist;
+  // up and down
+  const floor = Math.max(heightAt(player.x, player.z), mtnGround(player.x, player.z, player.y - 0.2));
+  player.y = clamp(player.y + iz * 2.4 * dt, Math.max(floor, f.yMin - 0.35), p.top);
+  if (iz < -0.1 && player.y <= floor + 0.01) { rockClimb = null; player.grounded = true; climbCooldown = 0.4; return; }
+  // over the top
+  if (player.y >= p.top - 1.2 && iz > 0.1) {
+    const r = p.R(c.th) - 0.9; player.x = Math.cos(c.th) * r; player.z = Math.sin(c.th) * r; player.y = p.top; player.vy = 0; player.grounded = true;
+    rockClimb = null; climbCooldown = 0.4; sfxClimbStep();
+    if (p === PEAK || !mtnHints['top' + p.id]) { mtnHints['top' + p.id] = true; toast(p === P1 ? 'Up on the first plateau! Keep an eye out for more bumpy rock to climb.' : p === P2 ? 'Second plateau! The way up gets trickier from here...' : 'Third plateau! Not far now. Those pillars look like stepping stones...'); }
+    return;
+  }
+  // face the rock
+  const want = Math.atan2(Math.cos(c.th), Math.sin(c.th));
+  player.yaw += angDiff(player.yaw, want) * Math.min(1, dt * 6);
+  c.phase += Math.abs(iz) * dt * 6 + Math.abs(ix) * dt * 4;
+  const st = Math.floor(c.phase / Math.PI); if (st !== c.lastStep) { c.lastStep = st; sfxClimbStep(); }
+  camera.position.set(player.x, player.y + 1.65 + Math.sin(c.phase * 2) * 0.03, player.z);
+}
+// walking into a wall: climb it if it's a bumpy face, otherwise it's in the way
+function mtnTryClimb(wall, tvx, tvz) {
+  if (!wall || wall.kind !== 'radial' || climbCooldown > 0) return false;
+  const th = Math.atan2(player.z, player.x), f = faceAt(wall, th, player.y);
+  if (!f) { if (!mtnHints.wall && Math.hypot(tvx, tvz) > 0.5) { mtnHints.wall = true; toast('Far too steep and smooth to climb here. Look for rock covered in lumps and bumps!'); } return false; }
+  const tl = Math.hypot(tvx, tvz); if (tl < 0.3) return false;
+  const into = -(tvx * Math.cos(th) + tvz * Math.sin(th)) / tl;
+  if (into < 0.45) return false;
+  startRockClimb(f, th); return true;
+}
+function updateMountain(dt) {
+  mountain.flag.rotation.y = Math.sin(time * 2.2) * 0.25;
+  if (!playing) return;
+  // spotting a climbable face for the first time
+  if (!mtnHints.spot && inMountain(player.x, player.z)) for (const f of faces) { const R = f.plate.R(f.th), x = Math.cos(f.th) * R, z = Math.sin(f.th) * R; if (Math.hypot(player.x - x, player.z - z) < 9 && Math.abs(player.y - f.yMin) < 6) { mtnHints.spot = true; toast('That rock face is covered in lumps and bumps. Walk into it to climb!'); break; } }
+  if (!mtnHints.peak && player.y > MTN_TOP.peak - 0.2 && Math.hypot(player.x, player.z) < MTN_PEAK_R) { mtnHints.peak = true; sfx.caught(); toast('You made it to the top of Mount Scrumble! What a view. (There’s more to discover up here... one day.)'); }
+}
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -10001,8 +10285,8 @@ function updateForest(dt) {
   if (!player.climb && (appleGlow || targetTreeApple)) targetTreeApple = findTreeApple();   // climbed down: stop highlighting
   for (const t of appleTrees) for (const a of t.apples) if (!a.on) { a.t -= dt; if (a.t <= 0) showApple(a, true); }
   // the banner
-  const here = inland(player.x, player.z) > HEDGE_OUT + 0.5 ? 'forest' : 'beach';
-  if (playing && here !== areaNow) { areaNow = here; showArea(here === 'forest' ? 'Glimmerwood' : 'Pinksand Shore'); }
+  const dHere = inland(player.x, player.z), here = dHere > FOREST_OUT + 3 ? 'mountain' : dHere > HEDGE_OUT + 0.5 ? 'forest' : 'beach';
+  if (playing && here !== areaNow) { areaNow = here; showArea(here === 'mountain' ? 'Mount Scrumble' : here === 'forest' ? 'Glimmerwood' : 'Pinksand Shore'); }
   // the four Sir Hopsalots
   const show = scrimHere();
   for (const h of hops) {
@@ -10125,6 +10409,7 @@ function tick(dt) {
   updateCarlos(dt);
   updateHouse(dt);
   updateHousePets(dt);
+  updateMountain(dt);
   ZIP.root.visible = scrimHere();
   updateForest(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
@@ -10185,7 +10470,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
