@@ -287,6 +287,7 @@
   .bcell .nm i { font-style: normal; color: rgba(44,37,82,.6); font-size: .74rem; }
   .bcell .nm em { font-style: normal; font-size: .62rem; font-weight: 700; color: var(--cream); padding: 0 5px; border-radius: 5px; width: fit-content; }
   .bcell .nm em.big { background: #e59a2f; } .bcell .nm em.small { background: var(--lagoon); }
+  .bcell.buy { border: 3px dashed #9fb894; background: rgba(159,184,148,.18); display: grid; place-items: center; } .bcell.buy .plus { font-family: var(--display); font-size: 1.6rem; font-weight: 700; color: #4f8f3a; } .bcell.buy .nm em { background: none; color: var(--ink); }
   .box-grid .bcell .nm { display: none; }
   .box-grid .bcell.has:hover .nm, .box-grid .bcell.cur .nm { display: none; }
   .bcell .empty { width: 40%; aspect-ratio: 1; border-radius: 50%; border: 2px dashed rgba(122,74,36,.25); }
@@ -426,6 +427,7 @@
   .bcell.armed { background: #ffe9a8; box-shadow: 0 0 0 3px #e59a2f, 0 4px 0 #b8730a; transform: translateY(-3px); }
   .bcell.picked { background: #e3d2fb; box-shadow: 0 0 0 3px #9b6bd6; }
   .bcell.picked::after { content: '✓'; position: absolute; top: 2px; right: 7px; font-weight: 800; color: #7a4cc0; }
+  .board-refresh { display: block; margin: 14px auto 0; background: #e0883a; box-shadow: 0 4px 0 #a85a1a; }
   .scrim-go { margin-top: 10px; border: 0; border-radius: 14px; padding: 10px 20px; font-family: var(--display); font-size: 1.1rem; font-weight: 700; background: #9b6bd6; color: #fff; box-shadow: 0 4px 0 #6b3fa6; cursor: pointer; justify-self: center; display: flex; gap: 6px; align-items: center; }
   .scrim-go.off { background: #c9b8de; box-shadow: 0 4px 0 #a593bd; }
   .scrim-go.cur { outline: 3px solid var(--pink); outline-offset: 2px; }
@@ -2447,10 +2449,13 @@ function pickName() {
 }
 const fullName = p => SPECIES[p.species].unique ? p.name : `${p.name} the ${shinyWord(p.shiny)}${sizeWord(p.size)}${SPECIES[p.species].name}`;
 
-const BOX_SIZE = 48;
+// the Box starts with 32 slots; once the forest's open the Professor will build more, 16 at a time, up to 96
+const BOX_SIZE = 96, BOX_BASE = 32, BOX_STEP = 16, BOX_STEP_PRICE = 50;
+let boxCap = BOX_BASE;
 const boxSlots = new Array(BOX_SIZE).fill(null);
+const canExpandBox = () => forestState.open && boxCap < BOX_SIZE;
 function makeScrumbly(species, name, size, shiny) { if (SPECIES[species] && SPECIES[species].unique) return { species, name: SPECIES[species].name, size: null, shiny: false }; return { species, name: name || pickName(), size: SIZES[size] ? size : null, shiny: !!shiny }; }
-function addToBox(p) { const i = boxSlots.indexOf(null); if (i < 0) return false; boxSlots[i] = p; return true; }
+function addToBox(p) { const i = boxSlots.indexOf(null); if (i < 0 || i >= boxCap) return false; boxSlots[i] = p; return true; }
 function renderPartyHud(popIndex) {
   [...partyEl.children].forEach((el, i) => {
     const p = party[i], pn = el.querySelector('.pname');
@@ -6499,11 +6504,18 @@ function renderBox() {
     el.classList.toggle('has', !!p); el.classList.toggle('cur', sameCell(boxCur, cell)); el.classList.toggle('held', sameCell(boxHeld, cell));
   };
   [...boxPartyEl.children].forEach((el, i) => fill(el, party[i] || null, i === 0, { area: 'party', i }));
-  [...boxGridEl.children].forEach((el, i) => fill(el, boxSlots[i], false, { area: 'box', i }));
-  document.getElementById('boxCount').textContent = `${boxSlots.filter(Boolean).length}/${BOX_SIZE}`;
+  [...boxGridEl.children].forEach((el, i) => {
+    // slots past the Box's size are hidden; the first one becomes "build more" once that's on offer
+    const buy = i === boxCap && canExpandBox();
+    el.hidden = i > boxCap || (i === boxCap && !buy); el.classList.toggle('buy', buy);
+    if (buy) { el.innerHTML = `<span class="plus">+${BOX_STEP}</span><span class="nm"><b>more slots</b><em><i class="coin"></i>${BOX_STEP_PRICE}</em></span>`; el.classList.toggle('cur', sameCell(boxCur, { area: 'box', i })); el.classList.remove('has', 'held'); }
+    else if (i < boxCap) fill(el, boxSlots[i], false, { area: 'box', i });
+  });
+  document.getElementById('boxCount').textContent = `${boxSlots.filter(Boolean).length}/${boxCap}`;
   const cur = cellGet(boxCur), held = boxHeld && cellGet(boxHeld);
-  boxFoot.innerHTML = held
-    ? `Moving <b></b>. Pick a slot to move it to, or swap with someone. <kbd>Esc</kbd> closes`
+  boxFoot.innerHTML = boxCur.area === 'box' && boxCur.i >= boxCap ? `Build ${BOX_STEP} more pens for <i class="coin"></i>${BOX_STEP_PRICE} (you have ${gold}) · room for up to ${BOX_SIZE} · <kbd>Esc</kbd>/<kbd>B</kbd> close`
+    : held
+    ?`Moving <b></b>. Pick a slot to move it to, or swap with someone. <kbd>Esc</kbd> closes`
     : (cur ? `<b></b>${boxCur.area === 'party' && boxCur.i === 0 ? ' · your partner' : ''}. Click to pick them up, then click where they should go.` : 'Click a scrumbly to pick it up, then click a slot to move or swap it.')
       + ' · <kbd>Arrows</kbd> + <kbd>Enter</kbd>, or controller d-pad + <kbd>A</kbd> · <kbd>Esc</kbd>/<kbd>B</kbd> close';
   const b = boxFoot.querySelector('b'); if (b) b.textContent = fullName(held || cur);
@@ -6524,8 +6536,14 @@ function boxSwap(a, b) {
   renderPartyHud(); saveGame(); boxDirty = true;
   return true;
 }
+function buyBoxSlots() {
+  if (gold < BOX_STEP_PRICE) { sfx.dexNope(); profSay(`Building more pens costs ${BOX_STEP_PRICE} gold, dear. Timber doesn't grow on trees! ...Well. It does. But still.`); return; }
+  gold -= BOX_STEP_PRICE; renderGold(); boxCap = Math.min(BOX_SIZE, boxCap + BOX_STEP); sfx.caught(); saveGame();
+  profSay(boxCap >= BOX_SIZE ? 'There! That\'s every last corner of the ranch fenced off. Room for ninety-six. My, what a family!' : pick1(['Hammer, hammer, saw, saw... sixteen lovely new pens! Plenty of room for more friends.', 'Ribbit-ho! Sixteen more cosy pens, fresh straw and all.', 'Done! I\'ve even put little name plates on the doors.']));
+}
 function boxActivate() {
   if (!boxOpen) return;
+  if (boxCur.area === 'box' && boxCur.i >= boxCap) { if (!boxHeld && canExpandBox()) buyBoxSlots(); renderBox(); return; }
   if (!boxHeld) { if (cellGet(boxCur)) { boxHeld = { ...boxCur }; sfx.pickup(); } }
   else if (sameCell(boxHeld, boxCur)) boxHeld = null;
   else {
@@ -6542,12 +6560,12 @@ function boxActivate() {
 const BOX_COLS = 6;
 function boxMove(dx, dy) {
   if (boxCur.area === 'party') {
-    if (dx > 0) boxCur = { area: 'box', i: Math.min(boxCur.i, Math.ceil(BOX_SIZE / BOX_COLS) - 1) * BOX_COLS };
+    if (dx > 0) boxCur = { area: 'box', i: Math.min(boxCur.i, Math.ceil(boxCap / BOX_COLS) - 1) * BOX_COLS };
     else boxCur = { area: 'party', i: clamp(boxCur.i + dy, 0, PARTY_MAX - 1) };
   } else {
     const col = boxCur.i % BOX_COLS, row = Math.floor(boxCur.i / BOX_COLS);
     if (dx < 0 && col === 0) boxCur = { area: 'party', i: Math.min(row, PARTY_MAX - 1) };
-    else boxCur = { area: 'box', i: clamp(boxCur.i + dx + dy * BOX_COLS, 0, BOX_SIZE - 1) };
+    else boxCur = { area: 'box', i: clamp(boxCur.i + dx + dy * BOX_COLS, 0, boxCap - (canExpandBox() ? 0 : 1)) };   // (the "more slots" cell sits just past the end)
   }
   sfx.dexTick(); renderBox();
 }
@@ -6812,9 +6830,9 @@ const trapGhost = makeTrapMesh(ghostMat); setDoors(trapGhost, 1); trapGhost.visi
 const heldTrapMesh = makeTrapMesh(); heldTrapMesh.scale.setScalar(0.13); setDoors(heldTrapMesh, 1); heldTrapMesh.visible = false; viewScene.add(heldTrapMesh);
 let trapSpot = null, nearTrap = null, trapHintShown = false;
 function trapPlacement() {
-  const x = player.x + fwd.x * 1.9, z = player.z + fwd.z * 1.9, y = heightAt(x, z);
+  const x = player.x + fwd.x * 1.9, z = player.z + fwd.z * 1.9, h = heightAt(x, z), my = inMountain(x, z) ? mtnGround(x, z, player.y + 0.6) : -Infinity, y = Math.max(h, my);
   // anywhere you can walk (the forest and the river bed too), just not on bridges or against trunks
-  let ok = canWalk(x, z) && y > water.position.y - 0.15 && !inRanchZone(x, z, 1) && traps.every(t => Math.hypot(t.x - x, t.z - z) > 1.4) && groundAt(x, z) - y < 0.15;
+  let ok = canWalk(x, z) && y > water.position.y - 0.15 && !inRanchZone(x, z, 1) && traps.every(t => Math.hypot(t.x - x, t.z - z) > 1.4) && groundAt(x, z) - h < 0.15 && Math.abs(y - player.y) < 1.2;
   if (ok) for (const c of forestColliders) if (Math.abs(c.x - x) < 2 && Math.abs(c.z - z) < 2 && Math.hypot(c.x - x, c.z - z) < c.r + 0.6) ok = false;
   if (ok) for (const p of palms) { if (Math.abs(p.x - x) < 2 && Math.abs(p.z - z) < 2) { trunkAt(p, y + 0.4, tk); if (Math.hypot(tk.x - x, tk.z - z) < tk.r + 0.7) ok = false; } }
   if (ok && typeof nooks !== 'undefined') for (const n of nooks) if (Math.hypot(n.x - x, n.z - z) < 1.5) ok = false;
@@ -6823,12 +6841,12 @@ function trapPlacement() {
 function placeTrap() {
   const s = trapPlacement();
   if (!s.ok) { sfx.dexNope(); toast('Can\'t put a trap there. Try open ground, out of the sea.'); return; }
-  spawnTrapAt(s.x, s.z, s.yaw);
+  spawnTrapAt(s.x, s.z, s.yaw, s.y);
   inv.traps--; renderHotbar(); throwAnim = 0; sfx.thud(); sandPuff(s.x, s.z, 8);
   if (!trapHintShown) { trapHintShown = true; toast('Trap set! Any scrumbly that wanders over it gets shut in. Press E on an empty trap to pick it back up.'); }
 }
-function spawnTrapAt(x, z, yaw) {
-  const y = heightAt(x, z), g = makeTrapMesh(); g.position.set(x, y, z); g.rotation.y = yaw; setDoors(g, 1); scene.add(g);
+function spawnTrapAt(x, z, yaw, ty) {
+  const y = isFinite(ty) ? ty : heightAt(x, z), g = makeTrapMesh(); g.position.set(x, y, z); g.rotation.y = yaw; setDoors(g, 1); scene.add(g);
   const t = { g, x, y, z, state: 'open', occupant: null, t: 0, open: 1 }; traps.push(t); return t;
 }
 // creatures a trap can grab (Mermigglies stay in the water, so never)
@@ -6925,10 +6943,10 @@ const packP = p => p && Object.assign({ species: p.species, name: p.name, size: 
 function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
-    party: party.map(packP), box: boxSlots.map(packP),
+    party: party.map(packP), box: boxSlots.map(packP), boxCap,
     scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned], pillar: { awake: pillarState.awake }, lionel: lionelSave(),
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
-    inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
+    inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), y: +t.y.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
     music: musicOn
   };
@@ -6948,6 +6966,7 @@ function applySnapshot(s) {
   // party, Box, Scrumblydex, the Professor
   party.length = 0; (Array.isArray(s.party) ? s.party : []).slice(0, PARTY_MAX).map(unpackP).filter(Boolean).forEach(p => party.push(p));
   for (let i = 0; i < BOX_SIZE; i++) boxSlots[i] = Array.isArray(s.box) ? unpackP(s.box[i]) : null;
+  { let last = -1; boxSlots.forEach((p, i) => { if (p) last = i; }); boxCap = clamp(Math.max(isFinite(s.boxCap) ? Math.round(s.boxCap / BOX_STEP) * BOX_STEP : BOX_BASE, Math.ceil((last + 1) / BOX_STEP) * BOX_STEP), BOX_BASE, BOX_SIZE); }   // older saves keep room for everyone already in the Box
   // the partner rule: if the party is empty but the Box isn't, the first boxed scrumbly comes along
   if (!party.length) { const i = boxSlots.findIndex(Boolean); if (i >= 0) { party.push(boxSlots[i]); boxSlots[i] = null; } }
   renderPartyHud();
@@ -6974,7 +6993,7 @@ function applySnapshot(s) {
   // what's in your pockets, and traps left out on the sand
   traps.slice().forEach(t => { if (t.occupant) releaseTrap(t, true, true); scene.remove(t.g); });
   traps.length = 0;
-  (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, inv.trapsOwned).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0); });
+  (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, inv.trapsOwned).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0, t.y); });
   inv.traps = clamp(s.inv && isFinite(s.inv.traps) ? s.inv.traps : inv.trapsOwned - traps.length, 0, Math.max(0, inv.trapsOwned - traps.length));
   setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
   inv.apples = clamp(s.inv && isFinite(s.inv.apples) ? Math.floor(s.inv.apples) : 0, 0, MAX_APPLES);
@@ -7802,6 +7821,12 @@ function buildScrim() {
       el.innerHTML = `<h4>WANTED: FREEDOM FOR</h4><span class="ric" style="${style}">${S.icon}</span><span class="what">${reqLabel(r)}</span><span class="plea">${reqPlea(r)}</span><span class="reward">Reward <i class="coin"></i>${r.reward}</span><span class="have ${ok ? 'ok' : ''}">${ok ? '✓ ' : ''}You have ${Math.min(have, 99)}/${r.n}</span>`;
       hookItem(el, i); wrap.appendChild(el); m.els.push(el);
     });
+    // tear them all down and pin up three new ones, for a small fee
+    if (m.items.length) {
+      m.items.push({ refresh: true });
+      const rb = document.createElement('button'); rb.className = 'scrim-go board-refresh' + (gold < BOARD_REFRESH ? ' off' : ''); rb.innerHTML = `New requests · <i class="coin"></i>${BOARD_REFRESH}`;
+      scrimBody.appendChild(rb); hookItem(rb, m.items.length - 1); m.els.push(rb);
+    }
   } else {
     const r = m.req, elig = eligibleFor(r);
     m.items = elig.concat([{ confirm: true }]); m.cols = 6;
@@ -7834,7 +7859,7 @@ function refreshScrim() {
     else html = `<b></b>${sellableEntry(it) ? ` · <i class="coin"></i>${priceOf(it.p)}. Pick them to set them free` : it.area === 'party' && it.i === 0 ? ' · your partner stays with you' : ' · one of a kind: not for sale'}`;
     html += ctl + (m.armed >= 0 ? 'cancel' : 'close');
   } else if (m.mode === 'board') {
-    html = it ? `${reqLabel(it)} for <i class="coin"></i>${it.reward}. Pick a request you can fill` : 'Come back once you’ve scanned more scrumblies';
+    html = it && it.refresh ? `Tear them all down and pin up three new requests for <i class="coin"></i>${BOARD_REFRESH}` : it ? `${reqLabel(it)} for <i class="coin"></i>${it.reward}. Pick a request you can fill` : 'Come back once you’ve scanned more scrumblies';
     html += ctl + 'close';
   } else {
     const r = m.req, go = scrimBody.querySelector('.scrim-go'), ready = m.picked.size === r.n;
@@ -7870,6 +7895,12 @@ function scrimActivate() {
     scrimSfx.coin(); scrimSay(pick1(RELEASE_LINES).replace('{name}', it.p.name));
     m.armed = -1; saveGame(); buildScrim();
   } else if (m.mode === 'board') {
+    if (it.refresh) {
+      if (gold < BOARD_REFRESH) return scrimNope(`Fresh requests cost ${BOARD_REFRESH} gold, friend. Gotta pay for the pins somehow.`);
+      gold -= BOARD_REFRESH; renderGold(); scrimState.requests = []; fillRequests(); scrimSfx.coin();
+      scrimSay(pick1(['Rip, rip, rip... and three brand new ones. Fresh off the grapevine, man.', 'New day, new scrumblies in need. Far out.', 'Out with the old pleas, in with the new. Peace and love!']));
+      m.cur = 0; saveGame(); buildScrim(); return;
+    }
     const have = eligibleFor(it).length;
     if (have < it.n) return scrimNope(it.kind === 'count' ? `You’ll need ${it.n - have} more ${SPECIES[it.species].name}${it.n - have === 1 ? '' : 's'} for that one, friend. Not counting your partner!` : `You haven’t got a ${it.kind === 'shiny' ? 'Shiny' : SIZES[it.kind].label} ${SPECIES[it.species].name} to spare yet, friend.`);
     // start with the cheapest ones picked, so nobody special goes by accident
@@ -7973,6 +8004,7 @@ function unlockBoard() {
     { text: 'I only list scrumblies you’ve already scanned, so you know who you’re looking for. Go on, have a read!', act: () => { scrimState.boardOn = true; scrimBoard.visible = true; fillRequests(); saveGame(); } }
   ], () => { scrimState.pendingUnlock = false; scrimState.boardOn = true; scrimBoard.visible = true; saveGame(); toast('Scrimple’s notice board is up! Read it for requests worth extra gold.'); }, 'scrim');
 }
+const BOARD_REFRESH = 30;
 function openBoard() { openScrim('board', pick1(BOARD_HELLO)); }
 // the Professor has opinions about all this
 function profComplain() {
@@ -8641,7 +8673,7 @@ function updateApples(dt) {
     }
     { const fp = pondAt(a.x, a.z); if (fp && a.y <= fp.y + 0.08) { a.state = 'gone'; a.mesh.visible = false; footPondApple(fp); continue; } }   // plop, into a foothill pond
     if (typeof pondY !== 'undefined' && inPond(a.x, a.z, 0.2) && a.y <= pondY + 0.08) { a.state = 'gone'; a.mesh.visible = false; pondApple(a.x, a.z); continue; }   // plop, into Glimmer Pond
-    const g = groundAt(a.x, a.z);
+    const g = groundAt(a.x, a.z, a.y);
     if (a.y <= g + 0.1) {
       if (heightAt(a.x, a.z) < water.position.y - 0.05 || (inland(a.x, a.z) > HEDGE_OUT && riverCut(a.x, a.z, inland(a.x, a.z)) > 0.4)) { a.state = 'gone'; a.mesh.visible = false; splash(a.x, a.z, 8, 0.5); continue; }
       a.y = g + 0.1;
@@ -10282,24 +10314,23 @@ for (let k = 0; k < 7; k++) {
   const a = R3at + 0.9 + k * 0.37, r = (mtnR3(a) + MTN_PEAK_R) / 2;
   spiral.push(circlePlate(Math.cos(a) * r, Math.sin(a) * r, 0.85, MTN_TOP.p3 + 1 + k));
 }
-// little ponds in the foothills, home to Frigglies (and, rarely, Fragglies). Each has a loop round it that a
-// Friggly races along, leaping two little streams. Picked here so the boulders and pines can keep clear.
-const footR = (th, f) => { const [ox, oz] = polar(th, FOREST_OUT + 6.2), rIn = mtnR1(th) + 1.7; return lerp(rIn, Math.hypot(ox, oz), f); };
-const MTN_PONDS = [[2.78, 1], [5.05, -1], [0.02, -1]].map(([th0, side], i) => {
-  // a long, narrow loop along the foothills, with the pond just past one end
-  const rc = footR(th0, 0.5), span = 7.5 / rc, N = 96, pts = [];
+// little ponds up on the first plateau, home to Frigglies (and, rarely, Fragglies). Each has a loop beside it that a
+// Friggly races along, leaping two little rock hurdles. Picked here so the boulders and pines can keep clear.
+const laneR = (plate, th, f) => lerp((plate === P1 ? P2 : P3).R(th) + 1.4, plate.R(th) - 1.4, f);
+const MTN_PONDS = [[P1, 0.09, -1], [P1, 2.44, 1], [P1, 4.71, 1]].map(([plate, th0, side], i) => {
+  // a loop across the plateau, with the pond just past one end
+  const rc = laneR(plate, th0, 0.5), span = 5.5 / rc, N = 96, pts = [];
   for (let k = 0; k < N; k++) {
     const u = k / N; let th, f;
-    if (u < 0.4) { th = th0 - span + 2 * span * (u / 0.4); f = 0.86; }
-    else if (u < 0.5) { const q = (u - 0.4) / 0.1; th = th0 + span + Math.sin(q * Math.PI) * (1.6 / rc); f = lerp(0.86, 0.14, q); }
-    else if (u < 0.9) { th = th0 + span - 2 * span * ((u - 0.5) / 0.4); f = 0.14; }
-    else { const q = (u - 0.9) / 0.1; th = th0 - span - Math.sin(q * Math.PI) * (1.6 / rc); f = lerp(0.14, 0.86, q); }
-    const r = footR(th, f); pts.push({ x: Math.cos(th) * r, z: Math.sin(th) * r });
+    if (u < 0.4) { th = th0 - span + 2 * span * (u / 0.4); f = 0.85; }
+    else if (u < 0.5) { const q = (u - 0.4) / 0.1; th = th0 + span + Math.sin(q * Math.PI) * (1.4 / rc); f = lerp(0.85, 0.15, q); }
+    else if (u < 0.9) { th = th0 + span - 2 * span * ((u - 0.5) / 0.4); f = 0.15; }
+    else { const q = (u - 0.9) / 0.1; th = th0 - span - Math.sin(q * Math.PI) * (1.4 / rc); f = lerp(0.15, 0.85, q); }
+    const r = laneR(plate, th, f); pts.push({ x: Math.cos(th) * r, z: Math.sin(th) * r });
   }
   const len = [0]; for (let k = 1; k <= N; k++) { const a = pts[k - 1], b = pts[k % N]; len.push(len[k - 1] + Math.hypot(b.x - a.x, b.z - a.z)); }
-  const w0 = footR(th0 + side * span, 1) - footR(th0 + side * span, 0), rp = clamp(w0 / 2 - 0.45, 1.1, 1.7);
-  const thp = th0 + side * (span + (rp + 2.3) / rc), rcp = footR(thp, 0.5);
-  return { i, th0, x: Math.cos(thp) * rcp, z: Math.sin(thp) * rcp, r: rp, pts, len, L: len[N], gaps: [th0 - span * 0.45, th0 + span * 0.45] };
+  const rp = 1.6, thp = th0 + side * (span + (rp + 2.5) / rc), rcp = laneR(plate, thp, 0.5);
+  return { i, plate, top: plate.top, th0, x: Math.cos(thp) * rcp, z: Math.sin(thp) * rcp, r: rp, pts, len, L: len[N], gaps: [th0 - span * 0.45, th0 + span * 0.45] };
 });
 const inMtnPond = (x, z, pad = 0) => MTN_PONDS.some(p => Math.hypot(x - p.x, z - p.z) < p.r + pad);
 const onPondLoop = (x, z, pad) => MTN_PONDS.some(p => Math.hypot(x - p.x, z - p.z) < p.r + pad || p.pts.some(q => Math.hypot(x - q.x, z - q.z) < pad));
@@ -10330,7 +10361,7 @@ const mtnBoulders = [];
   scatter(22, P1, P2, 1.1);
   scatter(10, P2, P3, 0.9);
   // keep the foothill ponds and the Frigglies' loops clear (filtered after rolling, so the dice don't shift)
-  for (let i = mtnBoulders.length - 1; i >= 0; i--) { const b = mtnBoulders[i]; if (b.floor < P1.top - 1 && onPondLoop(b.x, b.z, b.rad + 1)) { const k = plates.findIndex(q => q.kind === 'circle' && q.x === b.x && q.z === b.z); if (k >= 0) plates.splice(k, 1); mtnBoulders.splice(i, 1); } }
+  for (let i = mtnBoulders.length - 1; i >= 0; i--) { const b = mtnBoulders[i]; if (onPondLoop(b.x, b.z, b.rad + 1)) { const k = plates.findIndex(q => q.kind === 'circle' && q.x === b.x && q.z === b.z); if (k >= 0) plates.splice(k, 1); mtnBoulders.splice(i, 1); } }
 }
 /* ---------- how it looks ---------- */
 // chunky, faceted rock in the same low-poly style as the rest of the island, warm pastel stone,
@@ -11445,7 +11476,7 @@ function lob(ax, ay, az, bx, by, bz, o) {
 const CHUPI_RANGE = 24, CHUPI_SHY = 4.6, CHUPI_AIM = 1.35, CHUPI_PLATES = ['p1', 'p1', 'p1', 'p2', 'p2', 'p3', 'p3'];
 const chupis = [];
 const nextPlate = p => p === P1 ? P2 : p === P2 ? P3 : PEAK;
-const chupiOK = (c, x, z) => plateDepth(c.plate, x, z) > 0.8 && plateDepth(nextPlate(c.plate), x, z) < -0.9 && !plates.some(q => q.kind === 'circle' && q.top > c.plate.top && Math.hypot(x - q.x, z - q.z) < q.r + 0.4);
+const chupiOK = (c, x, z) => !onPondLoop(x, z, 1.3) && plateDepth(c.plate, x, z) > 0.8 && plateDepth(nextPlate(c.plate), x, z) < -0.9 && !plates.some(q => q.kind === 'circle' && q.top > c.plate.top && Math.hypot(x - q.x, z - q.z) < q.r + 0.4);
 function placeChupi(c, away) {
   for (let i = 0; i < 120; i++) {
     const th = Math.random() * Math.PI * 2, rIn = nextPlate(c.plate).R(th) + 1.4, rOut = c.plate.R(th) - 1.4;
@@ -11714,22 +11745,31 @@ SHINY.jiggly = { shift: 0.85, tint: 0.85, sat: 0.4, css: 'hue-rotate(250deg) sat
 SCRIM_PRICE.jiggly = 85; SCRIM_PLEAS.jiggly = 'A Jiggly is a happy, well-fed Friggly. Let it be a happy, well-fed wild one, man.';
 BOND_SPECIES_LINES.jiggly = ['{name} wobbles contentedly.', '{name} is digesting. It may be some time.', '{name} would like you to know it has room for one more apple. Always.', '{name} gave a very big, very slow happy blink.'];
 WELCOME_SPECIES.jiggly = '*wobble wobble* You\'re home! I saved you a spot on my tummy. It\'s very comfy.';
-TAG_HIGH.jiggly = 2.0;
+TAG_HIGH.jiggly = 1.75;
 function makeFrigglyMesh(dark, fat) {
-  // (a Jiggly is the same frog, only much rounder: a squashed-out scaler between root and body, so the hop animation still works)
+  // (a Jiggly is a Friggly that's eaten far too many apples: a squat, wide body with a huge pot belly, the head sunk
+  //  right down onto it, feet planted wide and little arms resting on the tummy. A scaler makes it a bit bigger overall.)
   const root = new THREE.Group(), scaler = new THREE.Group(), body = new THREE.Group(); root.add(scaler); scaler.add(body);
-  if (fat) scaler.scale.set(1.55, 1.3, 1.5);
+  if (fat) scaler.scale.setScalar(1.18);
   const skin = new THREE.MeshLambertMaterial({ color: dark ? 0x2c2a33 : fat ? 0x7fd060 : 0x8ad86a, emissive: dark ? 0x0a080e : 0x1a2a10 }), toe = lam(dark ? 0x232129 : 0x7cc85e);
   const ink = new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 120, specular: 0x9999bb }), mouthM = lam(dark ? 0xff5a5a : 0x4f8f3a);
   const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
-  // a big soft pear of a body, sitting up, with chunky three-toed feet
-  add(new THREE.SphereGeometry(0.33, 20, 16), skin, 0, 0.36, 0, 1.02, 1.05, 0.9);
+  if (fat) {
+    // a great round squat body, side rolls, and a huge pale pot belly sticking right out
+    add(new THREE.SphereGeometry(0.47, 24, 18), skin, 0, 0.45, 0, 1.18, 0.92, 1.02);
+    [-1, 1].forEach(s => add(new THREE.SphereGeometry(0.2, 14, 10), skin, s * 0.47, 0.3, 0.04, 1, 0.8, 1.1));
+    add(new THREE.SphereGeometry(0.38, 22, 16), lam(0xd4f2a8), 0, 0.4, 0.22, 1.08, 1.0, 0.9);
+    add(new THREE.SphereGeometry(0.025, 8, 6), lam(0xa8d880), 0, 0.42, 0.55, 1, 1, 0.5);                  // a little belly button
+    add(new THREE.TorusGeometry(0.3, 0.06, 8, 24), skin, 0, 0.8, 0.06, 1.15, 1, 1).rotation.x = Math.PI / 2;   // a double chin
+  } else add(new THREE.SphereGeometry(0.33, 20, 16), skin, 0, 0.36, 0, 1.02, 1.05, 0.9);   // a big soft pear of a body, sitting up
+  // chunky three-toed feet (planted wide under a Jiggly's tummy)
+  const fx = fat ? 0.3 : 0.18, fz = fat ? 0.3 : 0.16;
   [-1, 1].forEach(s => {
-    add(new THREE.SphereGeometry(0.14, 14, 10), skin, s * 0.18, 0.09, 0.16, 1, 0.55, 1.35);
-    for (let k = -1; k <= 1; k++) add(new THREE.SphereGeometry(0.05, 8, 6), toe, s * 0.18 + k * 0.07, 0.06, 0.33, 1, 0.8, 1);
+    add(new THREE.SphereGeometry(0.14, 14, 10), skin, s * fx, 0.09, fz, fat ? 1.2 : 1, 0.55, 1.35);
+    for (let k = -1; k <= 1; k++) add(new THREE.SphereGeometry(0.05, 8, 6), toe, s * fx + k * 0.07, 0.06, fz + 0.17, 1, 0.8, 1);
   });
   // a wide, flat head with two big eye bumps and a long, easy grin
-  const head = new THREE.Group(); head.position.y = 0.78; body.add(head);
+  const head = new THREE.Group(); head.position.y = fat ? 0.9 : 0.78; body.add(head);
   add(new THREE.SphereGeometry(0.3, 22, 16), skin, 0, 0, 0.02, 1.3, 0.82, 1.08, head);
   const eyes = [], lids = [];
   [-1, 1].forEach(s => {
@@ -11741,8 +11781,7 @@ function makeFrigglyMesh(dark, fat) {
     add(new THREE.SphereGeometry(0.014, 6, 4), mouthM, s * 0.05, 0.04, 0.32, 1, 1, 1, head);     // nostrils
   });
   if (fat) {
-    // a big pale tummy, rosy cheeks and a happy little curl on top
-    add(new THREE.SphereGeometry(0.27, 18, 14), lam(0xd4f2a8), 0, 0.32, 0.12, 1, 1.05, 0.75);
+    // rosy cheeks and a happy little curl on top
     [-1, 1].forEach(s => add(new THREE.SphereGeometry(0.055, 10, 8), lam(0xff9aa8), s * 0.3, -0.04, 0.24, 1.2, 0.8, 0.4, head));
     add(new THREE.TorusGeometry(0.05, 0.018, 6, 14, Math.PI * 1.5), toe, 0, 0.27, 0.0, 1, 1, 1, head).rotation.y = Math.PI / 2;
   }
@@ -11750,23 +11789,22 @@ function makeFrigglyMesh(dark, fat) {
   const mouth = add(smile, mouthM, 0, dark ? -0.02 : -0.03, 0.02, 1.2, 1, 1.03, head); mouth.rotation.x = dark ? -0.25 : 0.2;
   // stubby arms with round three-toed paws
   const arms = [-1, 1].map(s => {
-    const piv = new THREE.Group(); piv.position.set(s * 0.3, 0.5, 0.05); body.add(piv);
+    const piv = new THREE.Group(); if (fat) piv.position.set(s * 0.5, 0.62, 0.12); else piv.position.set(s * 0.3, 0.5, 0.05); body.add(piv);
     add(new THREE.CylinderGeometry(0.065, 0.075, 0.24, 10), skin, 0, -0.11, 0, 1, 1, 1, piv);
     add(new THREE.SphereGeometry(0.09, 12, 10), skin, 0, -0.24, 0.02, 1.1, 0.9, 0.9, piv);
     for (let k = -1; k <= 1; k++) add(new THREE.SphereGeometry(0.035, 8, 6), toe, k * 0.05, -0.31, 0.05, 1, 1, 1, piv);
-    piv.rotation.z = s * 0.5; return piv;
+    piv.rotation.z = s * 0.5; if (fat) piv.rotation.x = -0.5; return piv;   // a Jiggly's little arms rest on its tummy
   });
   const stars = [];
   for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.16); st.visible = false; root.add(st); stars.push(st); }
-  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.36); ex.position.y = fat ? 1.95 : 1.5; ex.visible = false; ex.renderOrder = 6; root.add(ex);
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.36); ex.position.y = fat ? 1.75 : 1.5; ex.visible = false; ex.renderOrder = 6; root.add(ex);
   scene.add(root);
   return { root, body, head, eyes, lids, arms, stars, ex, mouth };
 }
 
 /* ---------- the ponds, and the little streams across each loop ---------- */
-const footPondY = p => { let g = -Infinity; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; g = Math.max(g, heightAt(p.x + Math.cos(a) * (p.r + 0.3), p.z + Math.sin(a) * (p.r + 0.3))); } return g + 0.05; };
 MTN_PONDS.forEach(p => {
-  p.y = footPondY(p); p.state = 'calm'; p.t = 0; p.next = 15 + Math.random() * 25; p.out = null; p.bub = 0;
+  p.y = p.top + 0.03; p.state = 'calm'; p.t = 0; p.next = 15 + Math.random() * 25; p.out = null; p.bub = 0;
   const root = new THREE.Group(); root.position.set(p.x, 0, p.z); scene.add(root); p.root = root;
   // deep water: dark in the middle, paler at the edges
   const N = 40, pos = [0, p.y, 0], col = [0.12, 0.34, 0.46], idx = [];
@@ -11775,21 +11813,18 @@ MTN_PONDS.forEach(p => {
   root.add(new THREE.Mesh(g, new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 90, specular: 0xbfefff, emissive: 0x0a2030 })));
   // a ring of mossy stones, reeds and a lily pad or two
   const parts = [], R = mulberry32(6060 + p.i);
-  for (let i = 0; i < 22; i++) { const a = i / 22 * Math.PI * 2 + R() * 0.12, r = p.r * (1.06 + 0.07 * Math.sin(a * 3 + p.i)) + R() * 0.25, s = 0.22 + R() * 0.3, x = Math.cos(a) * r, z = Math.sin(a) * r; parts.push(bake(new THREE.DodecahedronGeometry(s, 0).scale(1.2, 0.6, 1), [0xb3a6c4, 0x9fb894, 0xc2b6cc][i % 3]).translate(x, heightAt(p.x + x, p.z + z) + s * 0.15, z)); }
+  for (let i = 0; i < 22; i++) { const a = i / 22 * Math.PI * 2 + R() * 0.12, r = p.r * (1.06 + 0.07 * Math.sin(a * 3 + p.i)) + R() * 0.25, s = 0.22 + R() * 0.3, x = Math.cos(a) * r, z = Math.sin(a) * r; parts.push(bake(new THREE.DodecahedronGeometry(s, 0).scale(1.2, 0.6, 1), [0xb3a6c4, 0x9fb894, 0xc2b6cc][i % 3]).translate(x, p.top + s * 0.15, z)); }
   for (let i = 0; i < 12; i++) { const a = R() * Math.PI * 2, r = p.r * (0.9 + R() * 0.12), x = Math.cos(a) * r, z = Math.sin(a) * r, h = 0.6 + R() * 0.6; parts.push(bake(new THREE.CylinderGeometry(0.02, 0.03, h, 4), 0x5a9a3a).translate(x, p.y + h / 2, z)); if (i % 2) parts.push(bake(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), 0x8a5a33).translate(x, p.y + h - 0.08, z)); }
   for (let i = 0; i < 3; i++) { const a = R() * Math.PI * 2, r = p.r * (0.2 + R() * 0.5); parts.push(bake(new THREE.CylinderGeometry(0.3 + R() * 0.15, 0.3, 0.02, 12, 1, false, 0.3, Math.PI * 1.8), 0x5cb85c).translate(Math.cos(a) * r, p.y + 0.04, Math.sin(a) * r)); }
   const m = new THREE.Mesh(merge(parts), vcLambert()); m.castShadow = m.receiveShadow = true; root.add(m);
-  // two little streams running across the loop (the Friggly leaps them)
-  p.gaps.forEach(gth => {
-    const sp = [], sc = [], si = [], S = 14;
-    for (let k = 0; k <= S; k++) {
-      const r = footR(gth, lerp(0.02, 0.98, k / S)), tx = -Math.sin(gth), tz = Math.cos(gth), cx = Math.cos(gth) * r, cz = Math.sin(gth) * r;
-      [-0.45, 0.45].forEach(w => { const x = cx + tx * w, z = cz + tz * w; sp.push(x - p.x, heightAt(x, z) + 0.035, z - p.z); sc.push(0.42, 0.72, 0.8); });
-      if (k < S) { const a = k * 2; si.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-    }
-    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(sc, 3)); sg.setIndex(si); sg.computeVertexNormals();
-    const sm = new THREE.Mesh(sg, new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 80, specular: 0xbfefff, emissive: 0x0a2030, side: THREE.DoubleSide })); sm.receiveShadow = true; root.add(sm);
-  });
+  // two low, mossy rock hurdles across each lane of the loop (the Friggly leaps them)
+  const hp = [], HR = mulberry32(7070 + p.i);
+  p.gaps.forEach(gth => [0.15, 0.85].forEach(f => {
+    const r = laneR(p.plate, gth, f), cx = Math.cos(gth) * r, cz = Math.sin(gth) * r, ux = Math.cos(gth), uz = Math.sin(gth);
+    for (let k = -2; k <= 2; k++) { const s = 0.22 + HR() * 0.1, x = cx + ux * k * 0.32 - p.x, z = cz + uz * k * 0.32 - p.z; hp.push(bake(new THREE.DodecahedronGeometry(s, 0).scale(1.1, 0.75, 1), [0xb3a6c4, 0x9fb894, 0xc2b6cc][(k + 2) % 3]).translate(x, p.top + s * 0.5, z)); }
+    hp.push(bake(new THREE.BoxGeometry(0.5, 0.06, 1.5).rotateY(-gth), 0x7fb86a).translate(cx - p.x, p.top + 0.38, cz - p.z));
+  }));
+  const hm = new THREE.Mesh(merge(hp), vcLambert()); hm.castShadow = hm.receiveShadow = true; root.add(hm);
 });
 const pondSfx = {
   blub(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 180 + Math.random() * 80, 420 + Math.random() * 200, 0.09, 0.05 * v, 'sine'); },
@@ -11919,7 +11954,7 @@ function updateFrogs(dt) {
       const leap = gd < 1.5 ? (1 - (gd / 1.5) ** 2) * 1.0 : 0;
       hopY = Math.max(k * 0.18, leap); c.air = hopY > 0.25; sy = 0.9 + k * 0.16 + leap * 0.15; sx = 1.04 - k * 0.06;
       armL = armR = 0.5 + k * 0.6 + leap;
-      c.y = heightAt(c.x, c.z);
+      c.y = c.pond.top;
     } else {
       // Fraggly: straight for you
       c.bite -= dt;
@@ -11934,7 +11969,7 @@ function updateFrogs(dt) {
         c.face += angDiff(c.face, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
         if (d > 0.85 && !knocked) {
           const sp = 3.5 * dt, nx = c.x + dx / d * sp, nz = c.z + dz / d * sp;
-          const ok = (x, z) => canWalk(x, z) && !inMtnPond(x, z, 0.3) && !mtnWall(x, z, c.x, c.z, c.y);
+          const ok = (x, z) => canWalk(x, z) && !inMtnPond(x, z, 0.3) && !mtnWall(x, z, c.x, c.z, c.y) && groundY(x, z, c.y) > c.y - 0.6;   // and never off a ledge
           if (ok(nx, nz)) { c.x = nx; c.z = nz; } else if (ok(nx, c.z)) c.x = nx; else if (ok(c.x, nz)) c.z = nz;
           c.hop += dt * 13; const k = Math.abs(Math.sin(c.hop)); hopY = k * 0.22; sy = 0.9 + k * 0.15; armL = armR = 0.6 + k * 0.5;
         }
