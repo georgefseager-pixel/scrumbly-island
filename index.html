@@ -161,6 +161,8 @@
   .pslot .pname em { font-style: normal; font-weight: 700; color: var(--cream); padding: 0 5px; border-radius: 6px; }
   .pslot .pname em.big { background: #e59a2f; }
   .pslot .pname em.small { background: var(--lagoon); }
+  /* Giant: a bold red-to-purple badge so it stands out from Big */
+  .pslot .pname em.giant, .bcell .nm em.giant, #dexCard .rare.giant { background: linear-gradient(90deg, #d8323a, #7a3ad8); color: #fff; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(122,58,216,.45); text-transform: uppercase; letter-spacing: .04em; }
   .pslot .pname em.shiny, .bcell .nm em.shiny { background: linear-gradient(90deg, #ffb703, #ff6fa5, #9b6bff); color: #fff; }
   .pslot.shiny::after { content: '✦'; position: absolute; right: -4px; top: -6px; color: #ffb703; font-size: 1rem; text-shadow: 0 1px 0 #fff; }
   #dexCard .rare.shiny { background: linear-gradient(90deg, #ffb703, #ff6fa5, #9b6bff); }
@@ -188,8 +190,8 @@
   /* scan result card */
   #dexCard { right: calc(16px + env(safe-area-inset-right, 0px)); top: 64px; width: min(300px, calc(100vw - 32px)); background: var(--cream); border-radius: 18px;
              border: 4px solid #e8384f; box-shadow: 0 5px 0 #a81f37; padding: 12px 14px 10px; font-size: .86rem; line-height: 1.35;
-             transform: translateX(calc(100% + 40px)); transition: transform .45s cubic-bezier(.2,1.4,.4,1); }
-  #dexCard.in { transform: none; }
+             transform: translateX(calc(100% + 80px)); visibility: hidden; transition: transform .45s cubic-bezier(.2,1.4,.4,1), visibility 0s linear .45s; }
+  #dexCard.in { transform: none; visibility: visible; transition: transform .45s cubic-bezier(.2,1.4,.4,1), visibility 0s; }   /* fully hidden once it has slid away */
   #dexCard header { display: flex; align-items: center; gap: 8px; }
   #dexCard h3 { margin: 0; font-family: var(--display); font-size: 1.3rem; }
   #dexCard .num { font-family: var(--display); font-weight: 600; color: #a81f37; }
@@ -1039,6 +1041,7 @@ instanced(starGeo(), new THREE.MeshLambertMaterial({ color: 0xffffff }),
 instanced(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), shellMat,   // sand dollars
   scatterOnBeach(160, -8, 20, 1).map(p => ({ ...p, y: p.y + 0.01, s: rr(0.8, 1.3), c: 0xf4eadb })));
 
+const PILLAR_TH = spawnTheta + 0.45 + Math.PI / 2;            // the carved pillar: well round the island from the other sea titans
 // rocks: clusters near the waterline
 {
   const rocks = [];
@@ -1049,6 +1052,9 @@ instanced(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), shellMat,   // sand 
       rocks.push({ x, z, y: heightAt(x, z) - s * 0.2, rx: rr(0, 3), ry: rr(0, 3), s: [s * rr(1, 1.6), s * rr(0.6, 1), s], c: pick([0xb8aecb, 0xa59cbc, 0xc9bfd8, 0x9fb0c4]) });
     }
   }
+  // keep the shallows clear round the carved pillar (filtered after rolling, so the dice don't shift)
+  const [px, pz] = polar(PILLAR_TH, -9);
+  for (let i = rocks.length - 1; i >= 0; i--) if (Math.hypot(rocks[i].x - px, rocks[i].z - pz) < 5) rocks.splice(i, 1);
   instanced(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 }), rocks, { cast: true, receive: true, far: 260 });
 }
 // driftwood
@@ -2024,12 +2030,25 @@ window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; }
 
 const pauseEl = document.getElementById('pause');
 let pausedAt = 0;
+// Grabbing the mouse needs a real click: browsers refuse it straight after Esc, and don't count Esc as a click.
+// So a failed grab normally just waits on the pause screen for a click; only when genuine clicks keep failing
+// (pointer lock isn't available at all) do we fall back to drag-to-look.
+let lastClickAt = -1e9, lastUnlockAt = -1e9, lastLockFail = -1e9, lockFails = 0;
+window.addEventListener('pointerdown', () => { lastClickAt = performance.now(); }, true);
 function lockPointer() {
   if (dragLook) return;
   try {
     const p = canvas.requestPointerLock();
-    if (p && p.catch) p.catch(enableDragLook);
-  } catch (e) { enableDragLook(); }
+    if (p && p.catch) p.catch(lockFailed);
+  } catch (e) { lockFailed(); }
+}
+function lockFailed() {
+  const now = performance.now();
+  if (dragLook || document.pointerLockElement === canvas || now - lastLockFail < 150) return;   // the promise and the event report the same failure
+  lastLockFail = now;
+  if (now - lastClickAt < 1500 && now - lastUnlockAt > 1500 && ++lockFails >= 2) { enableDragLook(); return; }
+  if (!playing || menuOpen()) return;
+  if (!paused) { paused = true; pausedAt = now; pauseEl.hidden = false; savesEl.hidden = true; for (const k in keys) keys[k] = false; setTimeout(() => pauseEl.querySelector('[data-act=resume]').focus(), 0); }
 }
 function enableDragLook() {
   if (dragLook) return;
@@ -2037,9 +2056,10 @@ function enableDragLook() {
   HINT_KB = 'Drag to look · Click use item · 1–8 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music'; setHintText();
   toast('Drag with the mouse to look around');
 }
-document.addEventListener('pointerlockerror', enableDragLook);
+document.addEventListener('pointerlockerror', lockFailed);
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
+  if (locked) lockFails = 0; else lastUnlockAt = performance.now();
   if (!playing || dragLook) return;
   if (menuOpen() && !locked) return;                   // released on purpose to browse the dex
   paused = !locked; pauseEl.hidden = locked;
@@ -6073,10 +6093,7 @@ function closeDex() {
   if (dragLook) return;
   document.getElementById('crosshair').hidden = false;
   // grab the mouse again; if the browser says no, fall back to the click-to-resume screen
-  try {
-    const p = canvas.requestPointerLock();
-    if (p && p.catch) p.catch(() => { paused = true; pauseEl.hidden = false; });
-  } catch (e) { paused = true; pauseEl.hidden = false; }
+  lockPointer();
 }
 
 function updateDex(dt) {
@@ -6540,10 +6557,7 @@ function closeBox() {
   if (tut.stage === 'boxOpen') setTimeout(() => tutAfterBox(), 250);
   if (dragLook) return;
   document.getElementById('crosshair').hidden = false;
-  try {
-    const p = canvas.requestPointerLock();
-    if (p && p.catch) p.catch(() => { paused = true; pauseEl.hidden = false; });
-  } catch (e) { paused = true; pauseEl.hidden = false; }
+  lockPointer();
 }
 function updateRanch(dt) { updateProf(dt); updateResidents(dt); updateHearts(dt); }
 refreshResidents();
@@ -7141,7 +7155,13 @@ let skipMtnArmed = false;
 document.getElementById('skipMountain').addEventListener('click', e => {
   if (readSave(SAVE_KEY) && !skipMtnArmed) { skipMtnArmed = true; e.target.textContent = 'Replace the autosave? Click again'; return; }
   const s = debugForestSave(), [x, z] = polar(MTN_ENTRY_TH, FOREST_OUT + 8); s.lionel = { stage: 'peak' }; s.player = { x, z, yaw: Math.atan2(x, z), pitch: 0.1 };
-  applySnapshot(s); fillRequests(); beginGame(); toast('Debug: skipped to the foot of Mount Scrumble. 9999 gold.');
+  // every forest quest done: Lady Fluffytail (three traps, the royal kiss, the green teleporter), the deed, the treehouse unlocked
+  const FOREST = ['glimmery', 'raebit', 'blorbo', 'willowet', 'flops', 'sita', 'rosita', 'froggle', 'pretzello', 'koneko'];
+  s.box = s.box.concat(FOREST.map(sp => ({ species: sp, name: SPECIES[sp].unique ? SPECIES[sp].name : pickName(), size: null, shiny: false })));
+  s.scanned = s.scanned.concat(FOREST); s.caught = s.caught.concat(FOREST);
+  Object.assign(s.owned, { tele2: true, apple: true }); s.trapsOwned = 3; s.inv = { rocks: 0, traps: 3, apples: 5 };
+  s.fluff = { stage: 'ranch' }; s.carlos = { met: true, deed: true }; s.house = { stage: 'furnish', met: true };
+  applySnapshot(s); fillRequests(); beginGame(); toast('Debug: skipped to the foot of Mount Scrumble. Beach and forest done, 9999 gold, one of every scrumbly in your Box.');
 });
 skipForest.addEventListener('click', () => {
   if (readSave(SAVE_KEY) && !skipArmed) { skipArmed = true; skipForest.textContent = 'Replace the autosave? Click again'; return; }
@@ -7883,7 +7903,7 @@ function closeScrim() {
   if (scrimState.pendingUnlock && !scrimState.boardOn) setTimeout(unlockBoard, 300);
   if (dragLook) return;
   document.getElementById('crosshair').hidden = false;
-  try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { paused = true; pauseEl.hidden = false; }); } catch (e) { paused = true; pauseEl.hidden = false; }
+  lockPointer();
 }
 
 /* ---------- talking to him ---------- */
@@ -10814,8 +10834,7 @@ function updateGiantRaebit(dt) {
 /* ---------- the carved pillar in the shallows, and the Titan Bobo it calls ---------- */
 // carvings, top to bottom: put your party in this order (partner first) and examine the pillar
 const PILLAR_ORDER = ['bobo', 'weevil', 'beeappy', 'duckshark', 'mermiggly'];
-const PILLAR_TH = spawnTheta + 0.45 + Math.PI / 2;            // well round the island from the other sea titans
-const PILLAR = (() => { const [x, z] = polar(PILLAR_TH, -9); return { x, z, yaw: Math.atan2(-x, -z) }; })();   // carved face looks back up the beach
+const PILLAR = (() => { const [x, z] = polar(PILLAR_TH, -9); return { x, z, yaw: Math.atan2(x, z) }; })();   // carved face looks out to sea: wade round the back to find it
 const pillarState = { awake: false, glow: [0, 0, 0, 0, 0], buzzT: 0, tries: 0, seq: null };
 const pillar = (() => {
   const root = new THREE.Group(); scene.add(root);
@@ -10960,45 +10979,79 @@ const lionelAt = s => LIONEL_STAGES.indexOf(lionelState.stage) >= LIONEL_STAGES.
 const lionelPassed = () => lionelAt('leaving');
 const TIP_COOLDOWN = 600;
 function makeLionelMesh() {
+  // a stocky little red frog-mountaineer: big determined eyes, a yellow helmet, a rope slung across his chest
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body); scene.add(root);
-  const red = new THREE.MeshLambertMaterial({ color: 0xe0443a, emissive: 0x3a0a08 }), belly = lam(0xffd2b8), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
-  const orange = lam(0xff9a2a), blue = lam(0x2f6fd8), brown = lam(0x8a5a33), rope = lam(0xf2d27a), grey = lam(0x9aa6b8);
+  const red = new THREE.MeshLambertMaterial({ color: 0xe24a3b, emissive: 0x3a0a08 }), spot = lam(0xb8302a), belly = lam(0xffe2c4), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const white = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x555555 }), pink = lam(0xff9a8a);
+  const orange = lam(0xff8a1f), orangeD = lam(0xd96a10), blue = lam(0x2f6fd8), boot = lam(0x7a4a2a), sole = lam(0x3a2a20), rope = lam(0xf2d27a), grey = lam(0xb4bccc), helmY = lam(0xffd23a), helmD = lam(0xe0a81a), green = lam(0x3fb36a), sock = lam(0xf4f0ea);
   const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
-  // sturdy legs in big climbing boots
-  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.11, 0.13, 0.7, 10), red, s * 0.2, 0.42, 0); add(new THREE.BoxGeometry(0.3, 0.2, 0.44), brown, s * 0.21, 0.1, 0.07); add(new THREE.BoxGeometry(0.32, 0.05, 0.46), lam(0x3a2a20), s * 0.21, 0.01, 0.07); });
-  // a round red body in a blue climbing harness
-  add(new THREE.SphereGeometry(0.42, 20, 14), red, 0, 1.05, 0, 1, 1.15, 0.9);
-  add(new THREE.SphereGeometry(0.3, 16, 12), belly, 0, 0.98, 0.21, 0.95, 1.05, 0.62);
-  add(new THREE.TorusGeometry(0.4, 0.04, 6, 24), blue, 0, 0.82, 0, 1, 1, 0.88).rotation.x = Math.PI / 2;
-  [-1, 1].forEach(s => { const st = add(new THREE.BoxGeometry(0.06, 0.6, 0.04), blue, s * 0.17, 1.12, 0.33); st.rotation.z = s * 0.2; });
-  add(new THREE.TorusGeometry(0.06, 0.015, 6, 12), grey, 0.1, 0.8, 0.37);   // a carabiner
-  // a big orange backpack with a coil of rope and an ice axe
-  add(new THREE.BoxGeometry(0.6, 0.7, 0.32), orange, 0, 1.1, -0.42);
-  add(new THREE.BoxGeometry(0.62, 0.18, 0.34), lam(0xd97a1a), 0, 1.4, -0.42);
-  const coil = add(new THREE.TorusGeometry(0.2, 0.06, 8, 20), rope, 0, 0.75, -0.48); coil.rotation.x = Math.PI / 2;
-  const axe = new THREE.Group(); axe.position.set(0.28, 1.2, -0.6); axe.rotation.z = -0.4; body.add(axe);
-  add(new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), brown, 0, 0, 0, 1, 1, 1, axe);
-  add(new THREE.BoxGeometry(0.3, 0.06, 0.04), grey, 0.05, 0.4, 0, 1, 1, 1, axe);
-  // the head: wide frog face, big eyes under goggles, a red climbing helmet with a lamp
-  const head = new THREE.Group(); head.position.y = 1.78; body.add(head);
-  add(new THREE.SphereGeometry(0.36, 22, 16), red, 0, 0, 0, 1.25, 0.8, 1.05, head);
+  // short bowed frog legs: chunky thighs, rolled socks, big lug-soled boots with laces
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.21, 16, 12), red, s * 0.25, 0.46, 0.02, 1, 0.85, 1.1);
+    add(new THREE.TorusGeometry(0.19, 0.03, 6, 18), blue, s * 0.25, 0.5, 0.02, 1, 1, 1.1).rotation.x = Math.PI / 2;   // harness leg loop
+    add(new THREE.CylinderGeometry(0.1, 0.09, 0.26, 12), red, s * 0.28, 0.28, 0.03);
+    add(new THREE.CylinderGeometry(0.115, 0.115, 0.08, 12), sock, s * 0.28, 0.21, 0.03);
+    add(new THREE.BoxGeometry(0.27, 0.17, 0.36), boot, s * 0.29, 0.1, 0.07);
+    add(new THREE.SphereGeometry(0.14, 12, 8), boot, s * 0.29, 0.1, 0.24, 1, 0.65, 0.8);
+    add(new THREE.BoxGeometry(0.3, 0.05, 0.48), sole, s * 0.29, 0.015, 0.1);
+    for (let k = 0; k < 3; k++) add(new THREE.BoxGeometry(0.14, 0.02, 0.025), rope, s * 0.29, 0.185, 0.1 + k * 0.06).rotation.x = -0.5;
+  });
+  // a round pear of a body with a cream belly and a few darker spots
+  add(new THREE.SphereGeometry(0.46, 22, 16), red, 0, 0.92, 0, 1.05, 1, 0.92);
+  add(new THREE.SphereGeometry(0.37, 18, 12), belly, 0, 0.88, 0.27, 0.95, 0.95, 0.5);
+  [[0.22, 1.1, -0.36, 0.09], [-0.28, 0.85, -0.33, 0.07], [0.05, 0.72, -0.4, 0.06], [-0.4, 1.05, -0.12, 0.06]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 10, 8), spot, x, y, z, 1, 1, 0.4));
+  // harness belt with carabiners, and a coil of rope slung across his chest
+  add(new THREE.TorusGeometry(0.47, 0.04, 6, 28), blue, 0, 0.68, 0, 1.02, 1, 0.92).rotation.x = Math.PI / 2;
+  add(new THREE.TorusGeometry(0.06, 0.016, 6, 12), grey, 0.12, 0.62, 0.43);
+  add(new THREE.TorusGeometry(0.06, 0.016, 6, 12), grey, -0.1, 0.62, 0.43).rotation.y = 0.5;
+  const sash = add(new THREE.TorusGeometry(0.52, 0.06, 8, 30), rope, 0, 0.98, 0, 1, 1, 1); sash.rotation.z = 0.75;
+  // a green neckerchief
+  add(new THREE.TorusGeometry(0.3, 0.05, 6, 20), green, 0, 1.3, 0.02, 1, 1, 0.9).rotation.x = Math.PI / 2;
+  add(new THREE.ConeGeometry(0.14, 0.24, 3), green, 0, 1.2, 0.3, 1, 1, 0.4).rotation.x = Math.PI;
+  // a big orange backpack: bedroll on top, pockets, a rope coil and an ice axe tucked behind
+  add(new THREE.BoxGeometry(0.64, 0.74, 0.34), orange, 0, 1.0, -0.46);
+  add(new THREE.SphereGeometry(0.33, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), orangeD, 0, 1.36, -0.46, 1, 0.45, 0.55);
+  add(new THREE.BoxGeometry(0.4, 0.26, 0.08), orangeD, 0, 0.84, -0.66);
+  [-1, 1].forEach(s => { add(new THREE.BoxGeometry(0.1, 0.36, 0.22), orangeD, s * 0.37, 0.92, -0.46); add(new THREE.BoxGeometry(0.07, 0.5, 0.04), orangeD, s * 0.2, 1.08, 0.37).rotation.x = -0.2; });
+  const roll = add(new THREE.CylinderGeometry(0.13, 0.13, 0.78, 14), blue, 0, 1.5, -0.46); roll.rotation.z = Math.PI / 2;
+  [-0.24, 0.24].forEach(x => { add(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 14), sole, x, 1.5, -0.46).rotation.z = Math.PI / 2; });
+  const coil = add(new THREE.TorusGeometry(0.16, 0.05, 8, 18), rope, -0.43, 0.9, -0.46); coil.rotation.y = Math.PI / 2;
+  const axe = new THREE.Group(); axe.position.set(0.24, 1.25, -0.66); axe.rotation.z = -0.35; body.add(axe);
+  add(new THREE.CylinderGeometry(0.025, 0.03, 0.95, 6), boot, 0, 0, 0, 1, 1, 1, axe);
+  add(new THREE.BoxGeometry(0.34, 0.06, 0.05), grey, 0.04, 0.47, 0, 1, 1, 1, axe);
+  add(new THREE.ConeGeometry(0.03, 0.14, 4), grey, -0.17, 0.43, 0, 1, 1, 1, axe).rotation.z = 2.4;
+  // the head: wide and flat, with big bulging eyes, heavy determined lids and a wide grin
+  const head = new THREE.Group(); head.position.y = 1.42; body.add(head);
+  add(new THREE.SphereGeometry(0.42, 24, 16), red, 0, 0.16, 0.02, 1.28, 0.74, 1.1, head);
+  add(new THREE.SphereGeometry(0.34, 16, 10), belly, 0, 0.03, 0.12, 1.15, 0.45, 0.95, head);   // pale chin
+  [[0.18, 0.43, -0.25, 0.06], [-0.2, 0.4, -0.3, 0.05], [0.0, 0.46, -0.36, 0.045]].forEach(([x, y, z, r]) => add(new THREE.SphereGeometry(r, 10, 8), spot, x, y, z, 1, 0.4, 1, head));
   const pupils = [];
   [-1, 1].forEach(s => {
-    add(new THREE.SphereGeometry(0.15, 14, 10), red, s * 0.27, 0.26, 0.06, 1, 0.95, 0.95, head);
-    add(new THREE.SphereGeometry(0.1, 12, 10), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x444444 }), s * 0.27, 0.28, 0.17, 1, 1, 1, head);
-    const p = add(new THREE.SphereGeometry(0.055, 10, 8), dark, s * 0.27, 0.28, 0.26, 1, 1, 0.6, head); pupils.push(p);
-    add(new THREE.SphereGeometry(0.05, 10, 8), lam(0xff9a8a), s * 0.35, -0.06, 0.28, 1.2, 0.7, 0.4, head);
+    add(new THREE.SphereGeometry(0.17, 16, 12), red, s * 0.27, 0.4, 0.1, 1, 0.95, 0.95, head);
+    add(new THREE.SphereGeometry(0.13, 16, 12), white, s * 0.27, 0.41, 0.19, 1, 1, 0.8, head);
+    const p = add(new THREE.SphereGeometry(0.065, 12, 10), dark, s * 0.25, 0.39, 0.3, 1, 1.15, 0.5, head); pupils.push(p);
+    add(new THREE.SphereGeometry(0.022, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), s * 0.23, 0.42, 0.33, 1, 1, 1, head);
+    const lid = add(new THREE.SphereGeometry(0.145, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.34), red, s * 0.27, 0.42, 0.19, 1, 1, 0.85, head);
+    lid.rotation.set(0.4, 0, s * -0.28);                                                       // a determined squint, angled in
+    add(new THREE.SphereGeometry(0.06, 10, 8), pink, s * 0.4, 0.06, 0.34, 1.3, 0.7, 0.4, head);
   });
-  const smile = new THREE.TorusGeometry(0.36, 0.018, 6, 26, Math.PI * 0.42); smile.rotateX(Math.PI / 2); smile.rotateY(Math.PI * 0.21 - Math.PI / 2);
-  add(smile, lam(0x7a1a14), 0, -0.07, 0, 1.25, 1, 1.06, head).rotation.x = 0.22;
-  // goggles pushed up, on the helmet
-  const helm = add(new THREE.SphereGeometry(0.37, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), lam(0xd8323a), 0, 0.33, -0.06, 1.3, 1, 1.12, head);
-  add(new THREE.TorusGeometry(0.47, 0.03, 6, 26), lam(0xb8262c), 0, 0.4, -0.06, 1, 0.88, 1, head).rotation.x = Math.PI / 2;
-  add(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 14), grey, 0, 0.56, 0.3, 1, 1, 1, head).rotation.x = Math.PI / 2 - 0.4;
-  add(new THREE.CircleGeometry(0.06, 12), new THREE.MeshBasicMaterial({ color: 0xfff2a8 }), 0, 0.57, 0.335, 1, 1, 1, head).rotation.x = -0.4;
-  // arms: one waving, one on his hip
-  const arms = [-1, 1].map(s => { const piv = new THREE.Group(); piv.position.set(s * 0.42, 1.35, 0); body.add(piv); add(new THREE.CylinderGeometry(0.07, 0.08, 0.55, 10), red, 0, -0.27, 0, 1, 1, 1, piv); add(new THREE.SphereGeometry(0.1, 12, 10), lam(0xffd2b8), 0, -0.57, 0.02, 1, 1, 1, piv); piv.rotation.z = s * 0.25; return piv; });
-  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.65); mark.renderOrder = 7; mark.position.y = 2.75; root.add(mark);
+  const smile = new THREE.TorusGeometry(0.4, 0.022, 6, 28, Math.PI * 0.46); smile.rotateX(Math.PI / 2); smile.rotateY(Math.PI * 0.23 - Math.PI / 2);
+  add(smile, lam(0x7a1a14), 0, 0.07, 0.02, 1.25, 1, 1.06, head).rotation.x = 0.16;
+  // a yellow climbing helmet perched behind his eyes, with a head-lamp
+  add(new THREE.SphereGeometry(0.33, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), helmY, 0, 0.4, -0.12, 1.1, 0.85, 1.05, head);
+  add(new THREE.TorusGeometry(0.35, 0.03, 6, 26), helmD, 0, 0.41, -0.12, 1.08, 1.02, 1, head).rotation.x = Math.PI / 2;
+  add(new THREE.BoxGeometry(0.05, 0.03, 0.66), helmD, 0, 0.68, -0.12, 1, 1, 1, head);
+  add(new THREE.CylinderGeometry(0.075, 0.075, 0.07, 14), grey, 0, 0.6, 0.15, 1, 1, 1, head).rotation.x = Math.PI / 2 - 0.6;
+  add(new THREE.CircleGeometry(0.055, 12), new THREE.MeshBasicMaterial({ color: 0xfff2a8 }), 0, 0.62, 0.188, 1, 1, 1, head).rotation.x = -0.6;
+  // chunky arms in fingerless blue gloves
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.46, 1.12, 0.02); body.add(piv);
+    add(new THREE.CylinderGeometry(0.085, 0.1, 0.46, 10), red, 0, -0.22, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.115, 12, 10), blue, 0, -0.48, 0.02, 1, 0.9, 1, piv);
+    for (let k = -1; k <= 1; k++) add(new THREE.SphereGeometry(0.045, 8, 6), red, k * 0.055, -0.58, 0.06, 1, 1.3, 1, piv);
+    piv.rotation.z = s * 0.2; return piv;
+  });
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.65); mark.renderOrder = 7; mark.position.y = 2.6; root.add(mark);
   return compactCreature({ root, body, head, arms, mark, pupils, tag: null, face: 0, wave: 0, blink: 2, x: 0, z: 0, y: 0, baseYaw: 0, greeted: false });
 }
 const lionel = makeLionelMesh(), lionelRanch = makeLionelMesh();
@@ -11191,7 +11244,7 @@ function updateLionel(dt) {
     L.arms[0].rotation.z = -0.22; L.arms[0].rotation.x = 0.1;
     L.blink -= dt; const bl = L.blink < 0.12; if (L.blink < 0) L.blink = 2 + Math.random() * 3; L.pupils.forEach(p => { p.scale.y = bl ? 0.15 : 1; });
     const ready = lionelState.stage === 'unmet' || (lionelState.stage === 'bigparty' && bigParty()) || (lionelState.stage === 'titans' && titansScanned.size >= 5) || (lionelState.stage === 'giantbobo' && lionelState.giantBoboCaught) || (lionelAt('peak') && !lionelState.tip && lionelState.tipCool <= 0);
-    L.mark.visible = ready; if (ready) L.mark.position.y = 2.75 + Math.abs(Math.sin(time * 3)) * 0.25;
+    L.mark.visible = ready; if (ready) L.mark.position.y = 2.6 + Math.abs(Math.sin(time * 3)) * 0.25;
     if (L.tag) L.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
   }
 }
