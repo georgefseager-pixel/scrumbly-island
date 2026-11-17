@@ -38,6 +38,13 @@
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
   .controls li { background: rgba(255,250,246,.9); border-radius: 10px; padding: 6px 10px; font-size: .9rem; font-weight: 700; }
   kbd { font-family: var(--display); font-weight: 600; background: var(--ink); color: var(--cream); border-radius: 6px; padding: 1px 7px; margin-right: 5px; font-size: .85rem; }
+  /* Xbox controller glyphs, shown in place of keys while you're playing with a controller */
+  kbd.xb { padding: 0; background: none; display: inline-flex; gap: 3px; vertical-align: -.2em; }
+  .xbb { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; border-radius: 50%; font-family: var(--display); font-weight: 700; font-size: .85rem; color: #fff; background: #2c2b33; box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  .xbb.a { background: #3fae2f; } .xbb.b { background: #d83a3a; } .xbb.x { background: #2f6fd8; } .xbb.y { background: #e0a800; }
+  .xbb.sh { border-radius: 7px; padding: 0 6px; font-size: .72rem; }
+  .xbb.st { background: #4a4855; box-shadow: inset 0 0 0 3px #77748a, inset 0 -2px 0 rgba(0,0,0,.35); }
+  .xbb.dp { border-radius: 4px; background: conic-gradient(from 45deg, #4a4855 0 25%, #2c2b33 0 50%, #4a4855 0 75%, #2c2b33 0); font-size: .6rem; }
   .play { justify-self: start; font-family: var(--display); font-weight: 700; font-size: 1.6rem; color: var(--cream); background: var(--lagoon);
           border: 0; border-radius: 18px; padding: 12px 34px; cursor: pointer; box-shadow: 0 6px 0 #0d7f7b; transition: transform .12s, box-shadow .12s; }
   .play:hover { transform: translateY(-2px) rotate(-1.5deg); }
@@ -494,7 +501,7 @@
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div>
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div><!-- swapped for controller hints when you use a pad -->
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div class="hud" id="prompt" hidden></div>
@@ -1093,7 +1100,8 @@ const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true
 }
 
 /* ---------- Glimmerwood: a magical fairy forest ---------- */
-const forestColliders = [];                 // tree trunks and stumps you walk into
+const forestColliders = [];
+const forestTrunks = [];                    // the fairy trees' trunks (Pretzellos hide at their feet)                 // tree trunks and stumps you walk into
 const forestFreeBase = (x, z, d, gap = 1.5) => d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 2 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + gap && !(gapArc(x, z) < 5 && d < 82);
 // the site for your treehouse, chosen with its own seeded dice before anything else is planted in the forest,
 // so it's always in the same spot and the forest grows round it: a glade under the deck, and a clear view to the beach
@@ -1252,7 +1260,7 @@ function showApple(ap, on, size = 1) {
       tops.push({ x: x + Math.cos(a) * o, z: z + Math.sin(a) * o, y: y + h + s * (k ? 0.1 : 0.45), ry: rr(0, 6), s: [s * (k ? 0.7 : 1), s * (k ? 0.6 : 0.85), s * (k ? 0.7 : 1)], c: col });
     }
     if (rand() < 0.55) for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + rr(-0.2, 0.2); lights.push({ x: x + Math.cos(a) * s * 0.95, z: z + Math.sin(a) * s * 0.95, y: y + h - s * 0.15 + rr(-0.2, 0.2), s: 0.11, c: pick([0xfff1a8, 0xffc6f0, 0xb8f4ff]) }); }
-    forestColliders.push({ x, z, r: r + 0.05 });
+    forestColliders.push({ x, z, r: r + 0.05 }); forestTrunks.push({ x, z, r, c: trunks[trunks.length - 1].c });
   }
   instanced(new THREE.CylinderGeometry(0.4, 0.55, 1, 7), new THREE.MeshLambertMaterial({ color: 0xffffff }), trunks, { cast: true, far: 300, slices: 12 });
   instanced(blobGeo, flatMat, tops, { cast: true, receive: true, far: 280, slices: 12 });
@@ -1653,8 +1661,49 @@ let playing = false, paused = false, dragLook = false, jumpQueued = false;
 
 function walkable(x, z) { return heightAt(x, z) >= -MAX_DEPTH && inland(x, z) <= INLAND_LIMIT; }
 const toastEl = document.getElementById('toast');
+/* ---------- keyboard or controller? the on-screen hints follow whichever you last touched ---------- */
+let usingPad = false;
+let HINT_KB = 'WASD walk · Shift run · Space jump · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause';
+const HINT_PAD = 'Left stick walk · Right stick look · Ⓐ jump · RT use item · LB / RB swap item · Ⓑ pick up / talk · Ⓨ Scrumblydex · LT run · Walk into a palm to climb · ☰ pause';
+function setHintText() { const el = document.getElementById('hint'); if (el) el.textContent = usingPad ? HINT_PAD : HINT_KB; }
+// what each key becomes on an Xbox pad
+const XB = (cls, t) => '<span class="xbb ' + cls + '">' + t + '</span>';
+const PAD_KEYS = {
+  E: XB('b', 'B'), B: XB('b', 'B'), Space: XB('a', 'A'), A: XB('a', 'A'), Enter: XB('a', 'A'), Click: XB('sh', 'RT'), Tab: XB('y', 'Y'), Y: XB('y', 'Y'), X: XB('x', 'X'),
+  Esc: XB('sh', '☰'), Shift: XB('sh', 'LT'), WASD: XB('st', 'L'), Mouse: XB('st', 'R'), Arrows: XB('dp', '✚'), 'W/S': XB('st', 'L'),
+  '1–7': XB('sh', 'LB') + XB('sh', 'RB'), '1–6': XB('sh', 'LB') + XB('sh', 'RB'), Q: XB('sh', 'LB'), M: null
+};
+function padifyKbds(root) {
+  root.querySelectorAll('kbd').forEach(k => {
+    if (k.dataset.k === undefined) k.dataset.k = k.textContent;
+    const orig = k.dataset.k, glyph = PAD_KEYS[orig] !== undefined ? PAD_KEYS[orig] : /^\d$/.test(orig) ? XB('sh', 'LB') + XB('sh', 'RB') : null;
+    const want = usingPad && glyph ? 'pad' : 'kb';
+    if (k.dataset.mode === want) return;
+    k.dataset.mode = want;
+    if (want === 'pad') { k.innerHTML = glyph; k.classList.add('xb'); } else { k.textContent = orig; k.classList.remove('xb'); }
+  });
+}
+// written instructions in toasts and dialogue
+const PAD_TEXT = [
+  [/W \/ S to climb/g, 'Left stick up / down to climb'], [/A \/ D to (shimmy round|edge sideways)/g, 'left stick sideways to $1'], [/Space to (leap|jump) off/g, 'Ⓐ to $1 off'],
+  [/\b[Pp]ress E\b/g, 'press Ⓑ'], [/Press \d or scroll/g, 'Press LB / RB'], [/Press \d to get it out/g, 'Press LB / RB to get it out'],
+  [/Drag with the mouse to look around/g, 'Use the right stick to look around'], [/with a click/g, 'with RT'], [/Give it a swing with RT/g, 'Give it a swing with RT'],
+  [/click to scan/gi, 'RT to scan'], [/Tab to browse/g, 'Ⓨ to browse'], [/hold down the big red button/g, 'hold RT on the big red button'], [/Hold down its button/g, 'Hold RT on its button']
+];
+function padText(s) { if (!usingPad || typeof s !== 'string') return s; for (const [re, to] of PAD_TEXT) s = s.replace(re, to); return s; }
+function setInputMode(pad) {
+  if (pad === usingPad) return;
+  usingPad = pad; document.body.classList.toggle('pad', pad);
+  padifyKbds(document); setHintText();
+}
+// new bits of UI (prompts, shop footers...) get their keys swapped as they appear
+new MutationObserver(muts => { if (!usingPad && !document.querySelector('kbd.xb')) return; for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.tagName === 'KBD') padifyKbds(n.parentNode || document); else padifyKbds(n); } }).observe(document.body, { childList: true, subtree: true });
+window.addEventListener('keydown', () => setInputMode(false), true);
+window.addEventListener('mousedown', () => setInputMode(false), true);
+window.addEventListener('mousemove', e => { if (Math.abs(e.movementX) + Math.abs(e.movementY) > 6) setInputMode(false); }, true);
 let toastTimer = 0, lastToast = 0;
 function toast(msg) {
+  msg = padText(msg);
   const now = performance.now();
   if (now - lastToast < 3000 && toastEl.textContent === msg) return;
   lastToast = now; toastEl.textContent = msg; toastEl.classList.add('show');
@@ -1675,6 +1724,7 @@ function pollPad() {
   const gp = navigator.getGamepads ? Array.from(navigator.getGamepads()).find(g => g && g.connected) : null;
   if (!gp) return;
   const ax = gp.axes, b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+  if (gp.buttons.some(x => x.pressed) || ax.some(v => Math.abs(v) > 0.35)) setInputMode(true);
   pad.mx = dz(ax[0] || 0); pad.my = dz(ax[1] || 0); pad.lx = dz(ax[2] || 0); pad.ly = dz(ax[3] || 0);
   pad.run = b(10) || b(6) || Math.hypot(pad.mx, pad.my) > 0.95; // L3 / LT / full tilt
   pad.fire = b(7) || b(2);
@@ -1957,7 +2007,7 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  document.getElementById('hint').textContent = 'Drag to look · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music';
+  HINT_KB = 'Drag to look · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music'; setHintText();
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
@@ -2125,6 +2175,7 @@ const SHINY = {
   glimmery: { shift: 0.5, tint: 0.75, sat: 0.6, light: 0.62, css: 'saturate(2.2) brightness(.8) hue-rotate(160deg)' },
   sita: { shift: 0.14, tint: 0.5, sat: 0.4, css: 'hue-rotate(45deg) saturate(1.3) brightness(1.1)' },
   rosita: { shift: 0.14, tint: 0.5, sat: 0.4, css: 'hue-rotate(45deg) saturate(1.3) brightness(1.1)' },
+  pretzello: { shift: 0.9, tint: 0.6, sat: 0.55, css: 'hue-rotate(300deg) saturate(1.6) brightness(1.1)' },
   froggle: { shift: 0.55, tint: 0.95, sat: 0.3, css: 'hue-rotate(160deg) saturate(1.2)' },
   flops: { shift: 0.55, tint: 0.95, sat: 0.35, css: 'hue-rotate(200deg) saturate(1.3)' },
   willowet: { shift: 0, tint: 0.08, sat: 0.55, light: 1.1, css: 'sepia(.8) saturate(2) hue-rotate(-15deg)' },
@@ -2252,6 +2303,7 @@ function tryNetCatch() {
   netBlorbos();
   if (netFlopses()) got = true;
   if (netSitas()) got = true;
+  if (netPretzellos()) got = true;
   if (netFroggles()) got = true;
   if (!got) netWeevils();
   return got;
@@ -2842,7 +2894,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -5804,6 +5856,12 @@ for (const sp of Object.values(SPECIES)) {
   const raw = sp.icon, ids = [...raw.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
   Object.defineProperty(sp, 'icon', { get() { const u = ++iconUid; return ids.reduce((s, id) => s.split('"' + id + '"').join('"' + id + u + '"').split('#' + id + ')').join('#' + id + u + ')'), raw); } });
 }
+SPECIES.pretzello = {
+  name: 'Pretzello', num: 18, where: 'Glimmerwood · tucked against the foot of the trees',
+  icon: '<svg viewBox="0 0 48 48"><g fill="none" stroke="#9a5a28" stroke-width="6" stroke-linecap="round"><path d="M17 42 C21 34 27 26 31 19 C35 12 43 13 43 22 C43 31 34 36 24 37 C14 36 5 31 5 22 C5 13 13 12 17 19 C21 26 27 34 31 42"/></g><g fill="none" stroke="#c8864a" stroke-width="2" stroke-linecap="round" opacity=".7"><path d="M33 16 C38 14 41 17 41 21"/><path d="M7 21 C7 17 10 14 15 16"/></g><g fill="#fff"><rect x="9" y="25" width="2.4" height="1.6" rx=".4" transform="rotate(20 10 26)"/><rect x="37" y="27" width="2.4" height="1.6" rx=".4" transform="rotate(-25 38 28)"/><rect x="22" y="34" width="2.4" height="1.6" rx=".4"/><rect x="40" y="18" width="2.2" height="1.5" rx=".4" transform="rotate(40 41 19)"/></g><ellipse cx="20.5" cy="27" rx="2.6" ry="3.2" fill="#0c0c10"/><ellipse cx="27.5" cy="27" rx="2.6" ry="3.2" fill="#0c0c10"/><circle cx="19.7" cy="25.9" r=".9" fill="#fff"/><circle cx="26.7" cy="25.9" r=".9" fill="#fff"/></svg>',
+  fact: 'Pretzellos are baked fresh by the forest itself, nobody knows how. They are slightly salty, very shy, and much too tempting for any scrumbly with a rumbling tummy.',
+  hint: 'Clings to the foot of tree trunks, glazed the same brown as the bark, and never moves. Easy to net, if you spot it. But don\'t dawdle: hang about nearby and your partner will sniff it out and gobble it up!'
+};
 const DEX_SIZE = 60;
 const SILHOUETTES = [
   '<path d="M9 39 C5 26 13 15 24 15 C35 15 43 26 39 39 Z"/><circle cx="14" cy="15" r="5"/><circle cx="34" cy="15" r="5"/>',
@@ -5878,6 +5936,7 @@ function scrumblyCandidates() {
   for (const q of raebits) if (q.root.visible && q.state !== 'caught') out.push({ o: q, id: 'raebit', y: 0.6 * q.s });
   for (const b of blorbos) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: 'blorbo', y: 0.3 * b.s });
   for (const s of sitas) if (s.root.visible && s.state === 'still') out.push({ o: s, id: 'sita', y: 0.2 * s.s });
+  for (const z of pretzellos) if (z.root.visible && (z.state === 'still' || z.state === 'snack')) out.push({ o: z, id: 'pretzello', y: 0.2 * z.s });
   for (const f of froggles) if (f.root.visible && f.state !== 'caught') out.push({ o: f, id: 'froggle', y: 0.6 * f.s });
   for (const f of flopses) if (f.root.visible && f.state !== 'caught' && f.sink < 0.5) out.push({ o: f, id: 'flops', y: 0.3 * f.s });
   for (const w of willowets) if (w.root.visible && w.state !== 'caught' && w.under < 0.5) out.push({ o: w, id: 'willowet', y: 0.45 * w.s });
@@ -6526,6 +6585,7 @@ function updatePartner(dt) {
   if (player.climb) { const tp = player.climb.p; tx = tp.x + (player.x - tp.x) * 1.8; tz = tp.z + (player.z - tp.z) * 1.8; }
   else if (houseRide || houseUp()) { [tx, tz] = houseWorld(-1.4, 2.6); }
   else if (rockClimb || mtnUp()) { [tx, tz] = polar(MTN_ENTRY_TH + 0.03, FOREST_OUT + 7); }
+  if (partnerSnack) { tx = partnerSnack.x; tz = partnerSnack.z; }            // a Pretzello! dinner time
   else { tx = player.x - fwd.x * (1.8 + s * 0.4) + right.x * 0.7; tz = player.z - fwd.z * (1.8 + s * 0.4) + right.z * 0.7; }
   if (!canWalk(tx, tz) || mtnWall(tx, tz, tx + 99, tz + 99, MTN_B)) { tx = player.x; tz = player.z; }
   const dx = tx - P.x, dz = tz - P.z, d = Math.hypot(dx, dz), far = Math.hypot(player.x - P.x, player.z - P.z);
@@ -6535,8 +6595,9 @@ function updatePartner(dt) {
   const leash = 3.2 + s * 0.6;
   if (!P.moving && far > leash && petT <= 0) P.moving = true;
   if (P.moving && (d < 0.45 || far < leash - 1.2)) P.moving = false;
+  if (partnerSnack) P.moving = d > 0.3;
   if (P.moving && petT <= 0) {
-    const sp = clamp(d * 2.2, 1.5, 10) * dt * (P.y < water.position.y - 0.1 ? 0.6 : 1);
+    const sp = clamp(d * 2.2, partnerSnack ? 4 : 1.5, partnerSnack ? 5 : 10) * dt * (P.y < water.position.y - 0.1 ? 0.6 : 1);
     P.x += dx / d * Math.min(sp, d); P.z += dz / d * Math.min(sp, d);
     P.face += angDiff(P.face, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
     P.hop += dt * (8 + Math.min(d, 6)); const k = Math.abs(Math.sin(P.hop));
@@ -6600,6 +6661,7 @@ const BOND_SPECIES_LINES = {
   ,bink: ['{name} took you for a spin on its saucer. Only a short one. You were very brave.', '{name} beeped at you twice. You’re fairly sure it means “friend”.', '{name} has stopped looking for whatever it was looking for. It says it found it.', '{name} gave you a slow, sleepy, very happy blink.', '{name} polished its saucer just for you. It’s extremely shiny now.']
   ,glimmery: ['{name} tapped you with its wand. You feel 3% more magical.', '{name} sprinkled glitter on your shoes. It will never come off. You don’t mind.', '{name} did a little twirl in the air just for you.', '{name} is humming a tinkly fairy tune.', '{name} would very much like another apple. Just saying.']
   ,sita: ['{name} sat very still and looked very pretty. It’s what it does best.', '{name} is keeping its thorns tucked in, just for you.', '{name} smells lovely today. It always does.', '{name} leaned towards the sun and closed its eyes happily.', '{name} gave you a tiny rosy blush.']
+  ,pretzello: ['{name} smells faintly of toast. You find this very comforting.', '{name} did a little twist for you. It’s the only move it knows.', '{name} is very glad it’s on YOUR side, not on a snack plate.', 'A few grains of salt fell off {name}. It looked embarrassed.']
   ,rosita: ['{name} stretched its leaves out to give you a hug.', '{name} remembers being a little bud. It’s very glad you waited.', '{name} turned its face towards you like you’re the sun.', '{name} dropped a single petal in your pocket. For luck.', '{name} is standing extra tall today. Look how proud it is!']
   ,froggle: ['{name} is still grumpy at everyone else. But not you.', '{name} growled at a leaf for you. You’re safe now.', '{name} keeps glancing at your Bobos and sighing happily.', '{name} let you scratch its shaggy chin. Its leg thumped.', '{name} only bit one thing today, and it was a log. Progress!']
   ,flops: ['{name} smoothed down her skirt and gave a little curtsey.', '{name} has decided you are allowed to see her. That’s a very big deal.', '{name} flopped one ear over her face shyly.', '{name} picked you a tiny blue flower to match her ears.', '{name} didn’t burrow away once today. She’s so proud.']
@@ -7079,6 +7141,7 @@ const WELCOME_SPECIES = {
   bink: '*beep boop* ...that means I missed you. I flew round the whole island looking for you!',
   glimmery: '*twinkle twinkle* You\'re back! I saved you some glitter. Well, I tried. It went everywhere.',
   sita: '*a very small, very rosy blush* ...I stayed perfectly still until you came back.',
+  pretzello: '*crinkle crinkle* You’re back! I stayed perfectly still and nobody ate me. Good day!',
   rosita: 'Look how tall I’ve grown! I’ve been waiting all day to show you!',
   froggle: 'HMPH. Oh. It’s you. ...Good. I mean, whatever. I was guarding your stuff.',
   flops: '...oh! Hello. I put on my best dress, in case you came back today.',
@@ -7148,6 +7211,7 @@ const totalCaught = () => party.length + boxSlots.filter(Boolean).length;
 const dlgEl = document.getElementById('dialog'), dlgText = dlgEl.querySelector('.dtext'), dlgItem = document.getElementById('itemGet');
 let dialogOpen = false, dlgLines = [], dlgIdx = 0, dlgShown = 0, dlgDone = null, dlgTyping = false;
 function openDialog(lines, onDone, who = 'prof') {
+  lines = lines.map(l => l && l.text ? Object.assign({}, l, { text: padText(l.text) }) : l);
   dlgLines = lines; dlgIdx = 0; dlgDone = onDone || null; dialogOpen = true; setDialogSpeaker(who);
   for (const k in keys) keys[k] = false; swingQueued = pickQueued = false;
   dlgEl.hidden = false; showLine(); if (who === 'prof') prof.wave = 1.2;
@@ -7523,7 +7587,7 @@ function renderGold() { goldEl.innerHTML = `<i class="coin"></i><b>${gold}</b>`;
 renderGold();
 
 /* ---------- what scrumblies are worth to him ---------- */
-const SCRIM_PRICE = { bobo: 8, speshul: 14, beeappy: 15, pengin: 16, duckshark: 18, weevil: 20, mermiggly: 20, beeangy: 26, glimmery: 22, raebit: 24, blorbo: 20, willowet: 22, flops: 26, sita: 4, rosita: 45, froggle: 40 };
+const SCRIM_PRICE = { bobo: 8, speshul: 14, beeappy: 15, pengin: 16, duckshark: 18, weevil: 20, mermiggly: 20, beeangy: 26, glimmery: 22, raebit: 24, blorbo: 20, willowet: 22, flops: 26, sita: 4, rosita: 45, froggle: 40, pretzello: 18 };
 const priceOf = p => SPECIES[p.species].unique ? 0 : Math.round((SCRIM_PRICE[p.species] || 10) * (p.size ? 1.5 : 1) * (p.shiny ? 6 : 1));
 const round5 = n => Math.max(5, Math.round(n / 5) * 5);
 
@@ -10353,6 +10417,113 @@ function updateMountain(dt) {
   if (!mtnHints.spot && inMountain(player.x, player.z)) for (const f of faces) { const R = f.plate.R(f.th), x = Math.cos(f.th) * R, z = Math.sin(f.th) * R; if (Math.hypot(player.x - x, player.z - z) < 9 && Math.abs(player.y - f.yMin) < 6) { mtnHints.spot = true; toast('That rock face is covered in lumps and bumps. Walk into it to climb!'); break; } }
   if (!mtnHints.peak && player.y > MTN_TOP.peak - 0.2 && Math.hypot(player.x, player.z) < MTN_PEAK_R) { mtnHints.peak = true; sfx.caught(); toast('You made it to the top of Mount Scrumble! What a view. (There’s more to discover up here... one day.)'); }
 }
+/* =========================================================
+   Scrumblies: the Pretzello (a little pretzel with two black bead eyes)
+   Clings to the foot of tree trunks in Glimmerwood, glazed the same
+   brown as the bark. Easy to net... but hang about near one and your
+   partner will sniff it out, dash over and gobble it up!
+   ========================================================= */
+function makePretzelloMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  // the classic knot: two lobes on top, the arms crossing in the middle, the ends tucked down at the bottom
+  const pts = [[-0.08, 0.03, 0.0], [-0.02, 0.1, 0.02], [0.04, 0.16, 0.02], [0.1, 0.27, 0.0], [0.19, 0.26, -0.01], [0.22, 0.15, 0.0], [0.17, 0.05, 0.0], [0.0, 0.0, 0.0], [-0.17, 0.05, 0.0], [-0.22, 0.15, 0.0], [-0.19, 0.26, -0.01], [-0.1, 0.27, 0.0], [-0.04, 0.16, -0.02], [0.02, 0.1, -0.02], [0.08, 0.03, 0.0]];
+  const curve = new THREE.CatmullRomCurve3(pts.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
+  const dough = new THREE.MeshPhongMaterial({ color: 0x9a5a28, shininess: 60, specular: 0x664422, emissive: 0x1a0c04 });
+  const knot = new THREE.Mesh(new THREE.TubeGeometry(curve, 90, 0.045, 10, false), dough); knot.castShadow = true; body.add(knot);
+  [pts[0], pts[pts.length - 1]].forEach(([x, y, z]) => { const cap = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), dough); cap.position.set(x, y, z); body.add(cap); });
+  // salt crystals
+  const salt = lam(0xffffff);
+  for (let i = 0; i < 16; i++) { const p = curve.getPoint((i + 0.5) / 16), c = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.014), salt); c.position.set(p.x, p.y + 0.03, p.z + 0.03); c.rotation.set(i, i * 2, i * 3); body.add(c); }
+  // two black bead eyes, right in the middle of the knot
+  const eyes = [-1, 1].map(s => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), new THREE.MeshPhongMaterial({ color: 0x0c0c10, shininess: 120, specular: 0x9999bb })); e.position.set(s * 0.045, 0.19, 0.045); e.scale.set(1, 1.15, 0.7); body.add(e); const h = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 4), lam(0xffffff)); h.position.set(s * 0.045 - 0.008, 0.2, 0.064); body.add(h); return e; });
+  body.scale.setScalar(1.25);
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.32); ex.position.y = 0.6; ex.visible = false; ex.renderOrder = 6; root.add(ex);
+  scene.add(root);
+  return { root, body, eyes, ex, dough };
+}
+const PRETZ_COUNT = 6, PRETZ_NOTICE = 4, PRETZ_SNIFF = 1.2, PRETZ_DASH = 3.0;
+const pretzellos = [];
+let partnerSnack = null, pretzHints = {};
+function placePretzello(z0, away) {
+  for (let i = 0; i < 80; i++) {
+    const t = forestTrunks[Math.floor(Math.random() * forestTrunks.length)]; if (!t) return false;
+    if (away && Math.hypot(t.x - away.x, t.z - away.z) < 30) continue;
+    if (pretzellos.some(o => o !== z0 && o.trunk === t)) continue;
+    const a = Math.random() * Math.PI * 2, r = t.r + 0.07;
+    z0.trunk = t; z0.x = t.x + Math.cos(a) * r; z0.z = t.z + Math.sin(a) * r; z0.y = heightAt(z0.x, z0.z) + 0.02; z0.face = Math.atan2(Math.cos(a), Math.sin(a));
+    // glazed the same brown as its tree's bark, so it blends right in
+    // (a shiny one wears a pink strawberry glaze instead: much easier to spot!)
+    z0.c.dough.color.setHex(z0.shiny ? 0xff8fc0 : t.c); if (!z0.shiny) z0.c.dough.color.multiplyScalar(0.95); z0.c.dough.emissive.setHex(z0.shiny ? 0x3a0a20 : 0x140a04);
+    return true;
+  }
+  return false;
+}
+for (let i = 0; i < PRETZ_COUNT && forestTrunks.length; i++) {
+  const c = makePretzelloMesh();
+  const z = Object.assign(c, { c, species: 'pretzello', state: 'still', t: 0, x: 0, y: 0, z: 0, face: 0, near: 0, blink: 2 + Math.random() * 3, trunk: null, sniffed: false, snackT: 0 });
+  applySize(z, rollSize()); z.shiny = rollShiny();
+  pretzellos.push(z); placePretzello(z);
+}
+const pretzSfx = {
+  crunch() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) noiseHit(t + i * 0.11, 'bandpass', 1800 + Math.random() * 1200, 0.12, 0.07, sfxBus, 1.5); },
+  sniff(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; for (let i = 0; i < 3; i++) noiseHit(t + i * 0.12, 'highpass', 2400, 0.04 * v, 0.06, sfxBus, 1.2); }
+};
+function netPretzellos() {
+  let got = false;
+  for (const z of pretzellos) {
+    if (!z.root.visible || !['still', 'snack'].includes(z.state) || !inNetZone(z.x, z.y, z.z)) continue;
+    if (catchScrumbly('pretzello', z.size, false, z.shiny)) { if (partnerSnack === z) partnerSnack = null; z.state = 'caught'; z.t = 0; got = true; }
+  }
+  return got;
+}
+const canSnack = () => partner && party[0] && party[0].species !== 'pretzello';
+function updatePretzellos(dt) {
+  for (const z of pretzellos) {
+    z.t += dt;
+    if (z.state === 'still' || z.state === 'snack') {
+      const d = Math.hypot(player.x - z.x, player.z - z.z);
+      // a blink now and then is the only giveaway
+      z.blink -= dt; const bl = z.blink < 0.12; if (z.blink < 0) z.blink = 2 + Math.random() * 4;
+      z.c.eyes.forEach(e => { e.scale.y = bl ? 0.15 : 1.15; });
+      z.body.scale.set(1.25, 1.25 * (1 + Math.sin(time * 2 + z.x) * 0.02), 1.25);
+      if (!pretzHints.seen && d < 9 && playing && z.root.visible) { pretzHints.seen = true; toast('Is that knot at the foot of the tree... looking at you?'); }
+      if (z.state === 'still') {
+        // hang around nearby and your partner starts sniffing...
+        if (d < PRETZ_NOTICE && canSnack() && playing && !knocked) z.near += dt; else z.near = Math.max(0, z.near - dt * 0.5);
+        if (z.near > PRETZ_SNIFF && !z.sniffed) { z.sniffed = true; pretzSfx.sniff(1); toast(`${party[0].name} is sniffing the air... something smells delicious!`); partner.squish = 0.6; }
+        if (z.near > PRETZ_DASH) { z.state = 'snack'; z.snackT = 0; partnerSnack = z; z.c.ex.visible = true; toast(`Uh oh, ${party[0].name} has spotted the Pretzello! Quick, net it!`); }
+        if (z.near === 0) z.sniffed = false;
+      } else {
+        // ...then dashes over and gobbles it up
+        z.snackT += dt; z.c.ex.position.y = 0.6 + Math.abs(Math.sin(time * 9)) * 0.1;
+        if (!canSnack()) { z.state = 'still'; z.near = 0; z.c.ex.visible = false; if (partnerSnack === z) partnerSnack = null; }
+        else {
+          const pd = Math.hypot(partner.x - z.x, partner.z - z.z);
+          if (pd < 0.75 || z.snackT > 6) {
+            partnerSnack = null; z.state = 'eaten'; z.t = 0; z.c.ex.visible = false; pretzSfx.crunch(); partner.squish = 1;
+            for (let i = 0; i < 10; i++) spawnSparkle(z.x, z.y + 0.2, z.z);
+            for (let i = 0; i < 4; i++) setTimeout(() => spawnHeart(partner.x, partner.y + 0.8, partner.z), i * 150);
+            toast(`Oh no! ${party[0].name} gobbled up the Pretzello! *crunch crunch* You'll have to be quicker next time.`);
+          }
+        }
+      }
+    } else if (z.state === 'eaten') {
+      // nibbled away to nothing
+      const k = Math.min(1, z.t / 0.5); z.body.scale.setScalar(1.25 * (1 - k)); z.body.rotation.z = k * 4;
+      if (k >= 1) { z.state = 'gone'; z.t = 0; z.root.visible = false; z.respawn = 45 + Math.random() * 35; z.body.rotation.z = 0; }
+    } else if (z.state === 'caught') {
+      const k = Math.min(1, z.t / 0.45); camera.getWorldDirection(_cv);
+      z.x = lerp(z.x, camera.position.x + _cv.x * 1.2, k * 0.35); z.z = lerp(z.z, camera.position.z + _cv.z * 1.2, k * 0.35); z.y = lerp(z.y, camera.position.y - 0.5, k * 0.35);
+      z.body.scale.setScalar(1.25 * (1 - k * 0.85));
+      if (k >= 1) { z.state = 'gone'; z.t = 0; z.root.visible = false; z.respawn = 45 + Math.random() * 35; }
+    } else if (z.state === 'gone' && z.t > z.respawn) {
+      z.body.scale.setScalar(1.25); z.near = 0; z.sniffed = false; applySize(z, rollSize()); z.shiny = rollShiny();
+      if (placePretzello(z, player)) { z.state = 'still'; z.t = 0; z.root.visible = true; } else z.t = z.respawn - 3;
+    }
+    if (!z.root.visible) continue;
+    z.root.position.set(z.x, z.y, z.z); z.root.rotation.set(0, z.face, 0);
+  }
+}
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -10420,7 +10591,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -10481,6 +10652,7 @@ function tick(dt) {
   updateWillowets(dt);
   updateFlopses(dt);
   updateSitas(dt);
+  updatePretzellos(dt);
   updateFroggles(dt);
   updateRanch(dt);
   updateScrim(dt);
@@ -10550,7 +10722,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
