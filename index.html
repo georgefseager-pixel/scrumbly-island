@@ -41,6 +41,13 @@
   /* Xbox controller glyphs, shown in place of keys while you're playing with a controller */
   kbd.xb { padding: 0; background: none; display: inline-flex; gap: 3px; vertical-align: -.2em; }
   .xbb { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; border-radius: 50%; font-family: var(--display); font-weight: 700; font-size: .85rem; color: #fff; background: #2c2b33; box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  #dexCard.titan .titan-pic svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 0 rgba(44,37,82,.25)); }
+  #dexCard.titan header .num { background: #2c2552; color: #ffd23f; }
+  .titan-count { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; background: #2c2552; color: #fff8e6; border-radius: 14px; padding: 10px 14px; margin: 8px 0; }
+  .titan-count b { font-family: var(--display); font-size: 1rem; color: #ffd23f; letter-spacing: .04em; }
+  .titan-count span { font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
+  .titan-count i { grid-column: 1 / -1; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #ffd23f var(--k), rgba(255,255,255,.18) 0); }
+  .titan-note { font-style: italic; opacity: .85; }
   .xbb.a { background: #3fae2f; } .xbb.b { background: #d83a3a; } .xbb.x { background: #2f6fd8; } .xbb.y { background: #e0a800; }
   .xbb.sh { border-radius: 7px; padding: 0 6px; font-size: .72rem; }
   .xbb.st { background: #4a4855; box-shadow: inset 0 0 0 3px #77748a, inset 0 -2px 0 rgba(0,0,0,.35); }
@@ -1102,7 +1109,7 @@ const flatMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true
 /* ---------- Glimmerwood: a magical fairy forest ---------- */
 const forestColliders = [];
 const forestTrunks = [];                    // the fairy trees' trunks (Pretzellos hide at their feet)                 // tree trunks and stumps you walk into
-const forestFreeBase = (x, z, d, gap = 1.5) => d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 2 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + gap && !(gapArc(x, z) < 5 && d < 82);
+const forestFreeRaw = (x, z, d, gap = 1.5) => d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 2 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + gap && !(gapArc(x, z) < 5 && d < 82);
 // the site for your treehouse, chosen with its own seeded dice before anything else is planted in the forest,
 // so it's always in the same spot and the forest grows round it: a glade under the deck, and a clear view to the beach
 const TRUNK_R = 1.3, HOUSE_WALL_H = 3.4;
@@ -1110,7 +1117,7 @@ const HOUSE = (() => {
   const r = mulberry32(31337); let best = null;
   for (let i = 0; i < 3000 && !best; i++) {
     const th = r() * 6.28, d = HEDGE_OUT + 16 + r() * 8, [x, z] = polar(th, d);
-    if (!forestFreeBase(x, z, d, 9) || GAP_TH.some(g => Math.abs(Math.atan2(Math.sin(g - th), Math.cos(g - th))) < 0.16)) continue;
+    if (!forestFreeRaw(x, z, d, 9) || GAP_TH.some(g => Math.abs(Math.atan2(Math.sin(g - th), Math.cos(g - th))) < 0.16)) continue;
     best = { th, x, z };
   }
   if (!best) { const th = GAP_TH[0] + 0.5, [x, z] = polar(th, HEDGE_OUT + 18); best = { th, x, z }; }
@@ -1120,6 +1127,18 @@ const HOUSE = (() => {
 })();
 const houseWorld = (u, v) => [HOUSE.x + HOUSE.c * u + HOUSE.s * v, HOUSE.z - HOUSE.s * u + HOUSE.c * v];
 const houseLocal = (x, z) => { const dx = x - HOUSE.x, dz = z - HOUSE.z; return [HOUSE.c * dx - HOUSE.s * dz, HOUSE.s * dx + HOUSE.c * dz]; };
+// Glimmer Pond, home of the giant Raebit: a big pond in a quiet part of the forest (seeded, so it never moves)
+const FPOND = (() => {
+  const r = mulberry32(2718);
+  for (let i = 0; i < 3000; i++) {
+    const th = r() * 6.28, d = HEDGE_OUT + 14 + r() * 18, [x, z] = polar(th, d);
+    if (!forestFreeRaw(x, z, d, 12) || Math.hypot(x - HOUSE.x, z - HOUSE.z) < 40 || GAP_TH.some(g => Math.abs(Math.atan2(Math.sin(g - th), Math.cos(g - th))) < 0.3) || Math.abs(Math.atan2(Math.sin(MTN_ENTRY_TH - th), Math.cos(MTN_ENTRY_TH - th))) < 0.4) continue;
+    return { x, z, th, r: 10 };
+  }
+  const [x, z] = polar(GAP_TH[2] + 0.6, HEDGE_OUT + 18); return { x, z, th: GAP_TH[2] + 0.6, r: 10 };
+})();
+const inPond = (x, z, pad = 0) => Math.abs(x - FPOND.x) < FPOND.r + pad + 1 && Math.hypot(x - FPOND.x, z - FPOND.z) < FPOND.r + pad;
+const forestFreeBase = (x, z, d, gap = 1.5) => forestFreeRaw(x, z, d, gap) && !inPond(x, z, 2 + gap);
 const houseGlade = (x, z, pad = 0) => { const dx = x - HOUSE.x, dz = z - HOUSE.z, dd = Math.hypot(dx, dz) || 1; return dd < 12 + pad || ((dx * HOUSE.s + dz * HOUSE.c) / dd > 0.3 && dd < 26 + pad); };
 const forestFree = (x, z, d, gap = 1.5) => forestFreeBase(x, z, d, gap) && !houseGlade(x, z, Math.min(gap, 3))
   && !appleTrees.some(t => Math.abs(t.x - x) < 2.6 && Math.abs(t.z - z) < 2.6 && Math.hypot(t.x - x, t.z - z) < 2.4);   // keep apple trunks clear to climb
@@ -4464,7 +4483,7 @@ function willowGrazeSpot(h, near) {
   for (let i = 0; i < 30; i++) {
     const a = near ? Math.atan2(near.z - h.mz, near.x - h.mx) + (Math.random() - 0.5) * 1.2 : Math.random() * 6.28, r = WILLOW_GRAZE[0] + Math.random() * (WILLOW_GRAZE[1] - WILLOW_GRAZE[0]), x = h.mx + Math.cos(a) * r, z = h.mz + Math.sin(a) * r;
     const d = inland(x, z);
-    if (d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 1.5 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + 0.5 && rabbitHoles.every(o => Math.hypot(o.mx - x, o.mz - z) > 7)) return [x, z];
+    if (d > HEDGE_OUT + 1.5 && d < FOREST_OUT - 1.5 && Math.abs(riverOff(x, z, d)) > RIVER_HALF + 0.5 && !inPond(x, z, 1.5) && rabbitHoles.every(o => Math.hypot(o.mx - x, o.mz - z) > 7)) return [x, z];
   }
   return null;
 }
@@ -4967,7 +4986,7 @@ const froggleSfx = {
 };
 const froggleVol = f => clamp(1 - Math.hypot(player.x - f.x, player.z - f.z) / 40, 0, 1);
 const bobosLove = () => party[0] && party[0].species === 'bobo' && partner;
-const froggleInForest = (x, z) => { const d = inland(x, z); return d > HEDGE_OUT + 1 && d < FOREST_OUT - 2; };
+const froggleInForest = (x, z) => { const d = inland(x, z); return d > HEDGE_OUT + 1 && d < FOREST_OUT - 2 && !inPond(x, z, 1); };
 function netFroggles() {
   let got = false;
   for (const f of froggles) {
@@ -5946,6 +5965,7 @@ function scrumblyCandidates() {
   for (const s of sitas) if (s.root.visible && s.state === 'still') out.push({ o: s, id: 'sita', y: 0.2 * s.s });
   for (const z of pretzellos) if (z.root.visible && (z.state === 'still' || z.state === 'snack')) out.push({ o: z, id: 'pretzello', y: 0.2 * z.s });
   if (koneko.root.visible && koneko.state === 'fly') out.push({ o: koneko, id: 'koneko', y: 1.2 });
+  out.push(...titanCandidates());
   for (const f of froggles) if (f.root.visible && f.state !== 'caught') out.push({ o: f, id: 'froggle', y: 0.6 * f.s });
   for (const f of flopses) if (f.root.visible && f.state !== 'caught' && f.sink < 0.5) out.push({ o: f, id: 'flops', y: 0.3 * f.s });
   for (const w of willowets) if (w.root.visible && w.state !== 'caught' && w.under < 0.5) out.push({ o: w, id: 'willowet', y: 0.45 * w.s });
@@ -5958,9 +5978,9 @@ function findScanTarget(slack = 1) {
   let best = null, bestAng = Infinity;
   for (const c of scrumblyCandidates()) {
     _to.set(c.o.root.position.x - camera.position.x, c.o.root.position.y + c.y - camera.position.y, c.o.root.position.z - camera.position.z);
-    const d = _to.length(); if (d > SCAN_RANGE) continue;
+    const d = _to.length(); if (d > (c.titan ? TITAN_RANGE : SCAN_RANGE)) continue;
     const ang = Math.acos(clamp(_to.normalize().dot(_dir), -1, 1));
-    if (ang < (Math.atan2(0.9, d) + 0.04) * slack && ang < bestAng) { bestAng = ang; best = c; }
+    if (ang < (Math.atan2(c.r || 0.9, d) + 0.04) * slack && ang < bestAng) { bestAng = ang; best = c; }
   }
   return best;
 }
@@ -5970,6 +5990,7 @@ function startScan() {
   scan = { target: scanTarget, t: 0 }; sfx.dexScan();
 }
 function finishScan() {
+  if (scan.target.titan) { const t = scan.target.titan, isNew = !titansScanned.has(t.id); titansScanned.add(t.id); scan = null; saveGame(); sfx.dexDone(isNew); showTitanCard(t, isNew); return; }
   const id = scan.target.id, isNew = !dexState.scanned.has(id), scan_size = scan.target.o.size, scan_shiny = scan.target.o.shiny;
   dexState.scanned.add(id); scan = null; saveGame();
   tutCheck();
@@ -5980,7 +6001,7 @@ function finishScan() {
 const cardEl = document.getElementById('dexCard');
 let cardTimer = 0;
 function showDexCard(id, isNew, size, shiny) {
-  const s = SPECIES[id];
+  const s = SPECIES[id]; cardEl.classList.remove('titan');
   cardEl.innerHTML = `<header><span class="num">#${pad3(s.num)}</span><h3>${s.name}</h3>${isNew ? '<span class="new">NEW!</span>' : ''}${dexState.caught.has(id) ? '<span class="got">Caught</span>' : ''}</header>
     <div class="pic">${s.icon}</div><p class="where">${s.where}</p>${s.unique ? '<p class="rare unique">One of a kind! There is only one in the whole world.</p>' : ''}${shiny ? '<p class="rare shiny">A Shiny one! Incredibly rare!</p>' : ''}${size ? `<p class="rare ${size}">${size === 'big' ? 'Whoa! This one is unusually BIG.' : 'Aww! This one is unusually small.'} Rare!</p>` : ''}
     <h4>Did you know?</h4><p>${s.fact}</p><h4>Catching tip</h4><p>${s.hint}</p><footer><kbd>Tab</kbd>open Scrumblydex</footer>`;
@@ -6065,11 +6086,11 @@ function updateDex(dt) {
   if (t) {
     _sp.set(t.o.root.position.x, t.o.root.position.y + t.y, t.o.root.position.z).project(camera);
     const dist = Math.hypot(t.o.root.position.x - camera.position.x, t.o.root.position.z - camera.position.z);
-    const size = clamp(900 / Math.max(dist, 1), 46, 150);
+    const size = t.titan ? clamp(t.r * 1300 / Math.max(dist, 1), 80, 320) : clamp(900 / Math.max(dist, 1), 46, 150);
     scanEl.hidden = false; scanEl.classList.toggle('scanning', !!scan);
     scanEl.style.width = scanEl.style.height = size + 'px';
     scanEl.style.transform = `translate(${(_sp.x * 0.5 + 0.5) * innerWidth}px, ${(-_sp.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -50%)`;
-    scanLabel.textContent = scan ? 'Scanning…' : (dexState.scanned.has(t.id) ? shinyWord(t.o.shiny) + sizeWord(t.o.size) + SPECIES[t.id].name : '???');
+    scanLabel.textContent = scan ? 'Scanning…' : t.titan ? (titansScanned.has(t.id) ? t.titan.name : 'A titan?!') : (dexState.scanned.has(t.id) ? shinyWord(t.o.shiny) + sizeWord(t.o.size) + SPECIES[t.id].name : '???');
     scanEl.style.setProperty('--p', scan ? Math.min(1, scan.t / SCAN_T) : 0);
   } else scanEl.hidden = true;
 }
@@ -6845,7 +6866,7 @@ function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
     party: party.map(packP), box: boxSlots.map(packP),
-    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf,
+    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned],
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
@@ -6874,6 +6895,7 @@ function applySnapshot(s) {
   (s.scanned || []).forEach(id => SPECIES[id] && dexState.scanned.add(id));
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
+  titansScanned.clear(); (Array.isArray(s.titans) ? s.titans : []).forEach(id => { if (TITANS.some(t => t.id === id)) titansScanned.add(id); });
   forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
@@ -8308,6 +8330,7 @@ function canWalk(x, z) {
   const d = inland(x, z);
   if (d <= INLAND_LIMIT) return true;
   if (!forestState.open) return false;
+  if (inPond(x, z, -0.5)) return false;                                  // Glimmer Pond is far too deep to wade
   if (d > FOREST_OUT - 0.5) return d > FOREST_OUT + 5.2 || angGap(Math.atan2(z, x), MTN_ENTRY_TH) * Math.hypot(x, z) < 2.6;
   if (d < HEDGE_OUT + 0.5) return gapArc(x, z) < 1.9;
   return true;
@@ -8454,6 +8477,7 @@ function talkToHop(h) {
 }
 function forestBlocked(x, z) {
   const d = inland(x, z);
+  if (inPond(x, z, -0.2)) return 'Glimmer Pond is deep, dark and freezing. Best admire it from the bank.';
   if (d > FOREST_OUT - 1) return 'The brambles are far too thick here. There must be a way through somewhere...';
   if (!forestState.open && gapArc(x, z) < 2.5) return scrimHere() ? 'Sir Hopsalot is standing right in the way. Perhaps have a word with him?' : 'Something rustles behind the hedge... Best help the Professor first.';
   return 'The hedge is far too thick to push through. There must be a way in somewhere...';
@@ -10673,6 +10697,87 @@ function updateKoneko(dt) {
   if (houseUp() && dPass < 16 && player.y > HOUSE.deck - 0.5 && !k.passHint && playing) { k.passHint = true; konekoSfx.meow(1); toast('Here comes Koneko, drifting right past the balcony! Quick, get your net ready!'); }
   if (dPass > 40) k.passHint = false;
 }
+/* =========================================================
+   Titans: the enormous scrumblies that roam the edges of the world.
+   You can't catch them, but you can scan them, and the Scrumblydex
+   keeps count: Titans Scanned 1 / X. Glimmer Pond in the forest is home
+   to the newest: a giant Raebit who very occasionally peeks out.
+   ========================================================= */
+/* ---------- Glimmer Pond ---------- */
+const pondY = heightAt(FPOND.x, FPOND.z) + 0.02;
+const pond = (() => {
+  const root = new THREE.Group(); root.position.set(FPOND.x, 0, FPOND.z); scene.add(root);
+  // the water: a soft, wobbly-edged disc of deep teal fading to pale at the shallows
+  const N = 48, pos = [0, pondY + 0.03, 0], col = [0.18, 0.42, 0.56], idx = [];
+  for (let i = 0; i <= N; i++) { const a = i / N * Math.PI * 2, r = FPOND.r * (1 + 0.06 * Math.sin(a * 3 + 1) + 0.04 * Math.sin(a * 7)); pos.push(Math.cos(a) * r, pondY + 0.03, Math.sin(a) * r); col.push(0.42, 0.72, 0.78); if (i < N) idx.push(0, i + 2, i + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const water = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 90, specular: 0xbfefff, emissive: 0x0a2030 })); water.receiveShadow = true; root.add(water);
+  // a ring of mossy stones, reeds, and lily pads with pink flowers
+  const parts = [], R = mulberry32(8080);
+  for (let i = 0; i < 34; i++) { const a = i / 34 * Math.PI * 2 + R() * 0.1, r = FPOND.r * (1.04 + 0.06 * Math.sin(a * 3 + 1)) + R() * 0.4, s = 0.35 + R() * 0.45, x = Math.cos(a) * r, z = Math.sin(a) * r; parts.push(bake(new THREE.DodecahedronGeometry(s, 0).scale(1.2, 0.6, 1), [0xb3a6c4, 0x9fb894, 0xc2b6cc][i % 3]).translate(x, heightAt(FPOND.x + x, FPOND.z + z) + s * 0.2, z)); }
+  for (let i = 0; i < 26; i++) { const a = R() * Math.PI * 2, r = FPOND.r * (0.92 + R() * 0.12), x = Math.cos(a) * r, z = Math.sin(a) * r, h = 0.8 + R() * 0.9; parts.push(bake(new THREE.CylinderGeometry(0.025, 0.035, h, 4), 0x5a9a3a).translate(x, pondY + h / 2, z)); if (i % 2) parts.push(bake(new THREE.CylinderGeometry(0.06, 0.06, 0.28, 6), 0x8a5a33).translate(x, pondY + h - 0.1, z)); }
+  for (let i = 0; i < 14; i++) { const a = R() * Math.PI * 2, r = FPOND.r * (0.25 + R() * 0.6), x = Math.cos(a) * r, z = Math.sin(a) * r; parts.push(bake(new THREE.CylinderGeometry(0.5 + R() * 0.3, 0.5, 0.03, 12, 1, false, 0.3, Math.PI * 1.8), 0x5cb85c).translate(x, pondY + 0.06, z)); if (i % 3 === 0) parts.push(bake(new THREE.SphereGeometry(0.16, 8, 6).scale(1, 0.6, 1), 0xff9cc0).translate(x + 0.1, pondY + 0.16, z)); }
+  const m = new THREE.Mesh(merge(parts), vcLambert()); m.castShadow = true; m.receiveShadow = true; root.add(m);
+  return { root, water };
+})();
+
+/* ---------- the giant Raebit: rarely peeks out of the pond, has a look round, sinks back ---------- */
+const giantRae = (() => {
+  const c = compactCreature(makeRaebitMesh());
+  const SCALE = 15;
+  c.root.scale.setScalar(SCALE); c.root.traverse(o => { o.castShadow = false; });
+  if (c.ex) c.ex.visible = false;
+  c.root.visible = false; c.root.position.set(FPOND.x, pondY - SCALE * 1.4, FPOND.z);
+  return Object.assign(c, { SCALE, phase: 'under', t: 0, next: 90 + Math.random() * 120, face: 0, seenHint: false });
+})();
+function updateGiantRaebit(dt) {
+  const g = giantRae, UP = pondY - 0.6 * g.SCALE, DOWN = pondY - 1.6 * g.SCALE;
+  g.t += dt;
+  let y = DOWN;
+  const near = Math.hypot(player.x - FPOND.x, player.z - FPOND.z);
+  if (g.phase === 'under') {
+    if (g.t > g.next && forestState.open) { g.phase = 'rise'; g.t = 0; g.root.visible = true; g.face = Math.atan2(player.x - FPOND.x, player.z - FPOND.z) + (Math.random() - 0.5) * 1.5; }
+  } else if (g.phase === 'rise') {
+    const k = Math.min(1, g.t / 3); y = lerp(DOWN, UP, 1 - Math.pow(1 - k, 3));
+    if (Math.floor(g.t * 3) !== Math.floor((g.t - dt) * 3)) { spawnRipple(FPOND.x, FPOND.z, 4 + g.t * 3); splash(FPOND.x, FPOND.z, 10, 1.6); }
+    if (k >= 1) { g.phase = 'peek'; g.t = 0; }
+  } else if (g.phase === 'peek') {
+    y = UP + Math.sin(g.t * 1.6) * 0.25;
+    // a slow look round, ears twitching
+    g.face += Math.sin(g.t * 0.7) * dt * 0.5;
+    if (g.t > 9) { g.phase = 'sink'; g.t = 0; }
+  } else if (g.phase === 'sink') {
+    const k = Math.min(1, g.t / 3); y = lerp(UP, DOWN, k * k);
+    if (Math.floor(g.t * 3) !== Math.floor((g.t - dt) * 3)) spawnRipple(FPOND.x, FPOND.z, 10);
+    if (k >= 1) { g.phase = 'under'; g.t = 0; g.next = 120 + Math.random() * 150; g.root.visible = false; }
+  }
+  if (!g.root.visible) return;
+  g.root.position.set(FPOND.x, y, FPOND.z); g.root.rotation.y = g.face;
+  if (g.ears) g.ears.forEach((e, i) => { e.rotation.x = Math.sin(time * 3 + i * 1.3) * 0.15; });
+  if (!g.seenHint && near < 70 && playing && g.phase !== 'sink') { g.seenHint = true; toast('Something ENORMOUS is peeking out of the pond... is that a Raebit?!'); if (actx) { const t = actx.currentTime; tone(t, 120, 90, 0.6, 0.12, 'sine'); } }
+  if (g.phase === 'under' && near > 90) g.seenHint = false;
+}
+
+/* ---------- the titans, and scanning them ---------- */
+const TITANS = [
+  { id: 'duckshark', name: 'Titan Duckshark', where: 'Out at sea, circling slowly', o: giant, at: () => giant.SCALE * 0.45, r: () => giant.SCALE * 0.6, on: () => giant.root.visible },
+  { id: 'beeappy', name: 'Titan Beeappy', where: 'High above the island, buzzing lazy circles', o: giantBee, at: () => 0, r: () => 36 * 0.55, on: () => giantBee.root.visible },
+  { id: 'mermiggly', name: 'Titan Mermiggly', where: 'Across the sea, waving now and then', o: giantMerm, at: () => giantMerm.SCALE * 0.55, r: () => giantMerm.SCALE * 0.5, on: () => giantMerm.root.visible },
+  { id: 'raebit', name: 'Titan Raebit', where: 'Glimmer Pond, Glimmerwood · very, very rarely', o: giantRae, at: () => giantRae.SCALE * 0.85, r: () => giantRae.SCALE * 0.4, on: () => giantRae.root.visible && giantRae.phase !== 'under' }
+];
+const titansScanned = new Set();
+const TITAN_RANGE = 1200;
+function titanCandidates() { return TITANS.filter(t => t.on()).map(t => ({ o: t.o, id: t.id, y: t.at(), titan: t, r: t.r() })); }
+function showTitanCard(t, isNew) {
+  const n = titansScanned.size, total = TITANS.length;
+  cardEl.innerHTML = `<header><span class="num">TITAN</span><h3>${t.name}</h3>${isNew ? '<span class="new">NEW!</span>' : ''}</header>
+    <div class="pic titan-pic">${SPECIES[t.id].icon}</div><p class="where">${t.where}</p>
+    <div class="titan-count"><b>Titans Scanned</b><span>${n} / ${total}</span><i style="--k:${(n / total * 100).toFixed(1)}%"></i></div>
+    <p class="titan-note">${n >= total ? 'You’ve scanned every titan out there... for now.' : 'Far too big to catch. There are more of these giants out there somewhere...'}</p><footer><kbd>Tab</kbd>open Scrumblydex</footer>`;
+  cardEl.classList.add('titan');
+  cardEl.hidden = false; cardEl.classList.remove('in'); void cardEl.offsetWidth; cardEl.classList.add('in');
+  clearTimeout(cardTimer); cardTimer = setTimeout(() => cardEl.classList.remove('in'), 9000);
+}
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -10803,6 +10908,7 @@ function tick(dt) {
   updateSitas(dt);
   updatePretzellos(dt);
   updateKoneko(dt);
+  updateGiantRaebit(dt);
   updateFroggles(dt);
   updateRanch(dt);
   updateScrim(dt);
@@ -10872,7 +10978,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
