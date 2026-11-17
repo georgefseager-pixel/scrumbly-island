@@ -734,7 +734,7 @@ const TERRAIN_SIZE = 520, TERRAIN_SEG = 250;
         const m = fbm(x * 0.07 + 11, z * 0.07 - 4), forest = [0.40, 0.74, 0.47], moss = [0.36, 0.72, 0.64], lilac = [0.66, 0.6, 0.84];
         let f = forest.map((v, k) => lerp(v, moss[k], smooth(0.5, 0.7, m)));
         f = f.map((v, k) => lerp(v, lilac[k], smooth(0.62, 0.78, fbm(x * 0.05 - 9, z * 0.05 + 2)) * 0.8));
-        if (d > FOREST_OUT - 2) f = f.map((v, k) => lerp(v, jungle[k], smooth(FOREST_OUT - 2, FOREST_OUT + 8, d)));
+        if (d > FOREST_OUT - 2) f = f.map((v, k) => lerp(v, [0.62, 0.8, 0.56][k], smooth(FOREST_OUT - 2, FOREST_OUT + 6, d)));   // the mountain's sunny foothills
         const rc = riverCut(x, z, d) / RIVER_DEPTH;
         if (rc > 0) f = f.map((v, k) => lerp(v, [0.62, 0.66, 0.74][k], smooth(0.05, 0.4, rc)));
         c = c.map((v, k) => lerp(v, f[k], smooth(HEDGE_OUT - 2, HEDGE_OUT + 2, d)));
@@ -1661,7 +1661,9 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 function blockedMessage(x, z) {
-  if (inland(x, z) > INLAND_LIMIT) toast(forestBlocked(x, z));
+  const w = mtnWall(x, z, player.x, player.z, player.y);
+  if (w) toast(w.kind === 'radial' ? 'Too smooth and steep to climb here. Look for the tan rock covered in knobbly handholds!' : w.look === 'pine' ? 'A little mountain pine is in the way.' : 'Too big to step up on. Try jumping!');
+  else if (inland(x, z) > INLAND_LIMIT) toast(forestBlocked(x, z));
   else toast("Whoa, too deep! You're a catcher, not a swimmer.");
 }
 
@@ -10020,10 +10022,12 @@ const MTN_TOP = { p1: 17, p2: 26, p3: 35, peak: 42.5 };
 const mtnEdge = (() => {
   const N = 360, raw = [], sm = [];
   for (let i = 0; i < N; i++) { const [x, z] = polar(i / N * Math.PI * 2, FOREST_OUT); raw.push(Math.hypot(x, z)); }
-  for (let i = 0; i < N; i++) { let s = 0; for (let k = -14; k <= 14; k++) s += raw[(i + k + N) % N]; sm.push(s / 29); }
+  // erode (the tightest spot nearby), then smooth: the outline stays a good 5 m clear of the brambles everywhere, but never jagged
+  const er = []; for (let i = 0; i < N; i++) { let m = Infinity; for (let k = -6; k <= 6; k++) m = Math.min(m, raw[(i + k + N) % N]); er.push(m); }
+  for (let i = 0; i < N; i++) { let s = 0; for (let k = -6; k <= 6; k++) s += er[(i + k + N) % N]; sm.push(s / 13); }
   return th => { const f = ((th / (Math.PI * 2)) % 1 + 1) % 1 * N, i = Math.floor(f), t = f - i; return lerp(sm[i % N], sm[(i + 1) % N], t); };
 })();
-const mtnR1 = th => mtnEdge(th) - 11.5 + 0.7 * Math.sin(7 * th + 1) + 0.4 * Math.sin(13 * th + 2);
+const mtnR1 = th => mtnEdge(th) - 11.8 + 0.7 * Math.sin(7 * th + 1) + 0.4 * Math.sin(13 * th + 2);
 const mtnR2 = th => Math.min(14.5 + 1.6 * Math.sin(2 * th + 1) + 1.1 * Math.sin(3 * th + 2) + 0.5 * Math.sin(7 * th), mtnR1(th) - 4.8);
 const mtnR3 = th => Math.min(9.6 + 0.7 * Math.sin(3 * th + 0.4) + 0.3 * Math.sin(8 * th + 1), mtnR2(th) - 4.6);
 const MTN_PEAK_R = 5.2;
@@ -10065,14 +10069,20 @@ function mtnWall(nx, nz, ox, oz, y) {
 const mtnUp = () => inMountain(player.x, player.z) && player.y > MTN_B + 3;
 
 /* ---------- the routes: climbable faces, ravine pillars, boulder stairs, the spiral ---------- */
-const R1at = MTN_ENTRY_TH + 0.55, R2at = MTN_ENTRY_TH + Math.PI + 0.2, R3at = MTN_ENTRY_TH + Math.PI * 0.5 + 0.3;
+const R3at = MTN_ENTRY_TH + Math.PI * 0.5 + 0.3;
+// climbable faces: one dead ahead as you come through the brambles, more round the mountain
+// (the first plateau's are all on the near side of the ravines; the second's are all beyond them)
 const faces = [
-  { plate: P1, th: R1at, half: 2.6, yMin: MTN_B - 1 },
-  { plate: P2, th: R2at, half: 2.4, yMin: MTN_TOP.p1 - 0.3 },
-  { plate: P3, th: R3at, half: 2.0, yMin: MTN_TOP.p2 + 2.0 }
+  { plate: P1, th: MTN_ENTRY_TH, half: 3.4, yMin: MTN_B - 1 },
+  { plate: P1, th: MTN_ENTRY_TH + 0.95, half: 2.8, yMin: MTN_B - 1 },
+  { plate: P1, th: MTN_ENTRY_TH - 1.15, half: 2.8, yMin: MTN_B - 1 },
+  { plate: P2, th: MTN_ENTRY_TH + Math.PI + 0.2, half: 2.8, yMin: MTN_TOP.p1 - 0.3 },
+  { plate: P2, th: MTN_ENTRY_TH + Math.PI - 0.65, half: 2.6, yMin: MTN_TOP.p1 - 0.3 },
+  { plate: P3, th: R3at, half: 2.2, yMin: MTN_TOP.p2 + 2.0, stairs: true },
+  { plate: P3, th: R3at + Math.PI, half: 2.2, yMin: MTN_TOP.p2 + 2.0, stairs: true }
 ];
 faces.forEach(f => { f.dth = f.half / f.plate.R(f.th); });
-const faceAt = (p, th, y) => faces.find(f => f.plate === p && angGap(th, f.th) < f.dth && y >= f.yMin - 0.35 && y < p.top - 0.5);
+const faceAt = (p, th, y) => faces.find(f => f.plate === p && angGap(th, f.th) < f.dth + 0.4 / p.R(th) && y >= f.yMin - 0.35 && y < p.top - 0.5);
 // stepping stones across each ravine, just below the plateau top
 MTN_RAVINES.forEach(([a, w], k) => {
   const rm = (mtnR1(a) + mtnR2(a)) / 2;
@@ -10080,11 +10090,11 @@ MTN_RAVINES.forEach(([a, w], k) => {
   else { [-1, 1].forEach(s => { const r = rm + s * 1.6, aa = a + s * 0.9 / r; circlePlate(Math.cos(aa) * r, Math.sin(aa) * r, 0.85, MTN_TOP.p1 - (s > 0 ? 0.1 : 0.45)); }); }
 });
 // boulder stairs up to the third plateau's handholds
-{
-  const R = mtnR3(R3at), ux = Math.cos(R3at), uz = Math.sin(R3at), tx = -uz, tz = ux;
+faces.filter(f => f.stairs).forEach(f => {
+  const R = f.plate.R(f.th), ux = Math.cos(f.th), uz = Math.sin(f.th), tx = -uz, tz = ux;
   circlePlate(ux * (R + 0.95), uz * (R + 0.95), 0.95, MTN_TOP.p2 + 2.0, 'boulder');
   circlePlate(ux * (R + 2.7) + tx * 1.6, uz * (R + 2.7) + tz * 1.6, 0.95, MTN_TOP.p2 + 1.0, 'boulder');
-}
+});
 // the spiral of rising pillars from the third plateau to the peak
 const spiral = [];
 for (let k = 0; k < 7; k++) {
@@ -10119,40 +10129,59 @@ const mtnBoulders = [];
   scatter(10, P2, P3, 0.9);
 }
 /* ---------- how it looks ---------- */
+// chunky, faceted rock in the same low-poly style as the rest of the island, warm pastel stone,
+// outcrops breaking up the cliffs, and meadows of grass, flowers and pastel pines on top
+const MTN_ROCK = [[0.80, 0.72, 0.78], [0.72, 0.65, 0.74], [0.86, 0.79, 0.82], [0.76, 0.69, 0.80], [0.68, 0.62, 0.70]];
+const MTN_FACE = [[0.95, 0.82, 0.66], [0.9, 0.76, 0.6], [0.98, 0.87, 0.72]];
+const mtnFlatMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+const mtnRockDecor = [];        // outcrop rocks (also used to keep pines off them)
 const mountain = (() => {
   const root = new THREE.Group(); scene.add(root);
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), rockCols = [[0.66, 0.6, 0.74], [0.58, 0.54, 0.68], [0.72, 0.66, 0.78], [0.62, 0.56, 0.66]];
-  const faceCol = [0.86, 0.74, 0.6];
-  // a cliff wall following a plate's outline, from below the foothills to its top, bumpy and banded
+  const tri = (pos, col, a, b, c, rgb) => { pos.push(...a, ...b, ...c); for (let k = 0; k < 3; k++) col.push(...rgb); };
+  const shade = (rgb, f) => rgb.map(v => Math.min(1, v * f));
+  // a faceted cliff: big flat facets, ledges every metre and a half, warmer knobbly rock where you can climb
   function cliff(p, N, skip) {
-    const rows = 10, pos = [], col = [], idx = [], y0 = MTN_B - 2.5, y1 = p.top;
-    const cols = [];
+    const y0 = MTN_B - 2.5, y1 = p.top, rows = Math.max(3, Math.round((y1 - y0) / 1.5)), pts = [];
     for (let i = 0; i <= N; i++) {
-      const th = i / N * Math.PI * 2, R = p.R(th), onFace = faces.some(f => f.plate === p && angGap(th, f.th) < f.dth * 1.1);
+      const th = (i % N) / N * Math.PI * 2, R = p.R(th), col = [];
       for (let j = 0; j <= rows; j++) {
-        const y = lerp(y0, y1, j / rows), bump = (fbm(th * 9 + p.top, y * 0.5) - 0.55) * 0.7 - (j === rows ? 0.05 : 0), r = R + bump;
-        pos.push(Math.cos(th) * r, y, Math.sin(th) * r);
-        let c = rockCols[Math.floor((y + fbm(th * 3, 1) * 3) / 1.3) % rockCols.length];
-        if (onFace && y > (faces.find(f => f.plate === p && angGap(th, f.th) < f.dth * 1.1).yMin - 0.4)) c = faceCol;
-        const sh = 0.92 + fbm(th * 20, y) * 0.16; col.push(c[0] * sh, c[1] * sh, c[2] * sh);
+        const y = lerp(y0, y1, j / rows), top = j === rows;
+        const n = hash2(Math.round(th * 1000) % 100000 + j * 7, Math.round(p.top * 10) + (i % N) * 3);
+        const r = top ? R - 0.04 : R - 0.25 + (n - 0.5) * 0.7 - (j % 2) * 0.18;
+        col.push([Math.cos(th) * r, y + (top ? 0 : (n - 0.5) * 0.35), Math.sin(th) * r]);
       }
-      cols.push(skip && skip(th));
+      pts.push(col);
     }
-    for (let i = 0; i < N; i++) { if (cols[i] || cols[i + 1]) continue; for (let j = 0; j < rows; j++) { const a = i * (rows + 1) + j, b = a + rows + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); } }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; root.add(m);
+    const pos = [], col = [];
+    for (let i = 0; i < N; i++) {
+      const th = (i + 0.5) / N * Math.PI * 2;
+      if (skip && skip(th)) continue;
+      const face = faces.find(f => f.plate === p && angGap(th, f.th) < f.dth * 1.05);
+      for (let j = 0; j < rows; j++) {
+        const y = lerp(y0, y1, (j + 0.5) / rows), a = pts[i][j], b = pts[i + 1][j], c = pts[i][j + 1], d = pts[i + 1][j + 1];
+        const h = hash2(i * 13 + Math.round(p.top), j * 17);
+        let rgb = face && y > face.yMin - 0.4 ? MTN_FACE[(i + j) % 3] : MTN_ROCK[Math.floor(h * MTN_ROCK.length)];
+        rgb = shade(rgb, 0.86 + 0.14 * (j / rows));
+        if (!face && j >= rows - 1 && h > 0.55) rgb = [0.62, 0.78, 0.58];            // moss creeping over the rim
+        tri(pos, col, a, c, b, rgb); tri(pos, col, b, c, d, shade(rgb, 0.96));
+      }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mtnFlatMat); m.castShadow = m.receiveShadow = true; root.add(m);
   }
-  // a flat grassy top: an annulus from the next plate in, out to the edge (minus the ravines)
-  function cap(p, rIn, N, grass, notch) {
+  // a meadow top: soft greens with clover and flower patches, a sandy rim
+  function cap(p, rIn, N, base, notch) {
     const rings = 6, pos = [], col = [], idx = [];
     for (let i = 0; i <= N; i++) {
       const th = i / N * Math.PI * 2, R = p.R(th), r0 = Math.max(0, rIn(th) - 0.6);
       for (let j = 0; j <= rings; j++) {
-        const r = lerp(r0, R - 0.04, j / rings);
-        pos.push(Math.cos(th) * r, p.top + 0.01, Math.sin(th) * r);
-        const n = fbm(Math.cos(th) * r * 0.15 + p.top, Math.sin(th) * r * 0.15), edge = smooth(R - 1.2, R, r);
-        const c = grass.map((v, k) => lerp(v, [0.8, 0.74, 0.86][k], smooth(0.6, 0.72, n) * 0.7));
-        col.push(...c.map((v, k) => lerp(v, rockCols[0][k], edge * 0.5) * (0.94 + n * 0.12)));
+        const r = lerp(r0, R - 0.04, j / rings), x = Math.cos(th) * r, z = Math.sin(th) * r;
+        pos.push(x, p.top + 0.01, z);
+        const n = fbm(x * 0.12 + p.top, z * 0.12), m2 = fbm(x * 0.07 - 3, z * 0.07 + 9);
+        let c = base.map((v, k) => lerp(v, [0.5, 0.74, 0.5][k], smooth(0.45, 0.6, n) * 0.6));
+        c = c.map((v, k) => lerp(v, [0.78, 0.72, 0.9][k], smooth(0.62, 0.72, m2) * 0.7));
+        c = c.map((v, k) => lerp(v, [0.88, 0.8, 0.7][k], smooth(R - 1.3, R - 0.2, r) * 0.55));
+        col.push(...c.map(v => v * (0.95 + n * 0.1)));
       }
     }
     for (let i = 0; i < N; i++) for (let j = 0; j < rings; j++) {
@@ -10161,55 +10190,106 @@ const mountain = (() => {
       idx.push(a, b, a + 1, a + 1, b, b + 1);
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, mat); m.receiveShadow = true; root.add(m);
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; root.add(m);
   }
-  cliff(P1, 720, th => ravineAt(th, P1.R(th)) >= -0.05); cap(P1, mtnR2, 720, [0.6, 0.8, 0.52], true);
-  cliff(P2, 360); cap(P2, mtnR3, 360, [0.56, 0.78, 0.56]);
-  cliff(P3, 240); cap(P3, () => MTN_PEAK_R, 240, [0.62, 0.8, 0.6]);
-  cliff(PEAK, 120); cap(PEAK, () => 0, 120, [0.96, 0.8, 0.86]);
-  // the ravine walls: rock faces down each side of the cuts
+  cliff(P1, 260, th => ravineAt(th, P1.R(th)) >= -0.05); cap(P1, mtnR2, 360, [0.62, 0.82, 0.54], true);
+  cliff(P2, 150); cap(P2, mtnR3, 240, [0.6, 0.8, 0.58]);
+  cliff(P3, 100); cap(P3, () => MTN_PEAK_R, 160, [0.66, 0.82, 0.62]);
+  cliff(PEAK, 56); cap(PEAK, () => 0, 80, [0.97, 0.9, 0.95]);
+  // the ravine walls
   MTN_RAVINES.forEach(([a, w]) => [-1, 1].forEach(s => {
-    const pos = [], col = [], idx = [], steps = 24, rows = 8;
-    for (let i = 0; i <= steps; i++) {
-      const r = lerp(mtnR2(a) - 0.5, mtnR1(a) + 0.4, i / steps), th = a + s * w / r;
-      for (let j = 0; j <= rows; j++) { const y = lerp(MTN_B - 2.5, MTN_TOP.p1, j / rows), bump = (fbm(r * 0.9 + s * 7, y * 0.6) - 0.55) * 0.5, rr2 = th - s * bump / r; pos.push(Math.cos(rr2) * r, y, Math.sin(rr2) * r); const c = rockCols[(j + i) % 2 + 1]; col.push(...c); }
-    }
-    for (let i = 0; i < steps; i++) for (let j = 0; j < rows; j++) { const q = i * (rows + 1) + j, b = q + rows + 1; if (s > 0) idx.push(q, b, q + 1, q + 1, b, b + 1); else idx.push(q, q + 1, b, b, q + 1, b + 1); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); m.castShadow = m.receiveShadow = true; root.add(m);
+    const pos = [], col = [], steps = 10, rows = 7, pts = [];
+    for (let i = 0; i <= steps; i++) { const r = lerp(mtnR2(a) - 0.5, mtnR1(a) + 0.4, i / steps), c2 = []; for (let j = 0; j <= rows; j++) { const y = lerp(MTN_B - 2.5, MTN_TOP.p1, j / rows), n = hash2(i * 31 + s * 7, j * 11), th = a + s * (w - 0.2 + (n - 0.5) * 0.5 * (j < rows ? 1 : 0)) / r; c2.push([Math.cos(th) * r, y, Math.sin(th) * r]); } pts.push(c2); }
+    for (let i = 0; i < steps; i++) for (let j = 0; j < rows; j++) { const rgb = MTN_ROCK[(i * 3 + j) % MTN_ROCK.length].map(v => v * (0.82 + 0.16 * j / rows)); tri(pos, col, pts[i][j], pts[i + 1][j], pts[i][j + 1], rgb); tri(pos, col, pts[i + 1][j], pts[i + 1][j + 1], pts[i][j + 1], rgb); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mtnFlatMat); m.castShadow = m.receiveShadow = true; root.add(m);
   }));
-  // rock pillars (stepping stones and the spiral): bumpy columns with grassy tops
-  const pillarParts = [];
-  for (const p of plates) if (p.kind === 'circle' && p.look === 'pillar') {
-    const h = p.top - (MTN_B - 2.5), geo = new THREE.CylinderGeometry(p.r * 0.95, p.r * 1.15, h, 10, 4);
-    const ps = geo.attributes.position; for (let i = 0; i < ps.count; i++) { const x = ps.getX(i), y = ps.getY(i), z = ps.getZ(i), n = 1 + (hash2(Math.round(x * 50 + p.x), Math.round(y * 30 + z * 50)) - 0.5) * 0.18; if (Math.abs(y) < h / 2 - 0.01) ps.setXYZ(i, x * n, y, z * n); }
-    pillarParts.push(bake(geo, 0xa99bb8).translate(p.x, (p.top + MTN_B - 2.5) / 2, p.z));
-    pillarParts.push(bake(new THREE.CylinderGeometry(p.r * 0.98, p.r * 0.98, 0.12, 12), 0x8fcf7a).translate(p.x, p.top - 0.04, p.z));
-  }
-  const pm = new THREE.Mesh(merge(pillarParts), vcLambert()); pm.castShadow = pm.receiveShadow = true; root.add(pm);
-  // boulders: squashed lumpy rocks, plus the stair boulders by the third plateau
-  const bparts = [];
-  const lump = (x, y0, z, rad, h, seed) => { const g = new THREE.DodecahedronGeometry(1, 1), ps = g.attributes.position; for (let i = 0; i < ps.count; i++) { const n = 1 + (hash2(i * 7 + seed, seed) - 0.5) * 0.25; ps.setXYZ(i, ps.getX(i) * n, ps.getY(i) * n, ps.getZ(i) * n); } g.scale(rad, h * 0.62, rad).translate(x, y0 + h * 0.45, z); return bake(g, [0xb3a6c4, 0x9f94b4, 0xc2b6cc, 0xa8a0b8][seed % 4]); };
-  mtnBoulders.forEach((b, i) => bparts.push(lump(b.x, b.top - b.h, b.z, b.rad, b.h, i)));
-  plates.filter(p => p.look === 'boulder' && !mtnBoulders.some(b => b.x === p.x && b.z === p.z)).forEach((p, i) => { const h = p.top - MTN_TOP.p2; bparts.push(lump(p.x, MTN_TOP.p2 - 0.3, p.z, p.r * 1.12, h + 0.35, 90 + i)); });
-  const bm = new THREE.Mesh(merge(bparts), vcLambert()); bm.castShadow = bm.receiveShadow = true; root.add(bm);
-  // the handholds: lots of chunky rounded knobs all over each climbable face, and a few vines
-  const knobs = []; const R = mulberry32(99);
-  faces.forEach(f => {
-    const p = f.plate, y0 = Math.max(f.yMin, MTN_B - 1), area = (p.top - y0) * f.half * 2, n = Math.round(area * 5);
-    for (let i = 0; i < n; i++) { const th = f.th + (R() * 2 - 1) * f.dth, y = lerp(y0 + 0.2, p.top - 0.15, R()), r = p.R(th) + 0.02, s = 0.14 + R() * 0.2; knobs.push({ x: Math.cos(th) * r, y, z: Math.sin(th) * r, s, c: [0xe8cfa8, 0xd8b894, 0xf2dcb8, 0xc9a882][i % 4] }); }
-    for (let v = 0; v < 3; v++) { const th = f.th + (v - 1) * f.dth * 0.7, r = p.R(th) + 0.08, len = (p.top - y0) * (0.5 + R() * 0.4); const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 5), lam(0x4fa64a)); vine.position.set(Math.cos(th) * r, p.top - len / 2, Math.sin(th) * r); root.add(vine); for (let k = 0; k < 6; k++) { const lf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), lam(0x63c879)); lf.scale.set(1, 0.5, 1.4); lf.position.set(Math.cos(th) * (r + 0.05), p.top - len * (k + 0.5) / 6, Math.sin(th) * (r + 0.05)); root.add(lf); } }
+  // a low-poly rock: a squashed, jittered dodecahedron, flat-shaded
+  const rockGeo = (rad, h, seed, rgb) => {
+    const g = new THREE.DodecahedronGeometry(1, 0).toNonIndexed(), ps = g.attributes.position;
+    const key = (x, y, z) => Math.round(x * 100) + ',' + Math.round(y * 100) + ',' + Math.round(z * 100), jit = {};
+    for (let i = 0; i < ps.count; i++) { const k = key(ps.getX(i), ps.getY(i), ps.getZ(i)); if (!jit[k]) jit[k] = 1 + (hash2(seed * 31 + Object.keys(jit).length, seed) - 0.5) * 0.35; const n = jit[k]; ps.setXYZ(i, ps.getX(i) * n * rad, ps.getY(i) * n * h, ps.getZ(i) * n * rad); }
+    g.computeVertexNormals();
+    const c = new Float32Array(ps.count * 3); for (let i = 0; i < ps.count; i += 3) { const f = 0.88 + hash2(seed, i) * 0.18; for (let v = 0; v < 3; v++) { c[(i + v) * 3] = rgb[0] * f; c[(i + v) * 3 + 1] = rgb[1] * f; c[(i + v) * 3 + 2] = rgb[2] * f; } }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g;
+  };
+  const rocks = [];
+  // outcrops: big rocks jutting from the foot and sides of every cliff (but never in front of a climbing face)
+  const R = mulberry32(7171);
+  [[P1, null], [P2, P1], [P3, P2], [PEAK, P3]].forEach(([p, below]) => {
+    const floorAt = (x, z) => below ? below.top : heightAt(x, z), steps = Math.round(Math.PI * 2 * p.R(0) / 4.2);
+    for (let i = 0; i < steps; i++) {
+      const th = (i + R() * 0.6) / steps * Math.PI * 2, Rr = p.R(th);
+      if (faces.some(f => f.plate === p && angGap(th, f.th) < f.dth + 2.6 / Rr)) continue;
+      if (p === P1 && ravineAt(th, Rr) > -3) continue;
+      if (spiral.some(q => Math.hypot(q.x - Math.cos(th) * Rr, q.z - Math.sin(th) * Rr) < 3.2)) continue;
+      const x = Math.cos(th) * (Rr + 0.15), z = Math.sin(th) * (Rr + 0.15), fl = floorAt(x, z);
+      if (below && plateDepth(below, x, z) < 1.2) continue;                         // keep off narrow ledges near the edge
+      const rad = 0.9 + R() * 1.0, h = 1.0 + R() * 1.8, rgb = MTN_ROCK[i % MTN_ROCK.length];
+      rocks.push(rockGeo(rad, h, i * 7 + Math.round(p.top), rgb).translate(x, fl + h * 0.35, z));
+      circlePlate(x, z, rad * 0.7, fl + h * 1.2, 'crag');
+      mtnRockDecor.push({ x, z, r: rad });
+      // and a few higher up the face, to break up the outline
+      if (R() < 0.55) { const y = fl + 2 + R() * (p.top - fl - 4), r2 = 0.7 + R() * 0.8; rocks.push(rockGeo(r2, r2 * 0.8, i * 11 + 3, MTN_ROCK[(i + 2) % MTN_ROCK.length]).translate(Math.cos(th) * (Rr - 0.1), y, Math.sin(th) * (Rr - 0.1))); }
+    }
   });
-  const kg = new THREE.IcosahedronGeometry(1, 1), km = new THREE.InstancedMesh(kg, new THREE.MeshLambertMaterial({ color: 0xffffff }), knobs.length), dm = new THREE.Object3D(), kc = new THREE.Color();
-  knobs.forEach((k, i) => { dm.position.set(k.x, k.y, k.z); dm.rotation.set(k.s * 9, k.s * 13, 0); dm.scale.set(k.s, k.s * 0.8, k.s); dm.updateMatrix(); km.setMatrixAt(i, dm.matrix); km.setColorAt(i, kc.setHex(k.c)); });
+  // pillars: stacked, faceted columns with a grassy cap
+  for (const p of plates) if (p.kind === 'circle' && p.look === 'pillar') {
+    const base = MTN_B - 2.5, h = p.top - base, n = Math.max(2, Math.round(h / 2.2));
+    for (let k = 0; k < n; k++) { const seg = h / n, y = base + k * seg; rocks.push(rockGeo(p.r * (1.12 - k * 0.04), seg * 0.62, Math.round(p.x * 10) + k, MTN_ROCK[((k + Math.round(p.z)) % MTN_ROCK.length + MTN_ROCK.length) % MTN_ROCK.length]).translate(p.x, y + seg * 0.5, p.z)); }
+    rocks.push(bake(new THREE.CylinderGeometry(p.r * 0.98, p.r * 1.02, 0.18, 9), 0x8fd07a).translate(p.x, p.top - 0.08, p.z));
+  }
+  // boulders: scattered ones and the stair boulders
+  mtnBoulders.forEach((b, i) => rocks.push(rockGeo(b.rad, b.h * 0.62, 300 + i, MTN_ROCK[i % MTN_ROCK.length]).translate(b.x, b.top - b.h * 0.6, b.z)));
+  plates.filter(p => p.look === 'boulder' && !mtnBoulders.some(b => b.x === p.x && b.z === p.z)).forEach((p, i) => { const h = p.top - MTN_TOP.p2; rocks.push(rockGeo(p.r * 1.15, (h + 0.4) * 0.62, 90 + i, MTN_FACE[i % 3]).translate(p.x, p.top - (h + 0.4) * 0.6, p.z)); });
+  // the peak's cairn
+  for (let k = 0; k < 5; k++) rocks.push(rockGeo(0.55 - k * 0.08, 0.24, 200 + k, MTN_ROCK[k % 5]).translate(0, MTN_TOP.peak + 0.2 + k * 0.36, 0));
+  const rm = new THREE.Mesh(merge(rocks), mtnFlatMat); rm.castShadow = rm.receiveShadow = true; root.add(rm);
+  // the handholds: lots of chunky rounded knobs all over each climbable face, with vines and moss
+  const knobs = [], K = mulberry32(99);
+  faces.forEach(f => {
+    const p = f.plate, y0 = Math.max(f.yMin, MTN_B - 1), n = Math.round((p.top - y0) * f.half * 2 * 4);
+    for (let i = 0; i < n; i++) { const th = f.th + (K() * 2 - 1) * f.dth, y = lerp(y0 + 0.2, p.top - 0.15, K()), r = p.R(th) - 0.05, s = 0.18 + K() * 0.22; knobs.push({ x: Math.cos(th) * r, y, z: Math.sin(th) * r, s, c: [0xf2d8b0, 0xe6c49c, 0xffe6c4, 0xd9b48c][i % 4] }); }
+    for (let v = 0; v < 4; v++) { const th = f.th + (v - 1.5) * f.dth * 0.55, r = p.R(th) + 0.06, len = (p.top - y0) * (0.4 + K() * 0.45); const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 5), lam(0x4fa64a)); vine.position.set(Math.cos(th) * r, p.top - len / 2, Math.sin(th) * r); root.add(vine); for (let k = 0; k < 7; k++) { const lf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 6, 4), lam(k % 3 ? 0x63c879 : 0xff9cc0)); lf.scale.set(1, 0.5, 1.4); lf.position.set(Math.cos(th) * (r + 0.05), p.top - len * (k + 0.5) / 7, Math.sin(th) * (r + 0.05)); root.add(lf); } }
+  });
+  const km = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), knobs.length), dm = new THREE.Object3D(), kc = new THREE.Color();
+  knobs.forEach((k, i) => { dm.position.set(k.x, k.y, k.z); dm.rotation.set(k.s * 9, k.s * 13, 0); dm.scale.set(k.s, k.s * 0.85, k.s); dm.updateMatrix(); km.setMatrixAt(i, dm.matrix); km.setColorAt(i, kc.setHex(k.c)); });
   km.castShadow = true; root.add(km);
-  // the peak: a little cairn and a pink pennant you can see from below
-  const cairn = []; for (let k = 0; k < 5; k++) cairn.push(lump(0, MTN_TOP.peak + k * 0.32, 0, 0.55 - k * 0.08, 0.42, 200 + k));
-  const cm = new THREE.Mesh(merge(cairn), vcLambert()); cm.castShadow = true; root.add(cm);
+  // pastel pines, grass tufts and flowers on every level (kept clear of the routes)
+  const P = mulberry32(5150), pines = [], tufts = [], flowers = [];
+  const clearOfRoutes = (x, z, pad) => !faces.some(f => Math.hypot(x - Math.cos(f.th) * f.plate.R(f.th), z - Math.sin(f.th) * f.plate.R(f.th)) < 6) && !plates.some(q => q.kind === 'circle' && Math.hypot(q.x - x, q.z - z) < q.r + pad) && !MTN_RAVINES.some(([a, w]) => angGap(Math.atan2(z, x), a) * Math.hypot(x, z) < w + 2);
+  const levels = [[null, P1, 26], [P1, P2, 34], [P2, P3, 14], [P3, PEAK, 3]];
+  levels.forEach(([on, next, nPines]) => {
+    for (let i = 0, tries = 0; tries < 4000 && (i < nPines || tufts.length < 2600); tries++) {
+      const th = P() * Math.PI * 2, r = P() * MTN_MAX_R, x = Math.cos(th) * r, z = Math.sin(th) * r;
+      if (!inMountain(x, z)) continue;
+      const onOK = on ? plateDepth(on, x, z) > 0.4 : inland(x, z) > FOREST_OUT + 5.5;
+      if (!onOK || plateDepth(next, x, z) > -0.4) continue;
+      const y = on ? on.top : heightAt(x, z);
+      if (i < nPines && P() < 0.35) {
+        if (!clearOfRoutes(x, z, 2.2) || (on ? plateDepth(on, x, z) < 1.8 : false) || plateDepth(next, x, z) > -1.8 || (!on && angGap(th, MTN_ENTRY_TH) * r < 6) || pines.some(q => Math.hypot(q.x - x, q.z - z) < 2.4)) continue;
+        const s = 0.8 + P() * 0.7; pines.push({ x, z, y, s, c: [0x4fa67a, 0x5cb88a, 0x7fc8a0, 0x9a8cc8, 0xc89ab8][Math.floor(P() * 5)] }); circlePlate(x, z, 0.35 * s + 0.1, y + 60, 'pine'); i++;
+      } else if (tufts.length < 2600) {
+        if (P() < 0.12) flowers.push({ x, z, y: y + 0.12, c: [0xff9cc0, 0xffffff, 0xffd23f, 0xb58be6][Math.floor(P() * 4)] });
+        else tufts.push({ x, z, y, s: 0.25 + P() * 0.3, r: P() * 6 });
+      }
+    }
+  });
+  const pineParts = [];
+  pines.forEach((t, i) => {
+    pineParts.push(bake(new THREE.CylinderGeometry(0.1 * t.s, 0.16 * t.s, 1.2 * t.s, 5), 0x7a5233).translate(t.x, t.y + 0.6 * t.s, t.z));
+    [[1.3, 1.6, 1.4], [1.0, 1.4, 2.3], [0.65, 1.1, 3.1]].forEach(([r, h, y]) => pineParts.push(bake(new THREE.ConeGeometry(r * t.s, h * t.s, 6), t.c).rotateY(i).translate(t.x, t.y + y * t.s, t.z)));
+  });
+  const pm = new THREE.Mesh(merge(pineParts), new THREE.MeshLambertMaterial({ vertexColors: true })); pm.castShadow = true; root.add(pm);
+  const tm = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 1, 4), new THREE.MeshLambertMaterial({ color: 0x6fbf5c }), tufts.length);
+  tufts.forEach((t, i) => { dm.position.set(t.x, t.y + t.s * 0.5, t.z); dm.rotation.set(0, t.r, 0); dm.scale.set(1, t.s, 1); dm.updateMatrix(); tm.setMatrixAt(i, dm.matrix); }); root.add(tm);
+  const fm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), flowers.length);
+  flowers.forEach((f, i) => { dm.position.set(f.x, f.y, f.z); dm.rotation.set(0, 0, 0); dm.scale.setScalar(1); dm.updateMatrix(); fm.setMatrixAt(i, dm.matrix); fm.setColorAt(i, kc.setHex(f.c)); }); root.add(fm);
+  // the peak: a pole with a pink pennant, sparkly crystals and alpine flowers
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.2, 6), lam(0x8a5a33)); pole.position.set(1.4, MTN_TOP.peak + 2.1, 0.6); root.add(pole);
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8), new THREE.MeshLambertMaterial({ color: 0xff6fa5, side: THREE.DoubleSide })); flag.position.set(2.1, MTN_TOP.peak + 3.7, 0.6); root.add(flag);
-  // a few clumps of pink alpine flowers on the peak
-  for (let k = 0; k < 14; k++) { const a = k * 2.39, r = 1.6 + (k % 5) * 0.7, f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), lam(k % 3 ? 0xff9cc0 : 0xffffff)); f.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.1, Math.sin(a) * r); root.add(f); }
+  for (let k = 0; k < 6; k++) { const a = k * 1.05 + 0.3, r = 3.4 + (k % 2) * 0.8, cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshLambertMaterial({ color: [0xc8e8ff, 0xffd6f0, 0xe8dcff][k % 3], emissive: 0x303040 })); cr.scale.set(0.7, 1.6, 0.7); cr.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.4, Math.sin(a) * r); cr.rotation.z = (k % 2 ? 1 : -1) * 0.25; root.add(cr); }
+  for (let k = 0; k < 18; k++) { const a = k * 2.39, r = 1.5 + (k % 5) * 0.7, f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), lam(k % 3 ? 0xff9cc0 : 0xffffff)); f.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.1, Math.sin(a) * r); root.add(f); }
   return { root, flag };
 })();
 // a signpost by the way in
@@ -10260,10 +10340,10 @@ function updateRockClimb(dt, ix, iz) {
 function mtnTryClimb(wall, tvx, tvz) {
   if (!wall || wall.kind !== 'radial' || climbCooldown > 0) return false;
   const th = Math.atan2(player.z, player.x), f = faceAt(wall, th, player.y);
-  if (!f) { if (!mtnHints.wall && Math.hypot(tvx, tvz) > 0.5) { mtnHints.wall = true; toast('Far too steep and smooth to climb here. Look for rock covered in lumps and bumps!'); } return false; }
+  if (!f) return false;
   const tl = Math.hypot(tvx, tvz); if (tl < 0.3) return false;
   const into = -(tvx * Math.cos(th) + tvz * Math.sin(th)) / tl;
-  if (into < 0.45) return false;
+  if (into < 0.2) return false;
   startRockClimb(f, th); return true;
 }
 function updateMountain(dt) {
