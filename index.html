@@ -1909,6 +1909,7 @@ function updatePlayer(dt) {
   { const lp = collideFluff(nx, nz); nx = lp[0]; nz = lp[1]; }
   { const cp = collideCarlos(nx, nz); nx = cp[0]; nz = cp[1]; }
   { const hp = collideHouse(nx, nz); nx = hp[0]; nz = hp[1]; }
+  { const pp = collidePillar(nx, nz); nx = pp[0]; nz = pp[1]; }
   { const fp = collideForest(nx, nz); nx = fp[0]; nz = fp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
@@ -6868,7 +6869,7 @@ function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
     party: party.map(packP), box: boxSlots.map(packP),
-    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned],
+    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned], pillar: { awake: pillarState.awake },
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
@@ -6898,6 +6899,7 @@ function applySnapshot(s) {
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
   titansScanned.clear(); (Array.isArray(s.titans) ? s.titans : []).forEach(id => { if (TITANS.some(t => t.id === id)) titansScanned.add(id); });
+  pillarLoad(s.pillar);
   forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
@@ -9518,6 +9520,7 @@ function onReachHouse() {
 let nearHouse = null;
 function houseTarget() {
   if (!scrimHere() || player.climb || houseRide) return null;
+  const pt = pillarTarget(); if (pt) return pt;                     // (the carved pillar on the beach uses the same E prompt)
   const up = houseUp();
   if (!up) {
     if (!houseStageAt('carlos')) return facingPoint(bouncy.x, bouncy.z, 3.6) ? { label: 'talk to Lord Bouncybun', act: talkToBouncy } : null;
@@ -10793,11 +10796,125 @@ function updateGiantRaebit(dt) {
   if (g.phase === 'under' && near > 90) g.seenHint = false;
 }
 
+/* ---------- the carved pillar in the shallows, and the Titan Bobo it calls ---------- */
+// carvings, top to bottom: put your party in this order (partner first) and examine the pillar
+const PILLAR_ORDER = ['bobo', 'weevil', 'beeappy', 'duckshark', 'mermiggly'];
+const PILLAR_TH = spawnTheta + 0.45 + Math.PI / 2;            // well round the island from the other sea titans
+const PILLAR = (() => { const [x, z] = polar(PILLAR_TH, -9); return { x, z, yaw: Math.atan2(-x, -z) }; })();   // carved face looks back up the beach
+const pillarState = { awake: false, glow: [0, 0, 0, 0, 0], buzzT: 0, tries: 0, seq: null };
+const pillar = (() => {
+  const root = new THREE.Group(); scene.add(root);
+  const wy = water.position.y, H = 6, top = wy + 4.4;
+  root.position.set(PILLAR.x, top - H / 2, PILLAR.z); root.rotation.set(0.04, PILLAR.yaw, -0.03);
+  // the carved face: an old, sandy stone texture with five engraved panels
+  const c = document.createElement('canvas'); c.width = 256; c.height = 1536; const g = c.getContext('2d');
+  g.fillStyle = '#c9bca4'; g.fillRect(0, 0, 256, 1536);
+  const R = mulberry32(5150);
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${R() < 0.5 ? '90,80,70' : '255,250,235'},${0.05 + R() * 0.1})`; g.fillRect(R() * 256, R() * 1536, 2 + R() * 6, 2 + R() * 4); }
+  g.strokeStyle = 'rgba(90,75,60,.5)'; g.lineWidth = 3; g.beginPath(); g.moveTo(40, 0); g.lineTo(70, 300); g.lineTo(52, 520); g.stroke();
+  const PX = 210, top0 = 40, step = 216;
+  PILLAR_ORDER.forEach((id, k) => {
+    const y = top0 + k * step;
+    g.fillStyle = '#b3a68c'; g.fillRect(20, y, 216, PX); g.strokeStyle = '#8c7d64'; g.lineWidth = 6; g.strokeRect(23, y + 3, 210, PX - 6);
+    g.strokeStyle = '#e2d8c2'; g.lineWidth = 2; g.strokeRect(29, y + 9, 198, PX - 18);
+    const img = new Image();
+    img.onload = () => {
+      // engraved: a light lip below, a dark cut above, then the carving itself in stone tones
+      g.save(); g.filter = 'grayscale(1) brightness(1.7) contrast(.6)'; g.globalAlpha = 0.6; g.drawImage(img, 43, y + 27, 170, 170); g.restore();
+      g.save(); g.filter = 'grayscale(1) brightness(.35)'; g.globalAlpha = 0.65; g.drawImage(img, 37, y + 21, 170, 170); g.restore();
+      g.save(); g.filter = 'grayscale(1) sepia(.5) brightness(.8) contrast(1.2)'; g.globalAlpha = 0.9; g.drawImage(img, 40, y + 24, 170, 170); g.restore();
+      tex.needsUpdate = true;
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SPECIES[id].icon.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="170" height="170" '));
+  });
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+  const stone = new THREE.MeshLambertMaterial({ color: 0xc9bca4 }), face = new THREE.MeshLambertMaterial({ map: tex });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, H, 1.3), [stone, stone, stone, stone, face, stone]); body.castShadow = true; root.add(body);
+  // a weathered cap, a chipped corner, barnacles and seaweed at the waterline
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.3, 1.55), lam(0xb3a68c)); cap.position.y = H / 2 + 0.1; cap.rotation.y = 0.08; root.add(cap);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), lam(0xb3a68c)); knob.position.y = H / 2 + 0.45; knob.scale.y = 0.7; root.add(knob);
+  const wl = wy - (top - H / 2);
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, b = new THREE.Mesh(new THREE.SphereGeometry(0.06 + (i % 3) * 0.03, 6, 4), lam(i % 4 ? 0xe8e2d4 : 0x9a8f7a)); b.position.set(Math.cos(a) * 0.68, wl + 0.1 + (i % 5) * 0.06, Math.sin(a) * 0.68); root.add(b); }
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2 + 0.3, w = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.6, 4), lam(0x3f8a5a)); w.position.set(Math.cos(a) * 0.7, wl + 0.2, Math.sin(a) * 0.7); w.rotation.z = Math.sin(a) * 0.4; root.add(w); }
+  // a glow over each carving: faint on the ones that match your party, bright when the puzzle's solved
+  const glows = PILLAR_ORDER.map((_, k) => { const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.72), new THREE.MeshBasicMaterial({ color: 0x9ef0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); pm.position.set(0, H / 2 - (top0 + k * step + PX / 2) / 256, 0.66); root.add(pm); return pm; });
+  return { root, glows, body };
+})();
+// the Titan Bobo: sleeps far out at sea until the pillar wakes it
+const giantBobo = (() => {
+  const c = compactCreature(makeBoboMesh());
+  const SCALE = 42; c.root.scale.setScalar(SCALE); c.root.traverse(o => { o.castShadow = false; }); if (c.ex) c.ex.visible = false;
+  const [x, z] = polar(PILLAR_TH, -150);
+  c.root.position.set(x, water.position.y - SCALE, z); c.root.rotation.y = Math.atan2(PILLAR.x - x, PILLAR.z - z); c.root.visible = false;
+  return Object.assign(c, { x, z, SCALE, phase: 'asleep', t: 0 });
+})();
+function pillarTarget() {
+  if (player.climb || houseRide) return null;
+  if (Math.hypot(player.x - PILLAR.x, player.z - PILLAR.z) > 4.2 || !facingPoint(PILLAR.x, PILLAR.z, 4.2)) return null;
+  return { label: pillarState.awake ? 'examine the stone pillar' : 'examine the carved pillar', act: touchPillar };
+}
+function collidePillar(x, z) {
+  const dx = x - PILLAR.x, dz = z - PILLAR.z, d = Math.hypot(dx, dz), rr = 0.95 + PLAYER_R;
+  if (d < rr) { const k = (rr - d) / Math.max(d, 1e-3); x += dx * k; z += dz * k; }
+  return [x, z];
+}
+const pillarSfx = {
+  buzz() { if (!actx) return; const t = actx.currentTime; tone(t, 110, 118, 1.1, 0.06, 'sawtooth'); tone(t, 220, 236, 1.1, 0.03, 'square'); tone(t + 0.1, 660, 700, 0.6, 0.02, 'sine'); },
+  chime(k) { if (!actx) return; const t = actx.currentTime; tone(t, mtof(72 + [0, 4, 7, 11, 14][k]), mtof(72 + [0, 4, 7, 11, 14][k]), 0.6, 0.06, 'sine'); },
+  rumble() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 6; i++) noiseHit(t + i * 0.25, 'lowpass', 160, 0.25, 0.4, sfxBus, 1.2); tone(t, 55, 40, 2.4, 0.12, 'sawtooth'); }
+};
+function touchPillar() {
+  if (pillarState.seq) return;
+  if (pillarState.awake) { pillarSfx.buzz(); toast('The pillar hums softly. Far out at sea, the Titan Bobo bobs happily on the waves.'); return; }
+  const match = PILLAR_ORDER.map((id, k) => !!(party[k] && party[k].species === id));
+  pillarState.tries++;
+  if (match.every(Boolean) && party.length === PILLAR_ORDER.length) {
+    // solved: the carvings light up one by one, the sea rumbles... and up it comes
+    pillarState.seq = { t: 0 }; pillarSfx.buzz();
+    PILLAR_ORDER.forEach((_, k) => setTimeout(() => { pillarState.glow[k] = 1; pillarSfx.chime(k); }, 300 + k * 450));
+    setTimeout(() => { pillarSfx.rumble(); toast('The carvings blaze with light and the sea begins to tremble... something is coming!'); }, 2700);
+    setTimeout(() => { giantBobo.phase = 'rise'; giantBobo.t = 0; giantBobo.root.visible = true; pillarState.awake = true; pillarState.seq = null; saveGame(); }, 4600);
+    return;
+  }
+  // not quite: a strange buzz, and the carvings that already match flicker faintly
+  pillarSfx.buzz();
+  match.forEach((m, k) => { if (m) pillarState.glow[k] = Math.max(pillarState.glow[k], 0.45); });
+  const n = match.filter(Boolean).length;
+  toast(pillarState.tries === 1 ? 'The pillar buzzes with a strange energy... the carvings seem to be waiting for something.'
+    : n ? `The pillar buzzes. ${n === 1 ? 'One carving flickers' : n + ' carvings flicker'} faintly... something about your scrumblies is right.` : 'The pillar buzzes with a strange energy. Bobo, Weevil, Beeappy, Duckshark, Mermiggly... in that order, top to bottom.');
+}
+function updatePillar(dt) {
+  const near = Math.hypot(player.x - PILLAR.x, player.z - PILLAR.z) < 90;
+  pillar.glows.forEach((gm, k) => {
+    const target = pillarState.awake ? 0.55 + Math.sin(time * 2 + k) * 0.2 : 0;
+    if (!pillarState.awake || pillarState.seq) pillarState.glow[k] = Math.max(target, pillarState.glow[k] - dt * (pillarState.seq ? 0 : 0.18));
+    else pillarState.glow[k] = target;
+    gm.material.opacity = near ? pillarState.glow[k] * (0.85 + Math.sin(time * 9 + k) * 0.15) : 0;
+  });
+  // the Titan Bobo rises, then bobs happily on the surface for good
+  const b = giantBobo, wy = water.position.y, UP = wy - b.SCALE * 0.2, DOWN = wy - b.SCALE * 1.1;
+  if (b.phase === 'asleep') return;
+  b.t += dt;
+  let y = UP;
+  if (b.phase === 'rise') {
+    const k = Math.min(1, b.t / 5); y = lerp(DOWN, UP, 1 - Math.pow(1 - k, 3));
+    if (Math.floor(b.t * 2) !== Math.floor((b.t - dt) * 2)) { spawnRipple(b.x, b.z, 20 + b.t * 8); splash(b.x, b.z, 30, 4); }
+    if (k >= 1) { b.phase = 'bob'; b.t = 0; toast('A TITAN BOBO! It bobs happily on the waves. Quick, scan it with your Scrumblydex!'); }
+  } else y = UP + Math.sin(time * 0.7) * 1.2;
+  b.root.position.set(b.x, y, b.z);
+  b.body.rotation.z = Math.sin(time * 0.5) * 0.05; b.body.scale.set(1, 1 + Math.sin(time * 1.1) * 0.02, 1);
+}
+function pillarLoad(o) {
+  pillarState.awake = !!(o && o.awake); pillarState.seq = null; pillarState.glow = [0, 0, 0, 0, 0];
+  const b = giantBobo; b.phase = pillarState.awake ? 'bob' : 'asleep'; b.t = 0; b.root.visible = pillarState.awake;
+  if (!pillarState.awake) b.root.position.y = water.position.y - b.SCALE * 1.1;
+}
 /* ---------- the titans, and scanning them ---------- */
 const TITANS = [
   { id: 'duckshark', name: 'Titan Duckshark', where: 'Out at sea, circling slowly', o: giant, at: () => giant.SCALE * 0.45, r: () => giant.SCALE * 0.6, on: () => giant.root.visible },
   { id: 'beeappy', name: 'Titan Beeappy', where: 'High above the island, buzzing lazy circles', o: giantBee, at: () => 0, r: () => 36 * 0.55, on: () => giantBee.root.visible },
   { id: 'mermiggly', name: 'Titan Mermiggly', where: 'Across the sea, waving now and then', o: giantMerm, at: () => giantMerm.SCALE * 0.55, r: () => giantMerm.SCALE * 0.5, on: () => giantMerm.root.visible },
+  { id: 'bobo', name: 'Titan Bobo', where: 'Out at sea, called up by the carved pillar in the shallows', o: giantBobo, at: () => giantBobo.SCALE * 0.4, r: () => giantBobo.SCALE * 0.45, on: () => giantBobo.root.visible && giantBobo.phase === 'bob' },
   { id: 'raebit', name: 'Titan Raebit', where: 'Glimmer Pond, Glimmerwood · very, very rarely', o: giantRae, at: () => giantRae.SCALE * 0.85, r: () => giantRae.SCALE * 0.4, on: () => giantRae.root.visible && giantRae.phase !== 'under' }
 ];
 const titansScanned = new Set();
@@ -10944,6 +11061,7 @@ function tick(dt) {
   updatePretzellos(dt);
   updateKoneko(dt);
   updateGiantRaebit(dt);
+  updatePillar(dt);
   updateFroggles(dt);
   updateRanch(dt);
   updateScrim(dt);
@@ -11013,7 +11131,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
