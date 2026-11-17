@@ -2354,6 +2354,7 @@ function tryNetCatch() {
   if (netSitas()) got = true;
   if (netPretzellos()) got = true;
   if (netKoneko()) got = true;
+  if (netChupis()) got = true;
   if (netFroggles()) got = true;
   if (!got) netWeevils();
   return got;
@@ -2944,7 +2945,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : species === 'koneko' ? makeKonekoMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : species === 'koneko' ? makeKonekoMesh() : species === 'chupi' ? makeChupiMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -5344,12 +5345,12 @@ function renderHealth() {
   healthEl.innerHTML = Array.from({ length: MAX_HEALTH }, (_, i) => `<i class="${i < health ? 'full' : ''}"></i>`).join('');
 }
 renderHealth();
-function hurtPlayer(n) {
+function hurtPlayer(n, msg) {
   if (knocked) return;
   health = Math.max(0, health - n); renderHealth();
   hurtEl.classList.remove('on'); void hurtEl.offsetWidth; hurtEl.classList.add('on');
   shake = 0.25;
-  if (health <= 0) knockOut(); else toast('CHOMP! That hurt!');
+  if (health <= 0) knockOut(); else toast(msg || 'CHOMP! That hurt!');
 }
 const KO_LINES = [
   ['Goodness gracious! Something with a great many teeth dropped you on my doorstep. I\'ve patched you up with a plaster and a biscuit. Do be careful, dear!'],
@@ -5533,6 +5534,7 @@ function updateAim() {
     for (const q of flopses) if (q.root.visible && q.state !== 'stunned' && flopsCanStun(q) && flopsHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const q of raebits) if (q.root.visible && ['dance', 'crouch'].includes(q.state) && raeHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const w of weevils) if (w.root.visible && w.state === 'run' && weevilHitBy(w, sim.x, sim.y, sim.z)) { hit = w; land = { x: w.x, y: w.y, z: w.z }; }
+    for (const c of chupis) if (c.root.visible && ['idle', 'aim', 'dash', 'cornered'].includes(c.state) && chupiHitBy(c, sim.x, sim.y, sim.z)) { hit = c; land = { x: c.x, y: c.y, z: c.z }; }
     for (const d of ducksharks) if (sharkStunnable(d) && d.state !== 'stunned' && sharkHitBy(d, sim.x, sim.y, sim.z)) { hit = d; land = { x: d.x, y: water.position.y, z: d.z }; }
     for (const q of pengins) if (penginHittable(q) && penginHitBy(q, sim.x, sim.y, sim.z)) { hit = q; land = { x: q.x, y: q.y, z: q.z }; }
     for (const m of speshuls) {
@@ -5585,6 +5587,7 @@ function updateRocks(dt) {
     if (r.bounces <= 1 && rockHitsFroggle(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsFlops(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsRaebit(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
+    if (r.bounces <= 1 && rockHitsChupi(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsWeevil(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsShark(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2.5; r.bounces = 2; }
     if (r.bounces <= 1 && rockHitsPengin(r)) { sfx.thud(); r.vx *= -0.2; r.vz *= -0.2; r.vy = 2; r.bounces = 2; }
@@ -5995,6 +5998,7 @@ function scrumblyCandidates() {
   for (const b of blorbos) if (b.root.visible && b.state !== 'caught') out.push({ o: b, id: 'blorbo', y: 0.3 * b.s });
   for (const s of sitas) if (s.root.visible && s.state === 'still') out.push({ o: s, id: 'sita', y: 0.2 * s.s });
   for (const z of pretzellos) if (z.root.visible && (z.state === 'still' || z.state === 'snack')) out.push({ o: z, id: 'pretzello', y: 0.2 * z.s });
+  for (const c of chupis) if (c.root.visible && c.state !== 'caught' && c.state !== 'gone') out.push({ o: c, id: 'chupi', y: 0.5 * c.s });
   if (koneko.root.visible && koneko.state === 'fly') out.push({ o: koneko, id: 'koneko', y: 1.2 });
   out.push(...titanCandidates());
   for (const f of froggles) if (f.root.visible && f.state !== 'caught') out.push({ o: f, id: 'froggle', y: 0.6 * f.s });
@@ -7220,6 +7224,7 @@ const WELCOME_SPECIES = {
   pretzello: '*crinkle crinkle* You’re back! I stayed perfectly still and nobody ate me. Good day!',
   rosita: 'Look how tall I’ve grown! I’ve been waiting all day to show you!',
   froggle: 'HMPH. Oh. It’s you. ...Good. I mean, whatever. I was guarding your stuff.',
+  chupi: '*ping!* Oops. That was a welcome-home pebble. A gentle one! ...Mostly gentle.',
   flops: '...oh! Hello. I put on my best dress, in case you came back today.',
   willowet: 'Oh! It’s you! I wasn’t hiding. I was just... checking the burrow. Hello!',
   blorbo: '*blorp* ...that’s blob for “I missed you”. *blorp blorp*',
@@ -8591,6 +8596,7 @@ const appleSfx = { munch() { if (!actx) return; const t = actx.currentTime; for 
 function onAppleEaten(c) {
   c.fed = (c.fed || 0) + 1;
   if (c.species === 'glimmery') lureGlimmery(c);
+  if (c.species === 'chupi') chupiAte(c);
   // a Mermiggly that gets an apple becomes your friend
   if (c.species === 'mermiggly' && ['swim', 'play', 'wave', 'surface', 'flee', 'friend', 'happy'].includes(c.state)) {
     c.state = 'happy'; c.t = 0; c.hopN = -1; c.leap = -1; c.ex.visible = false; c.mad.visible = false; c.red = 0;
@@ -11295,6 +11301,331 @@ function lionelLoad(o) {
 }
 GIFT.tele3 = { name: 'Orange Teleporter', blurb: 'Hold the orange button to zap to the foot of your treehouse', icon: 'tele3', give() { inv.owned.tele3 = true; teleCool3 = 0; return 7; } };
 
+/* =========================================================
+   Scrumblies: Chupi, the mischievous little slingshot scamp of Mount Scrumble
+   Small, butter-yellow and full of beans. Chupis hop about the plateaus
+   and plink pebbles at anyone they can see, with a dotted line showing
+   where the shot's headed. They can't see into the woods, or through rock.
+   Get too close and they skip away; corner one and you can net it, or
+   bonk it with a rock to stun it first. Apples? Delicious. Still firing.
+   A partner Chupi takes the odd potshot at nearby wild scrumblies.
+   ========================================================= */
+SPECIES.chupi = {
+  name: 'Chupi', num: 20, where: 'Mount Scrumble · up on the plateaus, slingshot at the ready',
+  icon: '<svg viewBox="0 0 48 48"><path d="M12 17 L20 13 L8 2 Z" fill="#2f6f8a"/><path d="M13.6 15.6 L18.6 13.6 L10.6 6 Z" fill="#faf08c"/><path d="M36 17 L28 13 L40 2 Z" fill="#2f6f8a"/><path d="M34.4 15.6 L29.4 13.6 L37.4 6 Z" fill="#faf08c"/><ellipse cx="24" cy="39" rx="9" ry="7.5" fill="#faf08c"/><path d="M16.5 33 L24 37 L31.5 33 L24 41 Z" fill="#2f6f8a"/><circle cx="24" cy="24" r="12" fill="#faf08c"/><path d="M22 12.6 Q24 9 26.5 12.4" stroke="#2f6f8a" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="19.5" cy="23" r="2.7" fill="#23407a"/><circle cx="28.5" cy="23" r="2.7" fill="#23407a"/><circle cx="18.7" cy="22.1" r="1" fill="#fff"/><circle cx="27.7" cy="22.1" r="1" fill="#fff"/><ellipse cx="15.4" cy="28.2" rx="2.7" ry="2" fill="#ff9aa8"/><ellipse cx="32.6" cy="28.2" rx="2.7" ry="2" fill="#ff9aa8"/><circle cx="24" cy="29" r=".9" fill="#23407a"/><path d="M39 46 L39 35 M39 37 L36 31 M39 37 L42 31" stroke="#9a6a3a" stroke-width="2.4" stroke-linecap="round" fill="none"/><path d="M36 31 L39 34 L42 31" stroke="#e0443a" stroke-width="1.3" fill="none"/></svg>',
+  fact: 'Chupis are the island\'s champion pranksters. Every Chupi whittles its own slingshot, and a Chupi\'s idea of saying hello is a pebble to the knee. They mean it nicely. Mostly.',
+  hint: 'Hops about the plateaus of Mount Scrumble and plinks pebbles at anything it can see: watch for the dotted line, then get out of the way. Snacks don\'t distract it for long, and it skips away if you come too close... unless it has nowhere left to run.'
+};
+SHINY.chupi = { shift: 0.55, tint: 0.85, sat: 0.45, css: 'hue-rotate(170deg) saturate(1.4)' };
+SCRIM_PRICE.chupi = 34;
+SCRIM_PLEAS.chupi = 'Those little Chupis up the mountain? Rascals, the lot of them. But the mountain wouldn\'t be the same without them.';
+BOND_SPECIES_LINES.chupi = ['{name} is polishing its slingshot. Again.', '{name} pinged a pebble off a tree and looks extremely proud.', '{name} would like you to know it has excellent aim.', '{name} is practising its "innocent" face. It needs work.', '{name} has a pocket full of very carefully chosen pebbles.'];
+TAG_HIGH.chupi = 1.3;
+TIP_SPECIES.chupi = () => chupis;
+function makeChupiMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const yel = new THREE.MeshLambertMaterial({ color: 0xfaf08c, emissive: 0x2a2408 }), teal = lam(0x2f6f8a), pink = lam(0xff9aa8);
+  const navy = new THREE.MeshBasicMaterial({ color: 0x23407a }), white = new THREE.MeshBasicMaterial({ color: 0xffffff }), wood = lam(0x9a6a3a), band = lam(0xe0443a);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  // a little round body, sitting up, with stubby feet
+  add(new THREE.SphereGeometry(0.2, 18, 14), yel, 0, 0.22, 0, 1, 1.05, 0.95);
+  [-1, 1].forEach(s => add(new THREE.SphereGeometry(0.08, 12, 8), yel, s * 0.1, 0.05, 0.09, 1, 0.7, 1.35));
+  // a teal neckerchief, and a fluffy tail tuft with a teal tip
+  add(new THREE.TorusGeometry(0.13, 0.03, 6, 18), teal, 0, 0.37, 0, 1, 1, 0.95).rotation.x = Math.PI / 2;
+  add(new THREE.ConeGeometry(0.075, 0.11, 3), teal, 0, 0.32, 0.14, 1, 1, 0.4).rotation.x = Math.PI;
+  add(new THREE.SphereGeometry(0.08, 10, 8), yel, 0, 0.2, -0.2);
+  add(new THREE.SphereGeometry(0.06, 10, 8), teal, 0, 0.27, -0.25);
+  // the head: big and round, with tall pointed ears rimmed in teal
+  const head = new THREE.Group(); head.position.y = 0.6; body.add(head);
+  add(new THREE.SphereGeometry(0.26, 22, 16), yel, 0, 0, 0, 1.05, 0.95, 1, head);
+  add(new THREE.ConeGeometry(0.03, 0.08, 6), teal, 0.02, 0.27, 0.02, 1, 1, 1, head).rotation.z = -0.4;   // a cheeky tuft
+  const ears = [-1, 1].map(s => {
+    const e = new THREE.Group(); e.position.set(s * 0.14, 0.17, -0.02); e.rotation.z = -s * 0.42; head.add(e);
+    add(new THREE.ConeGeometry(0.15, 0.42, 4), teal, 0, 0.2, -0.015, 1, 1, 0.32, e).rotation.y = Math.PI / 4;
+    add(new THREE.ConeGeometry(0.11, 0.3, 4), yel, 0, 0.15, 0.025, 1, 1, 0.3, e).rotation.y = Math.PI / 4;
+    return e;
+  });
+  const eyes = [-1, 1].map(s => {
+    const e = add(new THREE.SphereGeometry(0.062, 14, 10), navy, s * 0.1, 0.02, 0.215, 1, 1.12, 0.5, head);
+    add(new THREE.SphereGeometry(0.02, 8, 6), white, s * 0.1 - 0.02, 0.05, 0.245, 1, 1, 1, head);
+    add(new THREE.SphereGeometry(0.055, 10, 8), pink, s * 0.175, -0.07, 0.19, 1.15, 0.85, 0.4, head);
+    return e;
+  });
+  add(new THREE.SphereGeometry(0.013, 6, 4), navy, 0, -0.08, 0.255, 1, 1, 1, head);
+  // stubby arms: the right paw holds a little wooden slingshot
+  const arms = [-1, 1].map(s => {
+    const piv = new THREE.Group(); piv.position.set(s * 0.17, 0.32, 0.05); body.add(piv);
+    add(new THREE.CylinderGeometry(0.04, 0.045, 0.14, 8), yel, 0, -0.07, 0, 1, 1, 1, piv);
+    add(new THREE.SphereGeometry(0.05, 10, 8), yel, 0, -0.15, 0.01, 1, 1, 1, piv);
+    piv.rotation.z = s * 0.35; return piv;
+  });
+  const sling = new THREE.Group(); sling.position.set(0, -0.17, 0.03); arms[1].add(sling);
+  add(new THREE.CylinderGeometry(0.014, 0.016, 0.12, 6), wood, 0, 0.0, 0, 1, 1, 1, sling);
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.012, 0.013, 0.09, 6), wood, s * 0.025, 0.09, 0, 1, 1, 1, sling).rotation.z = -s * 0.5; });
+  const strap = add(new THREE.BoxGeometry(0.1, 0.012, 0.012), band, 0, 0.13, 0, 1, 1, 1, sling);
+  const pouch = add(new THREE.SphereGeometry(0.028, 8, 6), lam(0x8a8a96), 0, 0.13, -0.02, 1, 1, 1, sling);
+  const stars = [];
+  for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.14); st.visible = false; root.add(st); stars.push(st); }
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.3); ex.position.y = 1.15; ex.visible = false; ex.renderOrder = 6; root.add(ex);
+  scene.add(root);
+  return { root, body, head, ears, eyes, arms, sling, strap, pouch, stars, ex };
+}
+
+/* ---------- line of sight: nothing gets through rock, and nobody can see into the woods ---------- */
+function inRock(x, y, z) {
+  if (y < heightAt(x, z) - 0.05) return true;
+  if (!inMountain(x, z)) return false;
+  for (const p of plates) if (p.top > y + 0.05 && plateDepth(p, x, z) > 0.05) return true;
+  return false;
+}
+function clearShot(ax, ay, az, bx, by, bz, woods = true) {
+  const d = Math.hypot(bx - ax, by - ay, bz - az), n = Math.max(2, Math.ceil(d / 0.45));
+  for (let i = 1; i < n; i++) {
+    const t = i / n, x = lerp(ax, bx, t), y = lerp(ay, by, t), z = lerp(az, bz, t);
+    if ((woods && inland(x, z) < FOREST_OUT + 0.5) || inRock(x, y, z)) return false;
+  }
+  return true;
+}
+const CHUPI_G = 18;
+// a lobbed pebble that lands on (bx, by, bz)
+function lob(ax, ay, az, bx, by, bz, o) {
+  const d = Math.hypot(bx - ax, bz - az), T = clamp(d / 13, 0.3, 1.5);
+  o.x = ax; o.y = ay; o.z = az; o.vx = (bx - ax) / T; o.vz = (bz - az) / T; o.vy = (by - ay) / T + 0.5 * CHUPI_G * T; o.T = T;
+  return o;
+}
+
+/* ---------- the Chupis themselves ---------- */
+const CHUPI_RANGE = 24, CHUPI_SHY = 4.6, CHUPI_AIM = 1.35, CHUPI_PLATES = ['p1', 'p1', 'p1', 'p2', 'p2', 'p3', 'p3'];
+const chupis = [];
+const nextPlate = p => p === P1 ? P2 : p === P2 ? P3 : PEAK;
+const chupiOK = (c, x, z) => plateDepth(c.plate, x, z) > 0.8 && plateDepth(nextPlate(c.plate), x, z) < -0.9 && !plates.some(q => q.kind === 'circle' && q.top > c.plate.top && Math.hypot(x - q.x, z - q.z) < q.r + 0.4);
+function placeChupi(c, away) {
+  for (let i = 0; i < 120; i++) {
+    const th = Math.random() * Math.PI * 2, rIn = nextPlate(c.plate).R(th) + 1.4, rOut = c.plate.R(th) - 1.4;
+    if (rOut <= rIn) continue;
+    const r = lerp(rIn, rOut, Math.random()), x = Math.cos(th) * r, z = Math.sin(th) * r;
+    if (!chupiOK(c, x, z) || (away && Math.hypot(x - away.x, z - away.z) < 26) || chupis.some(o => o !== c && o.state !== 'gone' && Math.hypot(o.hx - x, o.hz - z) < 8)) continue;
+    c.x = c.hx = c.wx = x; c.z = c.hz = c.wz = z; c.y = c.plate.top; c.face = Math.random() * 6.28;
+    return true;
+  }
+  return false;
+}
+CHUPI_PLATES.forEach(id => {
+  const c = compactCreature(makeChupiMesh());
+  Object.assign(c, { species: 'chupi', plate: plates.find(p => p.id === id), state: 'idle', t: 0, x: 0, y: 0, z: 0, hx: 0, hz: 0, wx: 0, wz: 0, tx: 0, tz: 0, face: 0, cool: 2 + Math.random() * 4, aimT: 0, hop: Math.random() * 6, blink: 2 + Math.random() * 3, wanderT: Math.random() * 3 });
+  applySize(c, rollSize()); applyShiny(c, rollShiny(), 'chupi');
+  chupis.push(c); if (!placeChupi(c)) { c.state = 'gone'; c.root.visible = false; c.respawn = 5; }
+});
+const chupiHints = {};
+const chupiSfx = {
+  twang() { if (!actx) return; const t = actx.currentTime; tone(t, 1100, 380, 0.14, 0.05, 'triangle'); noiseHit(t, 'highpass', 3000, 0.05, 0.05, sfxBus, 1); },
+  stretch() { if (!actx) return; const t = actx.currentTime; tone(t, 300, 520, 0.5, 0.025, 'sawtooth'); },
+  giggle() { if (!actx) return; const t = actx.currentTime; [0, 0.09, 0.18].forEach((d, i) => tone(t + d, 1300 - i * 120, 1500 - i * 120, 0.07, 0.04, 'square')); },
+  ping() { if (!actx) return; const t = actx.currentTime; tone(t, 1600, 900, 0.1, 0.05, 'sine'); }
+};
+const chupiEye = c => c.y + 0.55 * c.s;
+function chupiSees(c) {
+  if (!playing || knocked || inland(player.x, player.z) < FOREST_OUT + 1) return false;     // safe in the woods
+  if (Math.hypot(player.x - c.x, player.z - c.z) > CHUPI_RANGE * Math.max(1, c.s * 0.8)) return false;
+  return clearShot(c.x, chupiEye(c), c.z, player.x, player.y + 1.2, player.z);
+}
+function chupiDash(c) {
+  const away = Math.atan2(c.x - player.x, c.z - player.z);
+  for (const off of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) for (const len of [5.5, 3.5]) {
+    const x = c.x + Math.sin(away + off) * len, z = c.z + Math.cos(away + off) * len;
+    if (chupiOK(c, x, z) && Math.hypot(x - player.x, z - player.z) > Math.hypot(c.x - player.x, c.z - player.z) + 1) { c.state = 'dash'; c.t = 0; c.tx = x; c.tz = z; c.ex.visible = false; chupiSfx.giggle(); return; }
+  }
+  // nowhere left to go!
+  if (c.state !== 'cornered') { c.state = 'cornered'; c.t = 0; c.ex.visible = true; if (!chupiHints.corner) { chupiHints.corner = true; toast('The Chupi\'s backed into a corner! Quick, net it!'); } }
+}
+const chupiHitBy = (c, x, y, z) => Math.hypot(x - c.x, y - (c.y + 0.42 * c.s), z - c.z) < 0.38 * c.s + 0.2;
+function rockHitsChupi(r) {
+  for (const c of chupis) {
+    if (!c.root.visible || !['idle', 'aim', 'dash', 'cornered'].includes(c.state) || !chupiHitBy(c, r.x, r.y, r.z)) continue;
+    sfx.stun(); c.state = 'stunned'; c.t = 0; c.ex.visible = false; c.body.scale.set(1.25, 0.7, 1.25);
+    if (!chupiHints.stun) { chupiHints.stun = true; toast('Bonk! The Chupi is seeing stars! Net it before it shakes it off!'); }
+    return c;
+  }
+  return null;
+}
+function netChupis() {
+  let got = false;
+  for (const c of chupis) {
+    if (!c.root.visible || !inNetZone(c.x, c.y, c.z)) continue;
+    if (c.state === 'stunned' || c.state === 'cornered') { if (catchScrumbly('chupi', c.size, false, c.shiny)) { c.state = 'caught'; c.t = 0; c.ex.visible = false; got = true; } }
+    else if (['idle', 'aim', 'dash'].includes(c.state)) { sfx.wriggle(); if (!chupiHints.wriggle) { chupiHints.wriggle = true; toast('Too quick! It ducked right out of the net. Corner it, or bonk it first.'); } chupiDash(c); }
+  }
+  return got;
+}
+function chupiAte(c) {
+  c.cool = Math.min(c.cool, 0.8);
+  if (!chupiHints.apple) { chupiHints.apple = true; toast('The Chupi gobbles the apple happily... and reloads its slingshot. Cheeky!'); }
+}
+
+/* ---------- pebbles in flight, and the dotted aiming lines ---------- */
+const pebbles = Array.from({ length: 14 }, () => { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07, 0), lam(0x9a96a8)); m.visible = false; m.castShadow = true; scene.add(m); return { m, on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0, pal: false }; });
+const AIMDOT_N = 220;
+const aimDotsC = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), AIMDOT_N);
+aimDotsC.frustumCulled = false; aimDotsC.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(AIMDOT_N * 3), 3); scene.add(aimDotsC);
+const aimRingsC = Array.from({ length: 8 }, () => { const m = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.44, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff5a3d, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false })); m.visible = false; m.renderOrder = 3; scene.add(m); return m; });
+let dotN = 0, ringN = 0;
+const _lob = {}, _aimC = new THREE.Color();
+function drawAim(o, k, hex, groundY) {
+  _aimC.setHex(hex);
+  const steps = 22, upto = Math.max(2, Math.round(steps * clamp(k, 0, 1)));
+  for (let i = 1; i <= upto && dotN < AIMDOT_N; i++) {
+    const t = i / steps * o.T, x = o.x + o.vx * t, y = o.y + o.vy * t - 0.5 * CHUPI_G * t * t, z = o.z + o.vz * t;
+    const cd = Math.hypot(x - camera.position.x, y - camera.position.y, z - camera.position.z); if (cd < 2.2) continue;   // not right in your face
+    const ds = Math.max(1, cd / 6);
+    _m4.makeScale(ds, ds, ds).setPosition(x, y, z); aimDotsC.setMatrixAt(dotN, _m4); aimDotsC.setColorAt(dotN, _aimC); dotN++;
+  }
+  if (groundY != null && ringN < aimRingsC.length) {
+    const r = aimRingsC[ringN++], ex = o.x + o.vx * o.T, ez = o.z + o.vz * o.T;
+    r.visible = true; r.material.color.setHex(hex); r.position.set(ex, groundY + 0.05, ez); r.scale.setScalar((0.8 + k * 0.5) * (1 + Math.sin(time * 14) * 0.08));
+  }
+}
+function firePebble(ax, ay, az, bx, by, bz, pal) {
+  const p = pebbles.find(q => !q.on); if (!p) return;
+  lob(ax, ay, az, bx, by, bz, p); p.on = true; p.t = 0; p.pal = pal; p.m.visible = true; p.m.position.set(ax, ay, az);
+  chupiSfx.twang();
+}
+const PEBBLE_OUCH = ['THWACK! A Chupi got you with a pebble!', 'PING! Right on the noggin. The Chupi is giggling.', 'Ow! That Chupi has a very good aim.', 'BONK! Pebbled by a Chupi!'];
+// which wild scrumbly a partner's pebble bonked (by species name), if any
+function palHit(p) {
+  for (const b of bobos) if (b.root.visible && b.sink <= 0.6 && canStun(b) && Math.hypot(p.x - b.x, p.y - (b.y + 0.3 * b.s), p.z - b.z) < BOBO_R * b.s + 0.25) { stunBobo(b); return 'bobo'; }
+  const hits = [[rockHitsRaebit, 'raebit'], [rockHitsFlops, 'flops'], [rockHitsWeevil, 'weevil'], [rockHitsPengin, 'pengin'], [rockHitsSpeshul, 'speshul'], [rockHitsGlimmery, 'glimmery'], [rockHitsShark, 'duckshark'], [rockHitsFroggle, 'froggle'], [rockHitsChupi, 'chupi']];
+  for (const [f, sp] of hits) if (f(p)) return sp;
+  return null;
+}
+function updatePebbles(dt) {
+  for (const p of pebbles) {
+    if (!p.on) continue;
+    p.t += dt; p.vy -= CHUPI_G * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    p.m.position.set(p.x, p.y, p.z); p.m.rotation.x += dt * 12; p.m.rotation.y += dt * 9;
+    let done = p.t > 3;
+    if (!p.pal && !knocked && Math.hypot(p.x - player.x, p.z - player.z) < 0.5 && p.y > player.y + 0.1 && p.y < player.y + 1.9) {
+      hurtPlayer(1, pick1(PEBBLE_OUCH)); chupiSfx.ping(); done = true;
+      if (!chupiHints.hit) { chupiHints.hit = true; setTimeout(() => toast('Tip: Chupis can\'t see into the woods, or through rock. Duck behind something!'), 2600); }
+    }
+    if (p.pal && !done) {
+      const sp = palHit(p);
+      if (sp) { done = true; sfx.thud(); if (partner) toast(`Bonk! ${partner.p.name} stunned the ${SPECIES[sp].name}! Quick, net it!`); }
+    }
+    if (!done && (inRock(p.x, p.y, p.z) || p.y < Math.max(heightAt(p.x, p.z), water.position.y) - 0.1)) { done = true; spawnSparkle(p.x, p.y + 0.1, p.z); }
+    if (done) { p.on = false; p.m.visible = false; }
+  }
+}
+
+/* ---------- every frame ---------- */
+function updateChupis(dt) {
+  dotN = 0; ringN = 0;
+  for (const c of chupis) {
+    c.t += dt; c.cool -= dt;
+    if (c.state === 'gone') {
+      if (c.t > (c.respawn || 0)) { c.body.scale.setScalar(1); c.body.rotation.set(0, 0, 0); applySize(c, rollSize()); applyShiny(c, rollShiny(), 'chupi'); if (placeChupi(c, player)) { c.state = 'idle'; c.t = 0; c.cool = 3; c.root.visible = true; } else c.t = (c.respawn || 0) - 3; }
+      continue;
+    }
+    if (c.state === 'caught') {
+      const k = Math.min(1, c.t / 0.45); camera.getWorldDirection(_cv);
+      c.x = lerp(c.x, camera.position.x + _cv.x * 1.2, k * 0.35); c.z = lerp(c.z, camera.position.z + _cv.z * 1.2, k * 0.35); c.y = lerp(c.y, camera.position.y - 0.5, k * 0.35);
+      c.body.scale.setScalar(1 - k * 0.85);
+      if (k >= 1) { c.state = 'gone'; c.t = 0; c.root.visible = false; c.respawn = 50 + Math.random() * 40; }
+      c.root.position.set(c.x, c.y, c.z); continue;
+    }
+    if (!c.root.visible) continue;
+    const d = Math.hypot(player.x - c.x, player.z - c.z), dy = player.y - c.y, toP = Math.atan2(player.x - c.x, player.z - c.z);
+    let hopY = 0, sx = 1, sy = 1, armA = 0.35, armB = 0.35, armX0 = 0, armX1 = 0;
+    c.ex.visible = c.state === 'cornered';
+    if (c.state === 'stunned') {
+      c.stars.forEach((st, i) => { st.visible = true; const a = time * 5 + i * 2.09; st.position.set(Math.cos(a) * 0.3 * c.s, 1.0 * c.s, Math.sin(a) * 0.3 * c.s); });
+      sy = 0.85 + Math.sin(time * 3) * 0.04; c.body.rotation.z = Math.sin(time * 2.5) * 0.25;
+      if (c.t > 4.5) { c.state = 'idle'; c.t = 0; c.cool = 1.5; c.body.rotation.z = 0; c.stars.forEach(st => { st.visible = false; }); chupiSfx.giggle(); }
+    } else {
+      c.stars.forEach(st => { st.visible = false; });
+      // too close for comfort: skip away
+      if (d < CHUPI_SHY * Math.max(1, c.s * 0.7) && Math.abs(dy) < 2.5 && (c.state === 'idle' || c.state === 'aim')) chupiDash(c);
+      if (c.state === 'dash') {
+        const ddx = c.tx - c.x, ddz = c.tz - c.z, dd = Math.hypot(ddx, ddz), sp = 7 * dt;
+        if (dd > 0.05) { c.x += ddx / dd * Math.min(sp, dd); c.z += ddz / dd * Math.min(sp, dd); c.face += angDiff(c.face, Math.atan2(ddx, ddz)) * Math.min(1, dt * 14); }
+        c.hop += dt * 22; const k = Math.abs(Math.sin(c.hop)); hopY = k * 0.18; sy = 0.9 + k * 0.15;
+        if (dd < 0.1 || c.t > 1.4) { c.state = 'idle'; c.t = 0; c.cool = Math.max(c.cool, 0.7); }
+      } else if (c.state === 'cornered') {
+        c.face += angDiff(c.face, toP) * Math.min(1, dt * 8); sx = 1 + Math.sin(time * 40) * 0.04;
+        if (c.t > 1.8 || d > CHUPI_SHY + 2) { c.state = 'idle'; c.t = 0; }
+      } else if (c.state === 'aim') {
+        c.face += angDiff(c.face, toP) * Math.min(1, dt * 10);
+        c.aimT += dt; const k = c.aimT / CHUPI_AIM;
+        armA = 0; armB = 0; armX1 = -1.45; armX0 = -1.25 + k * 0.5;
+        c.strap.scale.set(1, 1, 1); c.pouch.position.z = -0.02 - k * 0.12;
+        if (!chupiSees(c)) { c.state = 'idle'; c.t = 0; c.cool = 0.8; }
+        else {
+          const ax = c.x + Math.sin(c.face) * 0.25 * c.s, ay = c.y + 0.62 * c.s, az = c.z + Math.cos(c.face) * 0.25 * c.s;
+          lob(ax, ay, az, player.x, player.y + 1.0, player.z, _lob); drawAim(_lob, k * 1.15, 0xff5a3d, player.y);
+          if (c.aimT >= CHUPI_AIM) { firePebble(ax, ay, az, player.x, player.y + 1.0, player.z, false); c.state = 'idle'; c.t = 0; c.cool = 3.2 + Math.random() * 2.5; c.pouch.position.z = -0.02; }
+        }
+      } else {
+        // idle: hop about near home, keeping an eye out for a target
+        if (c.cool <= 0 && chupiSees(c)) { c.state = 'aim'; c.aimT = 0; c.t = 0; chupiSfx.stretch(); if (!chupiHints.aim) { chupiHints.aim = true; toast('A little yellow scrumbly is taking aim at you with a slingshot! Watch the dotted line!'); } }
+        else {
+          c.wanderT -= dt;
+          if (c.wanderT <= 0) { c.wanderT = 1.5 + Math.random() * 3; for (let i = 0; i < 8; i++) { const a = Math.random() * 6.28, r = Math.random() * 3.5, x = c.hx + Math.cos(a) * r, z = c.hz + Math.sin(a) * r; if (chupiOK(c, x, z)) { c.wx = x; c.wz = z; break; } } }
+          const ddx = c.wx - c.x, ddz = c.wz - c.z, dd = Math.hypot(ddx, ddz);
+          if (dd > 0.08) { const sp = 1.6 * dt; c.x += ddx / dd * Math.min(sp, dd); c.z += ddz / dd * Math.min(sp, dd); c.face += angDiff(c.face, Math.atan2(ddx, ddz)) * Math.min(1, dt * 6); c.hop += dt * 11; const k = Math.abs(Math.sin(c.hop)); hopY = k * 0.12; sy = 0.92 + k * 0.12; }
+          else { sy = 1 + Math.sin(time * 3 + c.hx) * 0.03; if (d < CHUPI_RANGE) c.face += angDiff(c.face, toP) * Math.min(1, dt * 2); }
+          // a cheeky little wave of the slingshot now and then
+          armB = 0.35 + Math.max(0, Math.sin(time * 1.3 + c.hz)) * 0.6;
+        }
+      }
+    }
+    if (c.state !== 'aim') c.pouch.position.z = -0.02;
+    c.blink -= dt; const bl = c.blink < 0.12; if (c.blink < 0) c.blink = 2 + Math.random() * 3; c.eyes.forEach(e => { e.scale.y = bl ? 0.15 : 1.12; });
+    c.ears.forEach((e, i) => { e.rotation.x = Math.sin(time * 4 + i) * 0.06; });
+    c.arms[0].rotation.set(armX0, 0, -armA); c.arms[1].rotation.set(armX1, 0, armB);
+    c.body.scale.set(sx, sy * (c.state === 'stunned' ? 1 : 1), sx);
+    c.y = mtnGround(c.x, c.z, c.plate.top) > -Infinity ? mtnGround(c.x, c.z, c.plate.top) : c.plate.top;
+    c.root.position.set(c.x, c.y + hopY * c.s, c.z); c.root.rotation.set(0, c.face, 0);
+  }
+  updatePalChupi(dt);
+  for (let i = dotN; i < AIMDOT_N; i++) aimDotsC.setMatrixAt(i, _zero);
+  aimDotsC.instanceMatrix.needsUpdate = true; if (aimDotsC.instanceColor) aimDotsC.instanceColor.needsUpdate = true;
+  for (let i = ringN; i < aimRingsC.length; i++) aimRingsC[i].visible = false;
+  updatePebbles(dt);
+}
+
+/* ---------- a partner Chupi takes potshots at nearby wild scrumblies ---------- */
+const palShot = { cool: 8, target: null, aimT: 0 };
+const PAL_LISTS = () => [[bobos, 'bobo'], [raebits, 'raebit'], [flopses, 'flops'], [weevils, 'weevil'], [pengins, 'pengin'], [speshuls, 'speshul'], [glimmeries, 'glimmery'], [chupis, 'chupi']];
+const palRest = P => P.c.arms.forEach((a, i) => a.rotation.set(0, 0, (i ? 1 : -1) * 0.35));
+function palTargetOK(c) {
+  return c.root.visible && !['caught', 'gone', 'buried', 'trapped', 'stunned', 'dizzy', 'dazed', 'eaten', 'fall', 'burrow'].includes(c.state) && (c.sink || 0) < 0.5 && (c.under || 0) < 0.5 && !(c.species === 'bobo' && !canStun(c));
+}
+function updatePalChupi(dt) {
+  if (!partner || partner.p.species !== 'chupi' || !playing || paused || knocked) { palShot.target = null; return; }
+  const P = partner, ay = P.y + 0.62 * P.c.s;
+  palShot.cool -= dt;
+  if (palShot.target) {
+    const c = palShot.target, tp = c.root.position, dd = Math.hypot(tp.x - P.x, tp.z - P.z);
+    if (!palTargetOK(c) || dd > 16 || P.moving) { palShot.target = null; palShot.cool = 2; palRest(P); return; }
+    palShot.aimT += dt; const k = palShot.aimT / 1.0;
+    P.face = Math.atan2(tp.x - P.x, tp.z - P.z); P.c.root.rotation.y = P.face;
+    P.c.arms[1].rotation.set(-1.45, 0, 0); P.c.arms[0].rotation.set(-1.25 + k * 0.5, 0, 0);
+    const ax = P.x + Math.sin(P.face) * 0.25 * P.c.s, az = P.z + Math.cos(P.face) * 0.25 * P.c.s, ty = tp.y + 0.35 * (c.s || 1);
+    lob(ax, ay, az, tp.x, ty, tp.z, _lob); drawAim(_lob, k * 1.1, 0x19b3ae, tp.y);
+    if (palShot.aimT >= 1.0) { firePebble(ax, ay, az, tp.x, ty, tp.z, true); palShot.target = null; palShot.cool = 9 + Math.random() * 7; palRest(P); }
+    return;
+  }
+  if (palShot.cool > 0 || P.moving) return;
+  let best = null, bsp = null, bd = 14;
+  for (const [list, sp] of PAL_LISTS()) for (const c of list) {
+    if (!palTargetOK(c)) continue;
+    const tp = c.root.position, d = Math.hypot(tp.x - P.x, tp.z - P.z);
+    if (d < bd && d > 2 && Math.abs(tp.y - P.y) < 6 && clearShot(P.x, ay, P.z, tp.x, tp.y + 0.35, tp.z, false)) { bd = d; best = c; bsp = sp; }
+  }
+  if (!best) { palShot.cool = 2.5; return; }
+  palShot.target = best; palShot.aimT = 0; chupiSfx.stretch();
+  if (!chupiHints.pal) { chupiHints.pal = true; toast(`${P.p.name} pulls out its slingshot and takes aim at the ${SPECIES[bsp].name}...`); }
+}
+
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -11362,7 +11693,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos, konekos], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos, konekos, chupis], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -11440,6 +11771,7 @@ function tick(dt) {
   ZIP.root.visible = scrimHere();
   updateForest(dt);
   if (playing) { updatePartner(dt); updateBond(dt); }
+  updateChupis(dt);
   updateSparkles(dt);
   cullDecor();
   cullCreatures();
@@ -11497,7 +11829,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
