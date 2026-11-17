@@ -279,7 +279,7 @@
   .bcell .ic { width: 46px; height: 46px; display: grid; place-items: center; }
   .box-grid .bcell .ic { width: 82%; height: 82%; }
   .bcell .ic svg { width: 100%; height: 100%; }
-  .bcell .ic.big svg { transform: scale(1.12); } .bcell .ic.small svg { transform: scale(.62); }
+  .bcell .ic.big svg { transform: scale(1.12); } .bcell .ic.giant svg { transform: scale(1.3); } .bcell .ic.small svg { transform: scale(.62); }
   .bcell .nm { display: grid; font-size: .8rem; line-height: 1.15; }
   .bcell .nm b { font-weight: 700; }
   .bcell .nm i { font-style: normal; color: rgba(44,37,82,.6); font-size: .74rem; }
@@ -319,6 +319,9 @@
   .dchoices button.cur { background: var(--pink); color: #fff; box-shadow: 0 3px 0 var(--pink-deep); }
   #dialog.hop .dlg-card { border-color: #c8a070; box-shadow: 0 5px 0 #8a5a33, 0 14px 30px rgba(44,37,82,.3); }
   #dialog.hop .dbody b { color: #8a5a33; }
+  #dialog.lionel .dlg-card { border-color: #ff8a7a; box-shadow: 0 5px 0 #b8262c, 0 14px 30px rgba(44,37,82,.3); }
+  #dialog.lionel .dbody b { color: #c8302c; }
+  #dialog.lionel .prof-pic { background: #fff0e0; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #b8262c; }
   #dialog.bouncy .dlg-card { border-color: #b58be6; box-shadow: 0 5px 0 #6a3cb0, 0 14px 30px rgba(44,37,82,.3); }
   #dialog.bouncy .dbody b { color: #6a3cb0; }
   #dialog.bouncy .prof-pic { background: #fff3c8; box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px #6a3cb0; }
@@ -449,6 +452,7 @@
   #sleepFade.on { opacity: 1; }
   #sleepFade b { font-family: var(--display); font-size: 4rem; color: #e8dcff; letter-spacing: .1em; animation: bob 1.6s ease-in-out infinite; }
   #sleepFade i { font-style: normal; font-size: .75em; opacity: .8; } #sleepFade i + i { font-size: .55em; opacity: .6; }
+  #teleFlash.orange { background: radial-gradient(circle, #ffffff 0%, #ffe0b0 45%, #ffa020 100%); }
   #teleFlash.green { background: radial-gradient(circle, #ffffff 0%, #c8ffd4 45%, #3ddc6a 100%); }
   .slot.cooling svg { opacity: .45; }
 </style>
@@ -465,7 +469,7 @@
       <li><kbd>Space</kbd>jump</li>
       <li><kbd>Mouse</kbd>look</li>
       <li><kbd>Click</kbd>use item</li>
-      <li><kbd>1–7</kbd>swap item</li>
+      <li><kbd>1–8</kbd>swap item</li>
       <li><kbd>E</kbd>pick up rock</li>
       <li><kbd>3</kbd>Scrumblydex: click to scan, <kbd>Tab</kbd>to browse</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
@@ -508,7 +512,7 @@
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <div class="hud" id="area">Pinksand Shore<small>Scrumbly Island</small></div>
 <div class="hud" id="toast"></div>
-<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div><!-- swapped for controller hints when you use a pad -->
+<div class="hud" id="hint" hidden>WASD walk · Shift run · Space jump · Click use item · 1–8 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause</div><!-- swapped for controller hints when you use a pad -->
 <div class="hud" id="crosshair" hidden></div>
 <button class="chip" id="musicBtn" hidden>Music: on</button>
 <div class="hud" id="prompt" hidden></div>
@@ -1684,7 +1688,7 @@ function walkable(x, z) { return heightAt(x, z) >= -MAX_DEPTH && inland(x, z) <=
 const toastEl = document.getElementById('toast');
 /* ---------- keyboard or controller? the on-screen hints follow whichever you last touched ---------- */
 let usingPad = false;
-let HINT_KB = 'WASD walk · Shift run · Space jump · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause';
+let HINT_KB = 'WASD walk · Shift run · Space jump · Click use item · 1–8 / scroll swap item · E pick up rock · Tab Scrumblydex (when held) · Walk into a palm to climb · M music · Esc pause';
 const HINT_PAD = 'Left stick walk · Right stick look · Ⓐ jump · RT use item · LB / RB swap item · Ⓑ pick up / talk · Ⓨ Scrumblydex · LT run · Walk into a palm to climb · ☰ pause';
 function setHintText() { const el = document.getElementById('hint'); if (el) el.textContent = usingPad ? HINT_PAD : HINT_KB; }
 // what each key becomes on an Xbox pad
@@ -1692,7 +1696,7 @@ const XB = (cls, t) => '<span class="xbb ' + cls + '">' + t + '</span>';
 const PAD_KEYS = {
   E: XB('b', 'B'), B: XB('b', 'B'), Space: XB('a', 'A'), A: XB('a', 'A'), Enter: XB('a', 'A'), Click: XB('sh', 'RT'), Tab: XB('y', 'Y'), Y: XB('y', 'Y'), X: XB('x', 'X'),
   Esc: XB('sh', '☰'), Shift: XB('sh', 'LT'), WASD: XB('st', 'L'), Mouse: XB('st', 'R'), Arrows: XB('dp', '✚'), 'W/S': XB('st', 'L'),
-  '1–7': XB('sh', 'LB') + XB('sh', 'RB'), '1–6': XB('sh', 'LB') + XB('sh', 'RB'), Q: XB('sh', 'LB'), M: null
+  '1–8': XB('sh', 'LB') + XB('sh', 'RB'), '1–7': XB('sh', 'LB') + XB('sh', 'RB'), '1–6': XB('sh', 'LB') + XB('sh', 'RB'), Q: XB('sh', 'LB'), M: null
 };
 function padifyKbds(root) {
   root.querySelectorAll('kbd').forEach(k => {
@@ -1910,6 +1914,7 @@ function updatePlayer(dt) {
   { const cp = collideCarlos(nx, nz); nx = cp[0]; nz = cp[1]; }
   { const hp = collideHouse(nx, nz); nx = hp[0]; nz = hp[1]; }
   { const pp = collidePillar(nx, nz); nx = pp[0]; nz = pp[1]; }
+  { const lp2 = collideLionel(nx, nz); nx = lp2[0]; nz = lp2[1]; }
   { const fp = collideForest(nx, nz); nx = fp[0]; nz = fp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
@@ -2029,7 +2034,7 @@ function lockPointer() {
 function enableDragLook() {
   if (dragLook) return;
   dragLook = true; paused = false; pauseEl.hidden = true;
-  HINT_KB = 'Drag to look · Click use item · 1–7 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music'; setHintText();
+  HINT_KB = 'Drag to look · Click use item · 1–8 / scroll swap item · E pick up rock · Tab Scrumblydex · WASD walk · Shift run · Space jump · Walk into a palm to climb · M music'; setHintText();
   toast('Drag with the mouse to look around');
 }
 document.addEventListener('pointerlockerror', enableDragLook);
@@ -2179,7 +2184,7 @@ function pickHome(awayFrom, minDist) {
 }
 function setBoboAt(b, x, z) { b.x = x; b.z = z; b.y = heightAt(x, z); b.tx = x; b.tz = z; }
 /* ---------- rare sizes: about 1 in 20 is big, 1 in 20 is small ---------- */
-const SIZES = { big: { label: 'Big', scale: 1.65 }, small: { label: 'Small', scale: 0.55 } };
+const SIZES = { big: { label: 'Big', scale: 1.65 }, small: { label: 'Small', scale: 0.55 }, giant: { label: 'Giant', scale: 2.5 } };   // giants never spawn by themselves: Lionel spots them
 function rollSize() { const r = Math.random(); return r < 0.08 ? 'big' : r < 0.16 ? 'small' : null; }   // 8% big, 8% small
 /* ---------- Shiny variants: about 1 in 40 scrumblies has its own special colours ---------- */
 const SHINY_RATE = 1 / 40;
@@ -2241,7 +2246,7 @@ function applyShiny(c, on, species) {
   c.shiny = on;
 }
 const shinyWord = sh => sh ? 'Shiny ' : '';
-function applySize(c, size) { c.size = size; c.s = size ? SIZES[size].scale : 1; c.root.scale.setScalar(c.s); }
+function applySize(c, size) { if (c.giantTip) size = 'giant'; c.size = size; c.s = size ? SIZES[size].scale : 1; c.root.scale.setScalar(c.s); }
 const sizeWord = size => size ? SIZES[size].label + ' ' : '';
 
 function newBobo(home) {
@@ -2291,6 +2296,7 @@ function catchScrumbly(species, size, ambush, shiny) {
   catchBurst();
   dexMarkCaught(species);
   const p = addToParty(species, null, false, size, shiny);
+  lionelOnCatch(species, size);
   tutOnCatch(p);
   tealOnCatch(species, ambush);
   const lead = ambush ? 'Ambush! ' : '';
@@ -5382,10 +5388,11 @@ const ITEM_DEFS = {
   , dex: { name: 'Scrumblydex', icon: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="37" rx="6" fill="#e8384f" stroke="#a81f37" stroke-width="2.5"/><rect x="15" y="17" width="18" height="13" rx="2.5" fill="#8ef0e8" stroke="#5a2236" stroke-width="1.8"/><circle cx="18" cy="11.5" r="3.4" fill="#ffd23f" stroke="#a81f37" stroke-width="1.5"/><circle cx="25" cy="11" r="1.4" fill="#fff"/><circle cx="29.5" cy="11" r="1.4" fill="#7ee08a"/><path d="M18 36h6M21 33v6" stroke="#5a2236" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="36" r="2.3" fill="#5a2236"/></svg>' }
   , trap: { name: 'Cage traps', icon: '<svg viewBox="0 0 48 48"><rect x="7" y="35" width="34" height="5" rx="1.5" fill="#b98352"/><rect x="7" y="9" width="34" height="4" rx="1.5" fill="#b98352"/><path d="M10 13v22M16 13v22M22 13v22M28 13v22M34 13v22M39 13v22" stroke="#9aa6b8" stroke-width="2.4"/><circle cx="24" cy="33.5" r="3.5" fill="#ff6fa5"/></svg>' }
   , tele: { name: 'Teleporter', icon: '<svg viewBox="0 0 48 48"><path d="M30 4 L30 12" stroke="#4a5060" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="4" r="2.6" fill="#2fb5a8"/><rect x="14" y="11" width="20" height="32" rx="5" fill="#e8e4f0" stroke="#4a5060" stroke-width="2.5"/><circle cx="24" cy="22" r="6" fill="#ff3d5a" stroke="#a81f37" stroke-width="2"/><circle cx="22.3" cy="20.3" r="1.6" fill="#fff" opacity=".7"/><rect x="18" y="32" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><rect x="18" y="37" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><circle cx="31" cy="15.5" r="1.4" fill="#5ff07a"/></svg>' }
+  , tele3: { name: 'Orange Teleporter', icon: '<svg viewBox="0 0 48 48"><path d="M30 4 L30 12" stroke="#4a5060" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="4" r="2.6" fill="#e0443a"/><rect x="14" y="11" width="20" height="32" rx="5" fill="#f0ece4" stroke="#4a5060" stroke-width="2.5"/><circle cx="24" cy="22" r="6" fill="#ffa020" stroke="#b8641a" stroke-width="2"/><circle cx="22.3" cy="20.3" r="1.6" fill="#fff" opacity=".7"/><rect x="18" y="32" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><rect x="18" y="37" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><circle cx="31" cy="15.5" r="1.4" fill="#5ff07a"/></svg>' }
   , tele2: { name: 'Green Teleporter', icon: '<svg viewBox="0 0 48 48"><path d="M30 4 L30 12" stroke="#4a5060" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="4" r="2.6" fill="#ff7eb3"/><rect x="14" y="11" width="20" height="32" rx="5" fill="#e4f0e6" stroke="#4a5060" stroke-width="2.5"/><circle cx="24" cy="22" r="6" fill="#3ddc6a" stroke="#1f8a3e" stroke-width="2"/><circle cx="22.3" cy="20.3" r="1.6" fill="#fff" opacity=".7"/><rect x="18" y="32" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><rect x="18" y="37" width="12" height="2.6" rx="1.3" fill="#9aa6b8"/><circle cx="31" cy="15.5" r="1.4" fill="#5ff07a"/></svg>' }
   , apple: { name: 'Apples', icon: '<svg viewBox="0 0 48 48"><path d="M24 14 C21 10 13 10 10 17 C6 26 11 40 18 42 C21 43 22 41 24 41 C26 41 27 43 30 42 C37 40 42 26 38 17 C35 10 27 10 24 14 Z" fill="#e8283c" stroke="#a81020" stroke-width="2"/><path d="M24 14 C24 10 25 7 27 5" stroke="#6b4226" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M26 9 C30 4 36 5 37 8 C33 10 29 10 26 9 Z" fill="#5cc277"/><ellipse cx="16" cy="22" rx="3" ry="5" fill="#fff" opacity=".45" transform="rotate(20 16 22)"/></svg>' }
 };
-const inv = { slots: ['net', 'rock', 'dex', 'trap', 'tele', 'apple', 'tele2'], active: 0, shown: 0, eq: 0, rocks: 0, apples: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
+const inv = { slots: ['net', 'rock', 'dex', 'trap', 'tele', 'apple', 'tele2', 'tele3'], active: 0, shown: 0, eq: 0, rocks: 0, apples: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
 const owns = id => id === 'rock' || (id === 'trap' ? inv.trapsOwned > 0 : !!(id && inv.owned[id]));
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
@@ -5396,7 +5403,7 @@ inv.slots.forEach((id, i) => {
   b.addEventListener('mousedown', pick);
   hotbarEl.appendChild(b);
 });
-function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0) || (id === 'tele' && owns('tele')) || (id === 'tele2' && owns('tele2')) || (id === 'apple' && inv.apples > 0); }
+function slotUsable(i) { const id = inv.slots[i]; return (id === 'net' && owns('net')) || (id === 'dex' && owns('dex')) || (id === 'rock' && inv.rocks > 0) || (id === 'trap' && inv.traps > 0) || (id === 'tele' && owns('tele')) || (id === 'tele2' && owns('tele2')) || (id === 'tele3' && owns('tele3')) || (id === 'apple' && inv.apples > 0); }
 function selectSlot(i, quiet) {
   if (i === inv.active) return;
   if (!slotUsable(i)) { if (!quiet) { const el = hotbarEl.children[i]; el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); if (inv.slots[i] === 'rock') toast('No rocks yet. Look at one on the sand and press E.'); } return; }
@@ -5413,7 +5420,7 @@ function renderHotbar() {
     if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
     if (inv.slots[i] === 'trap') el.querySelector('.count').textContent = inv.traps ? inv.traps : '';
     if (inv.slots[i] === 'apple') el.querySelector('.count').textContent = inv.apples ? inv.apples : '';
-    if (inv.slots[i] === 'tele' || inv.slots[i] === 'tele2') { const c = inv.slots[i] === 'tele2' ? teleCool2 : teleCool; el.querySelector('.count').textContent = c > 0 ? Math.ceil(c / 60) + 'm' : ''; el.classList.toggle('cooling', c > 0); }
+    if (inv.slots[i] === 'tele' || inv.slots[i] === 'tele2' || inv.slots[i] === 'tele3') { const c = inv.slots[i] === 'tele2' ? teleCool2 : inv.slots[i] === 'tele3' ? teleCool3 : teleCool; el.querySelector('.count').textContent = c > 0 ? Math.ceil(c / 60) + 'm' : ''; el.classList.toggle('cooling', c > 0); }
   });
 }
 renderHotbar();
@@ -5424,7 +5431,7 @@ function useItem() {
   else if (activeItem() === 'rock' && throwAnim < 0) throwRock();
   else if (activeItem() === 'dex') startScan();
   else if (activeItem() === 'trap' && throwAnim < 0 && inv.traps > 0) placeTrap();
-  else if (activeItem() === 'tele' || activeItem() === 'tele2') teleUse();
+  else if (activeItem() === 'tele' || activeItem() === 'tele2' || activeItem() === 'tele3') teleUse();
   else if (activeItem() === 'apple' && throwAnim < 0) throwApple();
 }
 
@@ -5728,7 +5735,7 @@ function updateViewmodel(dt) {
     heldAppleMesh.visible = false;
     if (!item) { heldRockMesh.visible = heldTrapMesh.visible = false; }
     else if (item === 'dex') { heldRockMesh.visible = false; poseDexHand(bx, by, eqDrop, cbk); }
-    else if (item === 'tele' || item === 'tele2') { heldRockMesh.visible = false; poseTeleHand(bx, by, eqDrop, cbk, item === 'tele2'); }
+    else if (item === 'tele' || item === 'tele2' || item === 'tele3') { heldRockMesh.visible = false; poseTeleHand(bx, by, eqDrop, cbk, item); }
     else if (item === 'net') {
       // right hand grips the handle
       heldRockMesh.visible = false;
@@ -6006,7 +6013,7 @@ let cardTimer = 0;
 function showDexCard(id, isNew, size, shiny) {
   const s = SPECIES[id]; cardEl.classList.remove('titan');
   cardEl.innerHTML = `<header><span class="num">#${pad3(s.num)}</span><h3>${s.name}</h3>${isNew ? '<span class="new">NEW!</span>' : ''}${dexState.caught.has(id) ? '<span class="got">Caught</span>' : ''}</header>
-    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>${s.unique ? '<p class="rare unique">One of a kind! There is only one in the whole world.</p>' : ''}${shiny ? '<p class="rare shiny">A Shiny one! Incredibly rare!</p>' : ''}${size ? `<p class="rare ${size}">${size === 'big' ? 'Whoa! This one is unusually BIG.' : 'Aww! This one is unusually small.'} Rare!</p>` : ''}
+    <div class="pic">${s.icon}</div><p class="where">${s.where}</p>${s.unique ? '<p class="rare unique">One of a kind! There is only one in the whole world.</p>' : ''}${shiny ? '<p class="rare shiny">A Shiny one! Incredibly rare!</p>' : ''}${size ? `<p class="rare ${size}">${size === 'giant' ? 'WHOA! A GIANT! Scrumblies don\'t come any bigger than this.' : size === 'big' ? 'Whoa! This one is unusually BIG.' : 'Aww! This one is unusually small.'} Rare!</p>` : ''}
     <h4>Did you know?</h4><p>${s.fact}</p><h4>Catching tip</h4><p>${s.hint}</p><footer><kbd>Tab</kbd>open Scrumblydex</footer>`;
   cardEl.hidden = false; cardEl.classList.remove('in'); void cardEl.offsetWidth; cardEl.classList.add('in');
   clearTimeout(cardTimer); cardTimer = setTimeout(() => cardEl.classList.remove('in'), 9000);
@@ -6869,7 +6876,7 @@ function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
     party: party.map(packP), box: boxSlots.map(packP),
-    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned], pillar: { awake: pillarState.awake },
+    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned], pillar: { awake: pillarState.awake }, lionel: lionelSave(),
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
@@ -6899,13 +6906,13 @@ function applySnapshot(s) {
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
   titansScanned.clear(); (Array.isArray(s.titans) ? s.titans : []).forEach(id => { if (TITANS.some(t => t.id === id)) titansScanned.add(id); });
-  pillarLoad(s.pillar);
+  pillarLoad(s.pillar); lionelLoad(s.lionel);
   forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
   const fresh = typeof s.tutorial === 'string';
   tut.stage = fresh ? s.tutorial : 'done';
-  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex, tele: !!s.owned.tele, tele2: !!s.owned.tele2, apple: !!s.owned.apple } : { net: true, dex: true, tele: !!(s.owned && s.owned.tele), tele2: !!(s.owned && s.owned.tele2), apple: !!(s.owned && s.owned.apple) };
+  inv.owned = fresh && s.owned ? { net: !!s.owned.net, dex: !!s.owned.dex, tele: !!s.owned.tele, tele2: !!s.owned.tele2, tele3: !!s.owned.tele3, apple: !!s.owned.apple } : { net: true, dex: true, tele: !!(s.owned && s.owned.tele), tele2: !!(s.owned && s.owned.tele2), tele3: !!(s.owned && s.owned.tele3), apple: !!(s.owned && s.owned.apple) };
   inv.trapsOwned = fresh ? clamp(+s.trapsOwned || 0, 0, 3) : 3;
   prof.greeted = false; closeDialog(true); updateObjective();
   // where you were standing
@@ -7133,7 +7140,7 @@ function skipToForest() {
 let skipMtnArmed = false;
 document.getElementById('skipMountain').addEventListener('click', e => {
   if (readSave(SAVE_KEY) && !skipMtnArmed) { skipMtnArmed = true; e.target.textContent = 'Replace the autosave? Click again'; return; }
-  const s = debugForestSave(), [x, z] = polar(MTN_ENTRY_TH, FOREST_OUT + 8); s.player = { x, z, yaw: Math.atan2(x, z), pitch: 0.1 };
+  const s = debugForestSave(), [x, z] = polar(MTN_ENTRY_TH, FOREST_OUT + 8); s.lionel = { stage: 'peak' }; s.player = { x, z, yaw: Math.atan2(x, z), pitch: 0.1 };
   applySnapshot(s); fillRequests(); beginGame(); toast('Debug: skipped to the foot of Mount Scrumble. 9999 gold.');
 });
 skipForest.addEventListener('click', () => {
@@ -7259,7 +7266,7 @@ function showLine() {
   dlgItem.hidden = true;
   if (L.give) giveItem(L.give);
   if (L.act) L.act();
-  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else if (dlgWho === 'fluff') fluffSfx.talk(); else if (dlgWho === 'carlos') carlosSfx.talk(); else if (dlgWho === 'bouncy') hopSfx.talk(); else sfx.profTalk(); }
+  if (dlgIdx === 0 || Math.random() < 0.5) { if (dlgWho === 'scrim') scrimSfx.talk(); else if (dlgWho === 'teal') tealSfx.talk(); else if (dlgWho === 'hop') hopSfx.talk(); else if (dlgWho === 'fluff') fluffSfx.talk(); else if (dlgWho === 'carlos') carlosSfx.talk(); else if (dlgWho === 'lionel') lionelSfx.talk(); else if (dlgWho === 'bouncy') hopSfx.talk(); else sfx.profTalk(); }
   dlgChoicesEl.hidden = true; dlgChoicesEl.innerHTML = ''; dlgChoice = 0;
   if (L.choices) L.choices.forEach((c, i) => { const b = document.createElement('button'); b.textContent = c.label; b.addEventListener('click', e => { e.stopPropagation(); dlgChoice = i; pickChoice(); }); b.addEventListener('mouseenter', () => { dlgChoice = i; renderChoices(); }); dlgChoicesEl.appendChild(b); });
   renderChoices();
@@ -7625,7 +7632,7 @@ renderGold();
 
 /* ---------- what scrumblies are worth to him ---------- */
 const SCRIM_PRICE = { bobo: 8, speshul: 14, beeappy: 15, pengin: 16, duckshark: 18, weevil: 20, mermiggly: 20, beeangy: 26, glimmery: 22, raebit: 24, blorbo: 20, willowet: 22, flops: 26, sita: 4, rosita: 45, froggle: 40, pretzello: 18 };
-const priceOf = p => SPECIES[p.species].unique ? 0 : Math.round((SCRIM_PRICE[p.species] || 10) * (p.size ? 1.5 : 1) * (p.shiny ? 6 : 1));
+const priceOf = p => SPECIES[p.species].unique ? 0 : Math.round((SCRIM_PRICE[p.species] || 10) * (p.size === 'giant' ? 4 : p.size ? 1.5 : 1) * (p.shiny ? 6 : 1));
 const round5 = n => Math.max(5, Math.round(n / 5) * 5);
 
 /* ---------- requests on the notice board ---------- */
@@ -7927,9 +7934,9 @@ function setDialogSpeaker(who) {
   dlgWho = who;
   const pic = dlgEl.querySelector('.prof-pic'), name = dlgEl.querySelector('.dbody b');
   if (profDlgPic === null) profDlgPic = pic.innerHTML;
-  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : who === 'fluff' ? FLUFF_PIC : who === 'carlos' ? CARLOS_PIC : who === 'bouncy' ? BOUNCY_PIC : profDlgPic;
-  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : who === 'fluff' ? 'Lady Fluffytail' : who === 'carlos' ? 'Carlos the Capitalist' : who === 'bouncy' ? 'Lord Bouncybun' : 'Professor Loveopolis';
-  ['scrim', 'teal', 'hop', 'fluff', 'carlos', 'bouncy'].forEach(k => dlgEl.classList.toggle(k, who === k));
+  pic.innerHTML = who === 'scrim' ? SCRIM_PIC : who === 'teal' ? TEAL_PIC : who === 'hop' ? HOP_PIC : who === 'fluff' ? FLUFF_PIC : who === 'carlos' ? CARLOS_PIC : who === 'bouncy' ? BOUNCY_PIC : who === 'lionel' ? LIONEL_PIC : profDlgPic;
+  name.textContent = who === 'scrim' ? 'Scrimple Scrumple' : who === 'teal' ? 'Dr. Tealbottom' : who === 'hop' ? 'Sir Hopsalot' : who === 'fluff' ? 'Lady Fluffytail' : who === 'carlos' ? 'Carlos the Capitalist' : who === 'bouncy' ? 'Lord Bouncybun' : who === 'lionel' ? 'Lionel the Lilypad Leaper' : 'Professor Loveopolis';
+  ['scrim', 'teal', 'hop', 'fluff', 'carlos', 'bouncy', 'lionel'].forEach(k => dlgEl.classList.toggle(k, who === k));
 }
 
 /* ---------- saving ---------- */
@@ -7984,7 +7991,7 @@ const TEAL_STAGES = ['unmet', 'ambush', 'beeangy', 'ufo', 'leaving', 'ranch'];
 const tealState = { stage: 'unmet', ambushDone: false };
 const tealAt = s => TEAL_STAGES.indexOf(tealState.stage) >= TEAL_STAGES.indexOf(s);
 const TELE_COOLDOWN = 600, TELE_HOLD = 3;
-var teleCool = 0, teleCool2 = 0, teleHold = 0, teleZapping = false, mouseFire = false;   // var: the hotbar reads teleCool before this runs
+var teleCool = 0, teleCool2 = 0, teleCool3 = 0, teleHold = 0, teleZapping = false, mouseFire = false;   // var: the hotbar reads teleCool before this runs
 // her field station: the other way along the beach from the ranch
 const TEAL = (() => {
   let best = null;
@@ -8216,53 +8223,57 @@ let teleBtn;
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 6), new THREE.MeshBasicMaterial({ color: 0x2fb5a8 })); tip.position.set(0.022, 0.136, 0); teleModel.add(tip);
 }
 teleModel.visible = false; teleModel.scale.setScalar(0.85); viewScene.add(teleModel);
-function poseTeleHand(bx, by, eqDrop, cbk, green) {
-  const k = teleHold / TELE_HOLD, shake = k > 0 ? (Math.random() - 0.5) * 0.006 * (1 + k * 3) : 0, cool = green ? teleCool2 : teleCool;
+// each remote's colours: [button, button while charging, button flash, ring, body]
+const TELE_LOOK = { tele: [0xff3d5a, 0x7a3a44, 0xffd0d8, 0xa81f37, 0xe8e4f0], tele2: [0x3ddc6a, 0x2f6a3e, 0xd0ffd8, 0x1f8a3e, 0xe4f0e6], tele3: [0xffa020, 0x7a5420, 0xffe6c0, 0xb8641a, 0xf0ece4] };
+function poseTeleHand(bx, by, eqDrop, cbk, item) {
+  const k = teleHold / TELE_HOLD, shake = k > 0 ? (Math.random() - 0.5) * 0.006 * (1 + k * 3) : 0, cool = teleCoolOf(item), L = TELE_LOOK[item] || TELE_LOOK.tele;
   teleModel.position.set(0.17 + bx + shake, -0.16 + by - eqDrop - cbk * 1.2 + shake, -0.5);
   teleModel.rotation.set(0.25, -0.35, -0.12);
   teleModel.visible = climbBlend < 0.5;
   teleBtn.position.z = teleHold > 0 ? 0.012 : 0.019;
   // Dr. Tealbottom's has a red button; Lady Fluffytail's has a green one
-  teleBtnMat.color.setHex(cool > 0 ? (green ? 0x2f6a3e : 0x7a3a44) : teleHold > 0 && Math.floor(time * (6 + k * 14)) % 2 ? (green ? 0xd0ffd8 : 0xffd0d8) : (green ? 0x3ddc6a : 0xff3d5a));
-  teleRingMat.color.setHex(green ? 0x1f8a3e : 0xa81f37);
-  teleBodyMat.color.setHex(green ? 0xe4f0e6 : 0xe8e4f0);
+  teleBtnMat.color.setHex(cool > 0 ? L[1] : teleHold > 0 && Math.floor(time * (6 + k * 14)) % 2 ? L[2] : L[0]);
+  teleRingMat.color.setHex(L[3]);
+  teleBodyMat.color.setHex(L[4]);
   teleLedMat.color.setHex(cool > 0 ? 0xffb03a : 0x5ff07a);
   handR.g.position.set(0.01, -0.064, 0.017).applyQuaternion(teleModel.quaternion).add(teleModel.position);
   handR.g.quaternion.copy(teleModel.quaternion); handR.g.rotateX(-0.3);
 }
 const teleEl = document.getElementById('teleHold'), teleFlash = document.getElementById('teleFlash');
 const fmtCool = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const teleCoolOf = id => id === 'tele2' ? teleCool2 : teleCool;
+const teleCoolOf = id => id === 'tele2' ? teleCool2 : id === 'tele3' ? teleCool3 : teleCool;
 function teleUse() {
   // a click: tell you what's going on (holding is handled every frame)
   const c = teleCoolOf(activeItem());
-  if (c > 0) { sfx.dexNope(); toast(`The ${activeItem() === 'tele2' ? 'green ' : ''}teleporter is still recharging: ${fmtCool(c)} to go.`); }
+  if (c > 0) { sfx.dexNope(); toast(`The ${activeItem() === 'tele2' ? 'green ' : activeItem() === 'tele3' ? 'orange ' : ''}teleporter is still recharging: ${fmtCool(c)} to go.`); }
 }
 function teleportHome(id = 'tele') {
-  const green = id === 'tele2';
+  const green = id === 'tele2', orange = id === 'tele3';
   teleZapping = true; teleHold = 0; tealSfx.zap();
-  teleFlash.classList.toggle('green', green);
+  teleFlash.classList.toggle('green', green); teleFlash.classList.toggle('orange', orange);
   teleFlash.hidden = false; teleFlash.classList.remove('on'); void teleFlash.offsetWidth; teleFlash.classList.add('on');
   for (const k in keys) keys[k] = false;
   setTimeout(() => {
     // red: the ranch, facing the Professor. green: just outside Scrimple's tent, facing him
-    const p = green ? { x: GUY_X, z: GUY_Z } : prof.root.position, [x, z] = green ? scrimWorld(SCRIM_SPOT.guy[0] - 0.6, SCRIM_SPOT.guy[1] + 3.6) : ranchWorld(PROF.u + 1.5, PROF.v + 4);
+    // orange: the foot of your treehouse, looking up at the ladder
+    const p = green ? { x: GUY_X, z: GUY_Z } : orange ? { x: HOUSE.x, z: HOUSE.z } : prof.root.position, [x, z] = green ? scrimWorld(SCRIM_SPOT.guy[0] - 0.6, SCRIM_SPOT.guy[1] + 3.6) : orange ? houseWorld(0.8, 4.6) : ranchWorld(PROF.u + 1.5, PROF.v + 4);
     player.x = x; player.z = z; player.y = heightAt(x, z); player.vx = player.vz = player.vy = 0; player.grounded = true; player.climb = null;
     player.yaw = Math.atan2(x - p.x, z - p.z); player.pitch = 0.05;
     if (partner) { partner.x = x + 1.2; partner.z = z + 0.6; }
     for (const d of ducksharks) if (['charge', 'bite', 'retreat', 'sulk'].includes(d.state)) { d.state = 'float'; d.t = 0; d.tx = d.x; d.tz = d.z; }
     for (const b of beeappies) if (b.state === 'angry') { b.state = 'calm'; b.t = 0; b.tx = b.hx; b.tz = b.hz; }
-    if (green) teleCool2 = TELE_COOLDOWN; else teleCool = TELE_COOLDOWN;
+    if (green) teleCool2 = TELE_COOLDOWN; else if (orange) teleCool3 = TELE_COOLDOWN; else teleCool = TELE_COOLDOWN;
     teleZapping = false; renderHotbar(); saveGame();
     teleFlash.classList.remove('on'); setTimeout(() => { teleFlash.hidden = true; }, 700);
-    toast(green ? 'ZAP! Right outside Scrimple Scrumple’s tent. Smells of lentils. The green teleporter needs ten minutes to recharge.' : 'ZAP! Back at the ranch. The teleporter needs ten minutes to recharge.');
+    if (orange) toast('ZAP! Right at the foot of your treehouse. The orange teleporter needs ten minutes to recharge.'); else toast(green ? 'ZAP! Right outside Scrimple Scrumple’s tent. Smells of lentils. The green teleporter needs ten minutes to recharge.' : 'ZAP! Back at the ranch. The teleporter needs ten minutes to recharge.');
   }, 650);
 }
 function updateTele(dt) {
   if (teleCool > 0 && playing && !paused) { const before = Math.ceil(teleCool / 60); teleCool = Math.max(0, teleCool - dt); if (Math.ceil(teleCool / 60) !== before || teleCool === 0) renderHotbar(); if (teleCool === 0 && inv.owned.tele) toast('Your teleporter has recharged!'); }
   if (teleCool2 > 0 && playing && !paused) { const before = Math.ceil(teleCool2 / 60); teleCool2 = Math.max(0, teleCool2 - dt); if (Math.ceil(teleCool2 / 60) !== before || teleCool2 === 0) renderHotbar(); if (teleCool2 === 0 && inv.owned.tele2) toast('Your green teleporter has recharged!'); }
   const id = activeItem();
-  const holding = playing && !paused && !menuOpen() && !knocked && !teleZapping && (id === 'tele' || id === 'tele2') && inv.eq < 0.05 && !player.climb && teleCoolOf(id) <= 0 && (mouseFire || pad.fire);
+  if (teleCool3 > 0 && playing && !paused) { const before = Math.ceil(teleCool3 / 60); teleCool3 = Math.max(0, teleCool3 - dt); if (Math.ceil(teleCool3 / 60) !== before || teleCool3 === 0) renderHotbar(); if (teleCool3 === 0 && inv.owned.tele3) toast('Your orange teleporter has recharged!'); }
+  const holding = playing && !paused && !menuOpen() && !knocked && !teleZapping && (id === 'tele' || id === 'tele2' || id === 'tele3') && inv.eq < 0.05 && !player.climb && teleCoolOf(id) <= 0 && (mouseFire || pad.fire);
   if (holding) {
     const step = Math.floor(teleHold * 4); teleHold += dt;
     if (Math.floor(teleHold * 4) !== step) tealSfx.charge(teleHold / TELE_HOLD);
@@ -8335,6 +8346,7 @@ function canWalk(x, z) {
   if (d <= INLAND_LIMIT) return true;
   if (!forestState.open) return false;
   if (inPond(x, z, 0.35)) return false;                                  // Glimmer Pond is far too deep to wade
+  if (d > FOREST_OUT + 3.2 && !lionelPassed()) return false;            // Lionel's standing in the gap
   if (d > FOREST_OUT - 0.5) return d > FOREST_OUT + 5.2 || angGap(Math.atan2(z, x), MTN_ENTRY_TH) * Math.hypot(x, z) < 2.6;
   if (d < HEDGE_OUT + 0.5) return gapArc(x, z) < 1.9;
   return true;
@@ -8482,6 +8494,7 @@ function talkToHop(h) {
 function forestBlocked(x, z) {
   const d = inland(x, z);
   if (inPond(x, z, -0.2)) return 'Glimmer Pond is deep, dark and freezing. Best admire it from the bank.';
+  if (d > FOREST_OUT + 2 && !lionelPassed() && angGap(Math.atan2(z, x), MTN_ENTRY_TH) * Math.hypot(x, z) < 3) return 'Lionel the Lilypad Leaper is standing right in the way, arms folded.';
   if (d > FOREST_OUT - 1) return 'The brambles are far too thick here. There must be a way through somewhere...';
   if (!forestState.open && gapArc(x, z) < 2.5) return scrimHere() ? 'Sir Hopsalot is standing right in the way. Perhaps have a word with him?' : 'Something rustles behind the hedge... Best help the Professor first.';
   return 'The hedge is far too thick to push through. There must be a way in somewhere...';
@@ -9520,7 +9533,8 @@ function onReachHouse() {
 let nearHouse = null;
 function houseTarget() {
   if (!scrimHere() || player.climb || houseRide) return null;
-  const pt = pillarTarget(); if (pt) return pt;                     // (the carved pillar on the beach uses the same E prompt)
+  const pt = pillarTarget(); if (pt) return pt;
+  const lt = lionelTarget(); if (lt) return lt;                     // (the carved pillar on the beach uses the same E prompt)
   const up = houseUp();
   if (!up) {
     if (!houseStageAt('carlos')) return facingPoint(bouncy.x, bouncy.z, 3.6) ? { label: 'talk to Lord Bouncybun', act: talkToBouncy } : null;
@@ -9779,6 +9793,7 @@ onReachHouse = () => {
    ========================================================= */
 /* ---------- sleeping: every wild scrumbly wanders back to a fresh spot ---------- */
 function resetWild() {
+  if (lionelState.tip) loseGiantTip();                          // any giant Lionel told you about wanders off too
   for (const list of CREATURE_LISTS) {
     if (list === binks || list === blorbos || list === konekos) continue;              // Bink is one of a kind; Blorbos just keep bubbling
     for (const c of list) {
@@ -10930,6 +10945,271 @@ function showTitanCard(t, isNew) {
   cardEl.hidden = false; cardEl.classList.remove('in'); void cardEl.offsetWidth; cardEl.classList.add('in');
   clearTimeout(cardTimer); cardTimer = setTimeout(() => cardEl.classList.remove('in'), 9000);
 }
+/* =========================================================
+   Islanders: Lionel the Lilypad Leaper, mountain climber
+   A red frog in full climbing gear, guarding the way into Mount Scrumble
+   (so nobody beats him to the top). Prove you're serious about scale:
+   a party of five big scrumblies, then five titans scanned, then the
+   Titan's child, a Giant Bobo. After that he waits just below the peak
+   with hot scoops on giant scrumblies; catch five and he gives you the
+   third teleporter (to the foot of your treehouse).
+   ========================================================= */
+const LIONEL_STAGES = ['unmet', 'bigparty', 'titans', 'giantbobo', 'leaving', 'peak'];
+const lionelState = { stage: 'unmet', giantBoboCaught: false, tip: null, tipCool: 0, giantsCaught: 0, gifted: false, lostTip: null };
+const lionelAt = s => LIONEL_STAGES.indexOf(lionelState.stage) >= LIONEL_STAGES.indexOf(s);
+const lionelPassed = () => lionelAt('leaving');
+const TIP_COOLDOWN = 600;
+function makeLionelMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); scene.add(root);
+  const red = new THREE.MeshLambertMaterial({ color: 0xe0443a, emissive: 0x3a0a08 }), belly = lam(0xffd2b8), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const orange = lam(0xff9a2a), blue = lam(0x2f6fd8), brown = lam(0x8a5a33), rope = lam(0xf2d27a), grey = lam(0x9aa6b8);
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  // sturdy legs in big climbing boots
+  [-1, 1].forEach(s => { add(new THREE.CylinderGeometry(0.11, 0.13, 0.7, 10), red, s * 0.2, 0.42, 0); add(new THREE.BoxGeometry(0.3, 0.2, 0.44), brown, s * 0.21, 0.1, 0.07); add(new THREE.BoxGeometry(0.32, 0.05, 0.46), lam(0x3a2a20), s * 0.21, 0.01, 0.07); });
+  // a round red body in a blue climbing harness
+  add(new THREE.SphereGeometry(0.42, 20, 14), red, 0, 1.05, 0, 1, 1.15, 0.9);
+  add(new THREE.SphereGeometry(0.3, 16, 12), belly, 0, 0.98, 0.21, 0.95, 1.05, 0.62);
+  add(new THREE.TorusGeometry(0.4, 0.04, 6, 24), blue, 0, 0.82, 0, 1, 1, 0.88).rotation.x = Math.PI / 2;
+  [-1, 1].forEach(s => { const st = add(new THREE.BoxGeometry(0.06, 0.6, 0.04), blue, s * 0.17, 1.12, 0.33); st.rotation.z = s * 0.2; });
+  add(new THREE.TorusGeometry(0.06, 0.015, 6, 12), grey, 0.1, 0.8, 0.37);   // a carabiner
+  // a big orange backpack with a coil of rope and an ice axe
+  add(new THREE.BoxGeometry(0.6, 0.7, 0.32), orange, 0, 1.1, -0.42);
+  add(new THREE.BoxGeometry(0.62, 0.18, 0.34), lam(0xd97a1a), 0, 1.4, -0.42);
+  const coil = add(new THREE.TorusGeometry(0.2, 0.06, 8, 20), rope, 0, 0.75, -0.48); coil.rotation.x = Math.PI / 2;
+  const axe = new THREE.Group(); axe.position.set(0.28, 1.2, -0.6); axe.rotation.z = -0.4; body.add(axe);
+  add(new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), brown, 0, 0, 0, 1, 1, 1, axe);
+  add(new THREE.BoxGeometry(0.3, 0.06, 0.04), grey, 0.05, 0.4, 0, 1, 1, 1, axe);
+  // the head: wide frog face, big eyes under goggles, a red climbing helmet with a lamp
+  const head = new THREE.Group(); head.position.y = 1.78; body.add(head);
+  add(new THREE.SphereGeometry(0.36, 22, 16), red, 0, 0, 0, 1.25, 0.8, 1.05, head);
+  const pupils = [];
+  [-1, 1].forEach(s => {
+    add(new THREE.SphereGeometry(0.15, 14, 10), red, s * 0.27, 0.26, 0.06, 1, 0.95, 0.95, head);
+    add(new THREE.SphereGeometry(0.1, 12, 10), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x444444 }), s * 0.27, 0.28, 0.17, 1, 1, 1, head);
+    const p = add(new THREE.SphereGeometry(0.055, 10, 8), dark, s * 0.27, 0.28, 0.26, 1, 1, 0.6, head); pupils.push(p);
+    add(new THREE.SphereGeometry(0.05, 10, 8), lam(0xff9a8a), s * 0.35, -0.06, 0.28, 1.2, 0.7, 0.4, head);
+  });
+  const smile = new THREE.TorusGeometry(0.36, 0.018, 6, 26, Math.PI * 0.42); smile.rotateX(Math.PI / 2); smile.rotateY(Math.PI * 0.21 - Math.PI / 2);
+  add(smile, lam(0x7a1a14), 0, -0.07, 0, 1.25, 1, 1.06, head).rotation.x = 0.22;
+  // goggles pushed up, on the helmet
+  const helm = add(new THREE.SphereGeometry(0.37, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), lam(0xd8323a), 0, 0.33, -0.06, 1.3, 1, 1.12, head);
+  add(new THREE.TorusGeometry(0.47, 0.03, 6, 26), lam(0xb8262c), 0, 0.4, -0.06, 1, 0.88, 1, head).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 14), grey, 0, 0.56, 0.3, 1, 1, 1, head).rotation.x = Math.PI / 2 - 0.4;
+  add(new THREE.CircleGeometry(0.06, 12), new THREE.MeshBasicMaterial({ color: 0xfff2a8 }), 0, 0.57, 0.335, 1, 1, 1, head).rotation.x = -0.4;
+  // arms: one waving, one on his hip
+  const arms = [-1, 1].map(s => { const piv = new THREE.Group(); piv.position.set(s * 0.42, 1.35, 0); body.add(piv); add(new THREE.CylinderGeometry(0.07, 0.08, 0.55, 10), red, 0, -0.27, 0, 1, 1, 1, piv); add(new THREE.SphereGeometry(0.1, 12, 10), lam(0xffd2b8), 0, -0.57, 0.02, 1, 1, 1, piv); piv.rotation.z = s * 0.25; return piv; });
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.65); mark.renderOrder = 7; mark.position.y = 2.75; root.add(mark);
+  return compactCreature({ root, body, head, arms, mark, pupils, tag: null, face: 0, wave: 0, blink: 2, x: 0, z: 0, y: 0, baseYaw: 0, greeted: false });
+}
+const lionel = makeLionelMesh(), lionelRanch = makeLionelMesh();
+[lionel, lionelRanch].forEach(l => { l.tag = nameTag('Lionel the Lilypad Leaper'); l.tag.position.y = 2.55; l.root.add(l.tag); });
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => [lionel, lionelRanch].forEach(l => { l.root.remove(l.tag); l.tag = nameTag('Lionel the Lilypad Leaper'); l.tag.position.y = 2.55; l.root.add(l.tag); }));
+const LIONEL_GATE = (() => { const [x, z] = polar(MTN_ENTRY_TH, FOREST_OUT + 2.4); return { x, z, yaw: Math.atan2(-x, -z) + Math.PI }; })();   // facing out of the gap
+const LIONEL_PEAK = (() => { const a = R3at + 0.5, r = (mtnR3(a) + MTN_PEAK_R) / 2; return { x: Math.cos(a) * r, z: Math.sin(a) * r, y: MTN_TOP.p3, yaw: Math.atan2(Math.cos(a), Math.sin(a)) }; })();
+function placeLionel() {
+  const L = lionel;
+  if (lionelAt('peak')) { L.x = LIONEL_PEAK.x; L.z = LIONEL_PEAK.z; L.y = LIONEL_PEAK.y; L.baseYaw = LIONEL_PEAK.yaw; }
+  else { L.x = LIONEL_GATE.x; L.z = LIONEL_GATE.z; L.y = heightAt(L.x, L.z); L.baseYaw = LIONEL_GATE.yaw; }
+  L.root.position.set(L.x, L.y, L.z);
+  const [rx, rz] = ranchWorld(-9.2, 3.2); Object.assign(lionelRanch, { x: rx, z: rz, y: heightAt(rx, rz), baseYaw: RANCH_YAW }); lionelRanch.root.position.set(rx, lionelRanch.y, rz);
+}
+placeLionel();
+const lionelsHere = () => [lionel].concat(lionelState.gifted ? [lionelRanch] : []);
+function collideLionel(x, z) {
+  if (!scrimHere()) return [x, z];
+  for (const L of lionelsHere()) {
+    if (!L.root.visible || Math.abs(player.y - L.y) > 1.5) continue;
+    const dx = x - L.x, dz = z - L.z, d = Math.hypot(dx, dz), rr = 0.55 + PLAYER_R;
+    if (d < rr) { const k = (rr - d) / Math.max(d, 1e-3); x += dx * k; z += dz * k; }
+  }
+  return [x, z];
+}
+function lionelTarget() {
+  if (!scrimHere() || player.climb) return null;
+  for (const L of lionelsHere()) if (L.root.visible && Math.abs(player.y - L.y) < 1.5 && facingPoint(L.x, L.z, 3.6)) return { label: 'talk to Lionel the Lilypad Leaper', act: () => talkToLionel(L) };
+  return null;
+}
+const lionelSfx = {
+  talk() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 3; i++) { const f = 260 + Math.random() * 120; tone(t + i * 0.08, f * 1.3, f, 0.07, 0.07, 'square'); } },
+  hello() { if (!actx) return; const t = actx.currentTime; [60, 67, 72].forEach((m, i) => tone(t + i * 0.1, mtof(m), mtof(m), 0.3, 0.05, 'triangle')); },
+  rumble() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 8; i++) noiseHit(t + i * 0.2, 'lowpass', 140, 0.3, 0.45, sfxBus, 1.3); tone(t, 50, 36, 2.6, 0.14, 'sawtooth'); }
+};
+const LIONEL_PIC = '<svg viewBox="0 0 64 64"><circle cx="17" cy="22" r="9" fill="#e0443a"/><circle cx="47" cy="22" r="9" fill="#e0443a"/><ellipse cx="32" cy="38" rx="26" ry="19" fill="#e0443a"/><path d="M8 24 Q32 2 56 24 L56 20 Q32 -2 8 20 Z" fill="#d8323a"/><path d="M6 24 Q32 8 58 24" stroke="#b8262c" stroke-width="3" fill="none"/><circle cx="32" cy="11" r="4" fill="#9aa6b8"/><circle cx="32" cy="11" r="2.4" fill="#fff2a8"/><circle cx="17" cy="23" r="6" fill="#fff"/><circle cx="47" cy="23" r="6" fill="#fff"/><circle cx="17.5" cy="24" r="3.4" fill="#1d1b22"/><circle cx="46.5" cy="24" r="3.4" fill="#1d1b22"/><path d="M20 45 Q32 53 44 45" stroke="#7a1a14" stroke-width="2.6" fill="none" stroke-linecap="round"/><ellipse cx="12" cy="40" rx="3.6" ry="2.2" fill="#ff9a8a"/><ellipse cx="52" cy="40" rx="3.6" ry="2.2" fill="#ff9a8a"/><path d="M14 64 L18 56 L46 56 L50 64 Z" fill="#ff9a2a"/><path d="M24 56 L22 64 M40 56 L42 64" stroke="#2f6fd8" stroke-width="3"/></svg>';
+
+/* ---------- giants: Lionel's hot scoops ---------- */
+const TIP_SPECIES = { bobo: () => bobos, mermiggly: () => mermigglies, speshul: () => speshuls, pengin: () => pengins, duckshark: () => ducksharks, weevil: () => weevils, beeappy: () => beeappies, glimmery: () => glimmeries, raebit: () => raebits, blorbo: () => blorbos, willowet: () => willowets, flops: () => flopses, sita: () => sitas, froggle: () => froggles, pretzello: () => pretzellos };
+const tipWhere = id => (SPECIES[id].where || '').replace(' · ', ', ');   // e.g. "Glimmerwood, the river"
+function makeGiant(species) {
+  const list = TIP_SPECIES[species](), ok = list.filter(c => c.root && !['caught', 'gone', 'trapped', 'eaten'].includes(c.state) && !(species === 'beeappy' && c.state === 'angry'));
+  const c = ok.length ? ok[Math.floor(Math.random() * ok.length)] : null;
+  if (!c) return null;
+  c.giantTip = true; applySize(c, 'giant');
+  lionelState.tip = { species, c };
+  return c;
+}
+const RUNAWAY = [
+  'The giant {X} ran away while you weren’t looking.',
+  'The giant {X} went back to its home planet. Probably.',
+  'The giant {X} wandered off to find somewhere roomier.',
+  'The giant {X} got bored of waiting and went home.',
+  'The giant {X} shrank back to normal size. Nobody knows how. Lionel will be furious.'
+];
+function loseGiantTip(silent) {
+  const t = lionelState.tip; if (!t) return;
+  if (t.c) { t.c.giantTip = false; if (t.c.size === 'giant') applySize(t.c, null); }
+  lionelState.tip = null;
+  if (!silent) setTimeout(() => toast(pick1(RUNAWAY).replace('{X}', SPECIES[t.species].name)), 1600);
+}
+// any giant you catch: the Giant Bobo for the gate, and toward Lionel's five-giant gift
+function lionelOnCatch(species, size) {
+  if (size !== 'giant') return;
+  const t = lionelState.tip;
+  if (t && t.species === species) { if (t.c) t.c.giantTip = false; lionelState.tip = null; }
+  if (lionelState.stage === 'giantbobo' && species === 'bobo') { lionelState.giantBoboCaught = true; saveGame(); setTimeout(() => toast('You caught the Giant Bobo! Lionel will want to see... well, hear about this.'), 1800); return; }
+  if (lionelAt('peak') && !lionelState.gifted) {
+    lionelState.giantsCaught++; saveGame();
+    if (lionelState.giantsCaught >= 5) setTimeout(lionelGift, 2200);
+    else setTimeout(() => toast(`Giant scrumblies caught: ${lionelState.giantsCaught} / 5. Lionel’s gift is getting closer!`), 1800);
+  }
+}
+function lionelGift() {
+  lionelState.gifted = true; saveGame(); lionelSfx.hello();
+  openDialog([
+    { text: '*a voice echoes down from the mountaintop* OI! I SAW THAT! FIVE GIANTS! You absolute legend!' },
+    { text: 'A promise is a promise. I found this wedged in a crevasse. It’s got an orange button and a sticker that says “HOME-ISH”.' },
+    { text: 'An orange teleporter! Hold its button for a few seconds and it zaps you to the foot of your treehouse.', give: 'tele3' },
+    { text: 'Ten minutes to recharge, like the others. And I’ve started hanging about by the ranch too. The Professor makes a great cup of pond tea.' }
+  ], null, 'lionel');
+}
+
+/* ---------- what he says ---------- */
+const TITAN_HINTS = {
+  duckshark: 'There’s a duckshark out at sea the size of a hill, circling round. Stand on the beach and look out past the waves.',
+  beeappy: 'Ever look up? Way, WAY up? Something big and buzzy goes round and round up there.',
+  mermiggly: 'Across the sea from that giant duckshark, something huge rises up to wave at the island now and then. Keep watching the horizon.',
+  raebit: 'There’s a pond in the forest. A fellow climber told me apples make things... surface. Strange, eh?',
+  bobo: 'Old carved pillar in the shallows. Five carvings, top to bottom. If I didn’t know better, I’d say it wants a very particular party line-up.'
+};
+const bigParty = () => party.length >= 5 && party.slice(0, 5).every(p => p.size === 'big' || p.size === 'giant');
+function shakeWorld(secs) { lionelShake = Math.max(lionelShake, secs); lionelSfx.rumble(); }
+let lionelShake = 0;
+function talkToLionel(L) {
+  L.wave = 1.6; lionelSfx.hello();
+  const s = lionelState.stage, done = () => saveGame();
+  if (s === 'unmet') {
+    openDialog([
+      { text: 'Whoa there! HALT! Hold it right there! Lionel the Lilypad Leaper, conqueror of peaks, at your service. Well. Not at your service. In your way.' },
+      { text: 'I’ve climbed every mountain in the land. Every single one. And then I heard about THIS island, and THIS mountain. My final challenge!' },
+      { text: 'It’s incredible. Magnificent. And my legs are absolutely killing me. So I’m having a little sit. A strategic sit.' },
+      { text: 'Which means I can’t let ANYONE through. You’d get to the top first! ...You’re just catching scrumblies, you say? Hmm. That’s exactly what a peak-snatcher would say.' },
+      { text: 'Maybe... if you were as serious about mountains as I am. As serious about BIG things. Then I might believe you.' },
+      { text: 'Come back with a whole party of BIG scrumblies. All five. Then we’ll talk.' }
+    ], () => { lionelState.stage = 'bigparty'; done(); }, 'lionel');
+  } else if (s === 'bigparty') {
+    if (!bigParty()) {
+      const P = party[0];
+      if (P && (P.size === 'big' || P.size === 'giant')) return openDialog([{ text: `A big ${SPECIES[P.species].name}? Pfft. One big scrumbly isn’t nearly enough to demonstrate your commitment to SCALE. All five, friend. All five, all big.` }], null, 'lionel');
+      return openDialog([{ text: pick1(['A whole party of BIG scrumblies, remember. Five of them. Big ones. Not medium. Not “big-ish”.', 'Still no big party? The mountain waits for no one. Except me. It waits for me.', 'Big, big, big, big, big. That’s five bigs. Bring me that.']) }], null, 'lionel');
+    }
+    openDialog([
+      { text: 'Five... ENORMOUS... scrumblies. Look at the size of them! You really ARE serious about scale!' },
+      { text: 'Alright. I believe you. You may pass, fellow giant-enthusiast. Let me just shift my aching legs and-' }
+    ], () => {
+      shakeWorld(2.2);
+      setTimeout(() => openDialog([
+        { text: 'WHOA! Did you feel that?! The whole island SHOOK!' },
+        { text: 'It must be the Titans. The biggest scrumblies on and around this island. When they get restless, the ground rumbles. Everybody knows that.' },
+        { text: 'It isn’t safe to go up until we know more about them. Tell you what: scan at least five Titans with that gadget of yours, and I’ll let you through. Deal?' }
+      ], () => { lionelState.stage = 'titans'; done(); }, 'lionel'), 2400);
+    }, 'lionel');
+  } else if (s === 'titans') {
+    if (titansScanned.size < 5) {
+      const missing = TITANS.filter(t => !titansScanned.has(t.id));
+      const h = missing.length ? TITAN_HINTS[pick1(missing).id] : '';
+      return openDialog([{ text: `Titans scanned: ${titansScanned.size} of the 5 I need. Here’s a tip from an old climber: ${h}` }], null, 'lionel');
+    }
+    openDialog([
+      { text: 'Five Titans! Incredible! And listen... you have to believe me on this one.' },
+      { text: 'I think I saw a Titan... give birth. I won’t get into the details. You’ll just have to trust me. It was a lot.' },
+      { text: 'There’s a GIANT Bobo down on the beach. Bigger than any Bobo has a right to be. It must be the Titan’s child!' },
+      { text: 'Bring it to me. Well, catch it. Then I’ll know you’re the real deal.' }
+    ], () => { lionelState.stage = 'giantbobo'; if (!lionelState.tip) makeGiant('bobo'); done(); }, 'lionel');
+  } else if (s === 'giantbobo') {
+    if (!lionelState.giantBoboCaught) {
+      if (!lionelState.tip) { makeGiant('bobo'); return openDialog([{ text: 'Lost it? I just spotted it again, out on the beach! Giant Bobo. Can’t miss it. Well. You did. But you won’t this time!' }], null, 'lionel'); }
+      return openDialog([{ text: pick1(['The Giant Bobo, on the beach! Catch it! Mind it doesn’t burrow, they’re sneaky for their size.', 'A Bobo the size of a boulder, friend. On the beach. Go, go, go!']) }], null, 'lionel');
+    }
+    openDialog([
+      { text: 'You caught the Titan’s child?! You actually did it! I... I’m almost speechless. Almost.' },
+      { text: 'Fine! FINE. You’re clearly serious about big things. The mountain is yours to climb.' },
+      { text: 'But don’t think you’ve beaten me. I’ll see you up there. Find me near the top, once my legs have had a little sit.' }
+    ], () => { lionelState.stage = 'leaving'; done(); toast('Lionel hops off up the mountain. The way is open!'); }, 'lionel');
+  } else {
+    // just below the peak (or by the ranch): hot scoops on giant scrumblies
+    const caught = lionelState.giantsCaught;
+    if (lionelState.tip) return openDialog([{ text: `Have you caught that giant ${SPECIES[lionelState.tip.species].name} yet? Last I saw it: ${tipWhere(lionelState.tip.species)}.` + (lionelState.gifted ? '' : ` That’s ${caught} of 5 so far.`) }], null, 'lionel');
+    if (lionelState.tipCool > 0) return openDialog([{ text: `*puff puff* Just catching my breath. No new scoops yet. Check back in about ${Math.max(1, Math.ceil(lionelState.tipCool / 60))} minute${Math.ceil(lionelState.tipCool / 60) === 1 ? '' : 's'}.` }], null, 'lionel');
+    const pool = Object.keys(TIP_SPECIES).filter(id => TIP_SPECIES[id]().some(c => c.root && !['caught', 'gone', 'trapped', 'eaten'].includes(c.state)));
+    const sp = pick1(pool), c = sp && makeGiant(sp);
+    if (!c) return openDialog([{ text: 'Hmm, no giants about right now. Give it a minute, eh?' }], null, 'lionel');
+    lionelState.tipCool = TIP_COOLDOWN; saveGame();
+    openDialog([
+      { text: `HOT SCOOP! I spotted a GIANT ${SPECIES[sp].name}! Where? ${tipWhere(sp)}. Biggest one I’ve ever seen!` },
+      { text: lionelState.gifted ? 'Go get it, champ. I’ll have another scoop for you in ten minutes or so.' : `Catch five giants and I’ll give you something special. You’re on ${caught} of 5. Off you go!` }
+    ], null, 'lionel');
+  }
+}
+
+/* ---------- every frame ---------- */
+function updateLionel(dt) {
+  if (lionelShake > 0) { lionelShake -= dt; const k = playing && !paused && !menuOpen() && !knocked ? Math.min(1, lionelShake) : 0; camera.position.x += (Math.random() - 0.5) * 0.35 * k; camera.position.y += (Math.random() - 0.5) * 0.25 * k; camera.position.z += (Math.random() - 0.5) * 0.35 * k; }
+  if (lionelState.tipCool > 0 && playing && !paused) lionelState.tipCool = Math.max(0, lionelState.tipCool - dt);
+  const here = scrimHere();
+  // once he's off, he heads up the mountain as soon as you're out of sight
+  if (lionelState.stage === 'leaving' && Math.hypot(player.x - lionel.x, player.z - lionel.z) > 30 && !dialogOpen) { lionelState.stage = 'peak'; placeLionel(); saveGame(); }
+  lionel.root.visible = here;
+  lionelRanch.root.visible = here && lionelState.gifted;
+  for (const L of lionelsHere()) {
+    if (!L.root.visible) continue;
+    const d = Math.hypot(player.x - L.x, player.z - L.z);
+    if (d > 70) continue;
+    const a = Math.atan2(player.x - L.x, player.z - L.z) - L.baseYaw, want = d < 12 ? Math.atan2(Math.sin(a), Math.cos(a)) : 0;   // wrapped to ±π
+    L.face += angDiff(L.face, want) * Math.min(1, dt * 3);
+    L.root.rotation.y = L.baseYaw + L.face;
+    // at the top he's puffing and panting; at the gate he bounces on his toes
+    const puff = lionelAt('peak') && L === lionel;
+    L.body.position.y = puff ? Math.abs(Math.sin(time * 5)) * 0.02 : Math.abs(Math.sin(time * 2.4)) * 0.05;
+    L.head.rotation.z = Math.sin(time * 1.3) * 0.06;
+    if (!L.greeted && d < 14 && playing && Math.abs(player.y - L.y) < 4) {
+      L.greeted = true; L.wave = 1.6; lionelSfx.hello();
+      toast(lionelState.stage === 'unmet' ? 'A red frog in climbing gear is standing in the gap, arms folded...' : puff ? 'Lionel: "*puff* *puff* Oh, hello! Got a hot scoop for you, if you want one!"' : 'Lionel: "Well, well! Back again?"');
+    }
+    if (d > 30) L.greeted = false;
+    if (L.wave > 0) L.wave -= dt;
+    const talking = dialogOpen && dlgWho === 'lionel';
+    L.arms[1].rotation.z = L.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.3 : talking ? 1.1 + Math.sin(time * 6) * 0.35 : 0.22;
+    L.arms[0].rotation.z = -0.22; L.arms[0].rotation.x = 0.1;
+    L.blink -= dt; const bl = L.blink < 0.12; if (L.blink < 0) L.blink = 2 + Math.random() * 3; L.pupils.forEach(p => { p.scale.y = bl ? 0.15 : 1; });
+    const ready = lionelState.stage === 'unmet' || (lionelState.stage === 'bigparty' && bigParty()) || (lionelState.stage === 'titans' && titansScanned.size >= 5) || (lionelState.stage === 'giantbobo' && lionelState.giantBoboCaught) || (lionelAt('peak') && !lionelState.tip && lionelState.tipCool <= 0);
+    L.mark.visible = ready; if (ready) L.mark.position.y = 2.75 + Math.abs(Math.sin(time * 3)) * 0.25;
+    if (L.tag) L.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
+  }
+}
+function lionelSave() { return { stage: lionelState.stage, giantBoboCaught: lionelState.giantBoboCaught, tipCool: Math.round(lionelState.tipCool), giantsCaught: lionelState.giantsCaught, gifted: lionelState.gifted, tip: lionelState.tip ? lionelState.tip.species : null, teleCool3: Math.round(teleCool3) }; }
+function lionelLoad(o) {
+  o = o && typeof o === 'object' ? o : {};
+  if (lionelState.tip) loseGiantTip(true);
+  lionelState.stage = LIONEL_STAGES.includes(o.stage) ? o.stage : 'unmet';
+  if (lionelState.stage === 'leaving') lionelState.stage = 'peak';
+  lionelState.giantBoboCaught = !!o.giantBoboCaught; lionelState.tipCool = clamp(+o.tipCool || 0, 0, TIP_COOLDOWN);
+  lionelState.giantsCaught = clamp(Math.floor(+o.giantsCaught || 0), 0, 99); lionelState.gifted = !!o.gifted;
+  teleCool3 = clamp(+o.teleCool3 || 0, 0, TELE_COOLDOWN);
+  // a giant you'd been told about doesn't survive a quit: it's gone home
+  if (o.tip && SPECIES[o.tip]) setTimeout(() => toast(pick1(RUNAWAY).replace('{X}', SPECIES[o.tip].name)), 2500);
+  lionel.greeted = lionelRanch.greeted = false; placeLionel();
+}
+GIFT.tele3 = { name: 'Orange Teleporter', blurb: 'Hold the orange button to zap to the foot of your treehouse', icon: 'tele3', give() { inv.owned.tele3 = true; teleCool3 = 0; return 7; } };
+
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -10984,7 +11264,7 @@ canvas.addEventListener('mouseup', e => {
 window.addEventListener('keydown', e => {
   if (!playing || paused || e.repeat) return;
   if (e.code === 'KeyE') pickQueued = true;
-  const n = /^Digit([1-7])$/.exec(e.code); if (n) selectSlot(+n[1] - 1);
+  const n = /^Digit([1-8])$/.exec(e.code); if (n) selectSlot(+n[1] - 1);
   if (e.code === 'KeyQ') cycleSlot(1);
 });
 canvas.addEventListener('wheel', e => { if (!playing || paused) return; e.preventDefault(); if (Math.abs(e.deltaY) > 2) cycleSlot(e.deltaY > 0 ? 1 : -1); }, { passive: false });
@@ -11062,6 +11342,7 @@ function tick(dt) {
   updateKoneko(dt);
   updateGiantRaebit(dt);
   updatePillar(dt);
+  updateLionel(dt);
   updateFroggles(dt);
   updateRanch(dt);
   updateScrim(dt);
@@ -11131,7 +11412,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
