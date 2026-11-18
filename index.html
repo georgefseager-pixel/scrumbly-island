@@ -2214,7 +2214,8 @@ function rollSize() { const r = Math.random(); return r < 0.08 ? 'big' : r < 0.1
 /* ---------- Shiny variants: about 1 in 40 scrumblies has its own special colours ---------- */
 const SHINY_RATE = 1 / 60;
 var debugInfinite = false;   // a debug game: bottomless apples and rocks
-var biggleNamed = false;     // the first Small Friggly you catch is always Biggle Baggle
+var biggleNamed = false;
+var nextPill = null;          // the colour and face of the Lovepill being caught     // the first Small Friggly you catch is always Biggle Baggle
 const rollShiny = () => Math.random() < SHINY_RATE;
 // per species: rotate the hue of coloured parts, and tint the white/grey parts
 const SHINY = {
@@ -2323,6 +2324,7 @@ function catchScrumbly(species, size, ambush, shiny) {
   catchBurst();
   dexMarkCaught(species);
   const p = addToParty(species, null, false, size, shiny);
+  if (species === 'lovepill') p.pill = nextPill || rollPill();
   if (species === 'friggly' && size === 'small' && !biggleNamed) { biggleNamed = true; p.name = 'Biggle Baggle'; renderPartyHud(); }   // the first little bowtied Friggly is always this one
   lionelOnCatch(species, size);
   tutOnCatch(p);
@@ -2368,6 +2370,7 @@ function tryNetCatch() {
   if (netLubbings()) got = true;
   if (netWeckles()) got = true;
   if (netBerries()) got = true;
+  if (netLovepills()) got = true;
   if (netFroggles()) got = true;
   if (!got) netWeevils();
   return got;
@@ -2961,7 +2964,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : species === 'koneko' ? makeKonekoMesh() : species === 'chupi' ? makeChupiMesh() : species === 'friggly' ? makeFrigglyMesh(false) : species === 'fraggly' ? makeFrigglyMesh(true) : species === 'jiggly' ? makeFrigglyMesh(false, true) : species === 'tiggly' ? makeFrigglyMesh(false, false, true) : species === 'geckolo' ? makeFrigglyMesh(false, false, false, true) : species === 'lubbing' ? makeLubbingMesh() : species === 'weckle' ? makeWeckleMesh() : species === 'beriboi' ? makeBerryMesh(false) : species === 'berigal' ? makeBerryMesh(true) : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : species === 'koneko' ? makeKonekoMesh() : species === 'chupi' ? makeChupiMesh() : species === 'friggly' ? makeFrigglyMesh(false) : species === 'fraggly' ? makeFrigglyMesh(true) : species === 'jiggly' ? makeFrigglyMesh(false, true) : species === 'tiggly' ? makeFrigglyMesh(false, false, true) : species === 'geckolo' ? makeFrigglyMesh(false, false, false, true) : species === 'lubbing' ? makeLubbingMesh() : species === 'weckle' ? makeWeckleMesh() : species === 'beriboi' ? makeBerryMesh(false) : species === 'berigal' ? makeBerryMesh(true) : species === 'lovepill' ? makeLovepillMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -6038,6 +6041,7 @@ function scrumblyCandidates() {
   for (const z of pretzellos) if (z.root.visible && (z.state === 'still' || z.state === 'snack')) out.push({ o: z, id: 'pretzello', y: 0.2 * z.s });
   for (const c of chupis) if (c.root.visible && c.state !== 'caught' && c.state !== 'gone') out.push({ o: c, id: 'chupi', y: 0.5 * c.s });
   for (const c of weckles) if (c.root.visible && !['caught', 'gone'].includes(c.state)) out.push({ o: c, id: 'weckle', y: 0.6 * c.s });
+  for (const c of lovepills) if (c.state === 'stuck') out.push({ o: c, id: 'lovepill', y: 0.3 * c.s });
   for (const c of beribois.concat(berigals)) if (c.root.visible && ['hop', 'fall'].includes(c.state)) out.push({ o: c, id: c.species, y: 0.22 * c.s });
   if (blob.root.visible && blob.state === 'float') out.push({ o: blob, id: 'blob', y: 0, mystery: true, r: blobR() });
   for (const c of lubbings) if (c.root.visible && !['caught', 'gone'].includes(c.state)) out.push({ o: c, id: 'lubbing', y: 0.6 * c.s });
@@ -6455,7 +6459,7 @@ function refreshResidents() {
   residents = pool.map(p => {
     const water = p.species === 'mermiggly' || p.species === 'duckshark';
     const c = makeSpeciesMesh(p.species);
-    applySize(c, p.size); applyShiny(c, p.shiny, p.species);
+    applySize(c, p.size); applyShiny(c, p.shiny, p.species); dressPill(c, p);
     const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = TAG_HIGH[p.species] || (water ? 1.5 : 1.15);
     tag.scale.multiplyScalar(1 / c.s);
     const [u, v] = penSpot(water);
@@ -6653,7 +6657,7 @@ function syncPartner() {
   if (!p) return;
   const water = p.species === 'mermiggly';
   const c = makeSpeciesMesh(p.species);
-  applySize(c, p.size); applyShiny(c, p.shiny, p.species);
+  applySize(c, p.size); applyShiny(c, p.shiny, p.species); dressPill(c, p);
   const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = TAG_HIGH[p.species] || (water ? 1.5 : 1.15); tag.scale.multiplyScalar(1 / c.s);
   // appear just behind you with a little puff
   const x = old ? old.x : player.x - fwd.x * 2, z = old ? old.z : player.z - fwd.z * 2;
@@ -6965,7 +6969,7 @@ function updateTraps(dt) {
    Save & load: autosave, three slots, save files, pause menu
    ========================================================= */
 const TRAP_TOTAL = 3;
-const packP = p => p && Object.assign({ species: p.species, name: p.name, size: p.size || null, shiny: !!p.shiny }, isFinite(p.growT) ? { growT: Math.round(p.growT) } : {}, p.species === 'friggly' && p.fed ? { fed: p.fed } : {}, p.home ? { home: true } : {});
+const packP = p => p && Object.assign({ species: p.species, name: p.name, size: p.size || null, shiny: !!p.shiny }, isFinite(p.growT) ? { growT: Math.round(p.growT) } : {}, p.species === 'friggly' && p.fed ? { fed: p.fed } : {}, p.pill ? { pill: { c: p.pill.c, f: p.pill.f } } : {}, p.home ? { home: true } : {});
 function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
@@ -6977,7 +6981,7 @@ function snapshot() {
     debug: debugInfinite, biggle: biggleNamed, music: musicOn
   };
 }
-const unpackP = p => p && SPECIES[p.species] && p.name ? Object.assign(makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny), p.species === 'sita' && isFinite(p.growT) ? { growT: clamp(+p.growT, 0, 600) } : {}, p.home ? { home: true } : {}, p.species === 'friggly' && isFinite(p.fed) ? { fed: clamp(Math.floor(+p.fed), 0, 99) } : {}) : null;
+const unpackP = p => p && SPECIES[p.species] && p.name ? Object.assign(makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny), p.species === 'sita' && isFinite(p.growT) ? { growT: clamp(+p.growT, 0, 600) } : {}, p.home ? { home: true } : {}, p.species === 'friggly' && isFinite(p.fed) ? { fed: clamp(Math.floor(+p.fed), 0, 99) } : {}, p.species === 'lovepill' ? { pill: p.pill && isFinite(p.pill.c) && isFinite(p.pill.f) ? { c: clamp(Math.floor(p.pill.c), 0, 5), f: clamp(Math.floor(p.pill.f), 0, 3) } : rollPill() } : {}) : null;
 function setRockCount(n) {
   const held = rocks.filter(r => r.state === 'inv');
   while (held.length > n) {
@@ -7299,7 +7303,7 @@ const WELCOME_SPECIES = {
 function showTitlePartner() {
   const s = readSave(SAVE_KEY), p = s && Array.isArray(s.party) && unpackP(s.party[0]);
   if (!p) return;
-  const c = makeSpeciesMesh(p.species); applySize(c, p.size); applyShiny(c, p.shiny, p.species);
+  const c = makeSpeciesMesh(p.species); applySize(c, p.size); applyShiny(c, p.shiny, p.species); dressPill(c, p);
   titleScene.add(c.root);                                   // move it out of the island into the title overlay
   const base = c.s > 1.2 ? 0.75 : c.s < 0.8 ? 1.25 : 1;
   titlePal = { c, p, base, hop: 0, next: 1.5 };
@@ -9657,7 +9661,8 @@ function houseTarget() {
   if (!scrimHere() || player.climb || houseRide) return null;
   const pt = pillarTarget(); if (pt) return pt;
   const lt = lionelTarget(); if (lt) return lt;
-  const zt = mzipTarget(); if (zt) return zt;                     // (the carved pillar on the beach uses the same E prompt)
+  const zt = mzipTarget(); if (zt) return zt;
+  const lp = lovepillTarget(); if (lp) return lp;                     // (the carved pillar on the beach uses the same E prompt)
   const up = houseUp();
   if (!up) {
     if (!houseStageAt('carlos')) return facingPoint(bouncy.x, bouncy.z, 3.6) ? { label: 'talk to Lord Bouncybun', act: talkToBouncy } : null;
@@ -9846,7 +9851,7 @@ function petSpot() {
   housePets.forEach(r => scene.remove(r.c.root));
   party.forEach(p => { p.home = false; });                  // anyone you take out in your party stops living at home
   housePets = homePets().map(p => {
-    const c = makeSpeciesMesh(p.species); applySize(c, p.size); applyShiny(c, p.shiny, p.species);
+    const c = makeSpeciesMesh(p.species); applySize(c, p.size); applyShiny(c, p.shiny, p.species); dressPill(c, p);
     const tag = nameTag(fullName(p)); c.root.add(tag); tag.position.y = TAG_HIGH[p.species] || 1.15; tag.scale.multiplyScalar(1 / c.s);
     const [u, v] = petSpot();
     return { p, c, tag, u, v, tu: u, tv: v, wait: Math.random() * 2, hop: Math.random() * 3, face: Math.random() * 6.28, heartT: 0, coo: 0 };
@@ -12894,6 +12899,146 @@ function updateBlob(dt) {
   b.root.scale.setScalar(b.scale); b.root.position.set(b.x, b.y, b.z); b.root.rotation.set(0, b.face, 0);
 }
 
+/* =========================================================
+   Scrumblies: Lovepills, the little capsule friends stuck to the cliffs
+   A coloured top, a white bottom and a happy little face. Every one has
+   its own colour (six of them) and expression (four), and a Shiny is
+   gold all over. They cling to Mount Scrumble's cliff walls, some low
+   enough to reach, some halfway up (net those as you drop past!). They
+   never fight, just wiggle shyly when you come near, and if you're hurt
+   you can eat one instead: it heals you by a heart.
+   ========================================================= */
+const PILL_COLS = [0xff7a2a, 0x5ad0e8, 0xffd62a, 0xff7ab0, 0x5cc85c, 0xa07ae0];
+const PILL_COL_NAMES = ['orange', 'sky blue', 'yellow', 'pink', 'green', 'purple'];
+SPECIES.lovepill = {
+  name: 'Lovepill', num: 30, where: 'Mount Scrumble · stuck to the cliff walls',
+  icon: '<svg viewBox="0 0 48 48"><rect x="15" y="4" width="18" height="40" rx="9" fill="#fff" stroke="#e4e0ea" stroke-width="1.2"/><path d="M15 13 a9 9 0 0 1 18 0 V24 H15 Z" fill="#5ad0e8"/><path d="M18 9 a6 6 0 0 1 4 -3" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/><path d="M19.5 29 l2.5 1.6 -2.5 1.6 M28.5 29 l-2.5 1.6 2.5 1.6" stroke="#4a3a4a" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M21.5 35 Q24 37.5 26.5 35" stroke="#4a3a4a" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>',
+  fact: 'Every Lovepill has its very own colour and its very own face, and no two are quite alike. They cling to the mountainside soaking up the sunshine, and are said to be the most wholesome thing on the whole island.',
+  hint: 'Stuck fast to the cliff walls all around Mount Scrumble, never budging. Some are easy to reach; some are halfway up a wall, so you\'ll have to think about how to get close. Feeling poorly? Lovepills are famously good for you.'
+};
+SHINY.lovepill = { shift: 0.13, tint: 1, sat: 0.8, light: 1.2, css: 'sepia(1) saturate(3.5) hue-rotate(5deg) brightness(1.08)' };
+SCRIM_PRICE.lovepill = 30; SCRIM_PLEAS.lovepill = 'Lovepills belong on the mountainside, friend, soaking up the sun and the good vibes.';
+BOND_SPECIES_LINES.lovepill = ['{name} gave a happy little wiggle.', '{name} is radiating good vibes. You can feel it.', '{name} hopes you\'re looking after yourself.', '{name} thinks you\'re doing really, really well.'];
+WELCOME_SPECIES.lovepill = '*wiggle wiggle* Welcome home! Have you been drinking enough water? Have you eaten? I worry!';
+TAG_HIGH.lovepill = 0.95;
+function makeLovepillMesh() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const R = 0.13, H = 0.34, mid = R + H / 2;
+  const topMat = new THREE.MeshPhongMaterial({ color: PILL_COLS[1], shininess: 110, specular: 0xffffff }), botMat = new THREE.MeshPhongMaterial({ color: 0xfaf8f4, shininess: 110, specular: 0xffffff });
+  const ink = new THREE.MeshBasicMaterial({ color: 0x4a3a4a });
+  const m = (geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.castShadow = true; body.add(o); return o; };
+  // the capsule: a coloured top half and a white bottom half
+  m(new THREE.CylinderGeometry(R, R, H / 2, 20), topMat, 0, mid + H / 4, 0);
+  m(new THREE.SphereGeometry(R, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), topMat, 0, mid + H / 2, 0);
+  m(new THREE.CylinderGeometry(R * 1.005, R * 1.005, H / 2, 20), botMat, 0, mid - H / 4, 0);
+  m(new THREE.SphereGeometry(R, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), botMat, 0, mid - H / 2, 0);
+  m(new THREE.TorusGeometry(R * 1.01, 0.006, 4, 24), topMat, 0, mid, 0).rotation.x = Math.PI / 2;      // a tiny lip where the halves meet
+  const shine = m(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }), -0.06, mid + H / 2 + 0.03, 0.08); shine.scale.set(0.6, 1.4, 0.4);
+  // four faces, only one shown at a time: winking > <, heart eyes, dot eyes, happy ^ ^
+  const fy = mid - 0.06, fz = R + 0.003, faces = [];
+  const face = () => { const g = new THREE.Group(); body.add(g); faces.push(g); g.visible = false; return g; };
+  const bit = (g, geo, x, y, rz = 0) => { const o = new THREE.Mesh(geo, ink); o.position.set(x, y, fz); o.rotation.z = rz; g.add(o); return o; };
+  { const g = face(); [-1, 1].forEach(s => { bit(g, new THREE.BoxGeometry(0.03, 0.007, 0.004), s * 0.045, fy + 0.008, s * 0.5); bit(g, new THREE.BoxGeometry(0.03, 0.007, 0.004), s * 0.045, fy - 0.008, -s * 0.5); }); }
+  { const g = face(); [-1, 1].forEach(s => { const h = new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.07)), ink); h.position.set(s * 0.045, fy, fz); g.add(h); }); }
+  { const g = face(); [-1, 1].forEach(s => { const e = bit(g, new THREE.CircleGeometry(0.012, 10), s * 0.045, fy); }); }
+  { const g = face(); [-1, 1].forEach(s => { const a = bit(g, new THREE.TorusGeometry(0.016, 0.004, 4, 10, Math.PI), s * 0.045, fy - 0.006); }); }
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.004, 4, 12, Math.PI), ink); smile.position.set(0, fy - 0.045, fz); smile.rotation.z = Math.PI; body.add(smile);
+  // the shape curves, so tip each face onto the capsule's surface
+  [...faces, smile].forEach(o => { o.position.z = fz; });
+  scene.add(root);
+  const c = { root, body, topMat, botMat, faces, pill: null };
+  // pick this one's colour and face (a Shiny is gold all over)
+  c.setPill = (v, shiny) => {
+    v = v || { c: 0, f: 0 }; c.pill = v;
+    c.faces.forEach((g, i) => { g.visible = i === v.f; });
+    if (shiny) { c.topMat.color.setHex(0xffc83a); c.botMat.color.setHex(0xffe27a); c.topMat.specular.setHex(0xfff2c0); }
+    else { c.topMat.color.setHex(PILL_COLS[v.c] ?? PILL_COLS[0]); c.botMat.color.setHex(0xfaf8f4); c.topMat.specular.setHex(0xffffff); }
+  };
+  return c;
+}
+const rollPill = () => ({ c: Math.floor(Math.random() * PILL_COLS.length), f: Math.floor(Math.random() * 4) });
+function dressPill(c, p) { if (c && c.setPill) c.setPill(p && p.pill, p && p.shiny); }
+
+/* ---------- stuck to the cliffs ---------- */
+const lovepills = [];
+function placePill(c, away) {
+  const R = Math.random;
+  for (let i = 0; i < 300; i++) {
+    const plate = [P1, P1, P2, P2, P3][Math.floor(R() * 5)], below = plate === P1 ? null : plate === P2 ? P1 : P2, th = R() * Math.PI * 2;
+    if (faces.some(f => f.plate === plate && angGap(th, f.th) < f.dth * 1.4 + 0.08)) continue;
+    if (plate === P1 && (MTN_RAVINES.some(([a, w]) => angGap(th, a) * P1.R(th) < w + 1.5) || angGap(th, MTN_ENTRY_TH) < 0.12)) continue;
+    const Rr = plate.R(th), nx = Math.cos(th), nz = Math.sin(th);
+    const floor = below ? below.top : Math.max(heightAt(nx * (Rr + 2), nz * (Rr + 2)), MTN_B);
+    if (below && plateDepth(below, nx * (Rr + 1.6), nz * (Rr + 1.6)) < 0.5) continue;   // there must be a ledge to stand on (not a ravine)
+    // the ledge in front has to be clear, and so does the wall (no burrows, no other pills)
+    if (plates.some(q => q.kind === 'circle' && q.top > floor && Math.hypot(q.x - nx * (Rr + 1.2), q.z - nz * (Rr + 1.2)) < q.r + 0.8)) continue;
+    if (GECK_HOLES.some(h => Math.hypot(h.x - nx * Rr, h.z - nz * Rr) < 2.5) || lovepills.some(o => o !== c && o.state !== 'gone' && Math.hypot(o.x - nx * Rr, o.z - nz * Rr) < 4)) continue;
+    if (away && Math.hypot(nx * Rr - away.x, nz * Rr - away.z) < 20) continue;
+    // most sit low enough to reach from the ledge below; some are halfway up, out of reach from below
+    const high = R() < 0.4, y = high ? floor + (plate.top - floor) * (0.45 + R() * 0.15) : floor + 0.45 + R() * 0.4;   // (chest height: within easy netting reach)
+    Object.assign(c, { plate, th, nx, nz, R: Rr, x: nx * (Rr + 0.3), z: nz * (Rr + 0.3), y, high, face: Math.atan2(nx, nz) });
+    return true;
+  }
+  return false;
+}
+for (let i = 0; i < 12; i++) {
+  const c = compactCreature(makeLovepillMesh());
+  Object.assign(c, { species: 'lovepill', state: 'stuck', t: Math.random() * 5, wig: 0 });
+  applySize(c, rollSize()); applyShiny(c, rollShiny(), 'lovepill'); c.pill = rollPill(); c.setPill(c.pill, c.shiny);
+  lovepills.push(c);
+  if (!placePill(c)) { c.state = 'gone'; c.root.visible = false; c.respawn = 10; }
+}
+const pillHints = {};
+function lovepillTarget() {
+  if (player.climb) return null;
+  for (const c of lovepills) {
+    if (c.state !== 'stuck' || Math.abs(c.y + 0.3 * c.s - (player.y + 1.2)) > 1.6 || !facingPoint(c.x, c.z, 2.6)) continue;
+    return { label: health < MAX_HEALTH ? 'eat the Lovepill (+1 heart)' : 'eat the Lovepill', act: () => eatPill(c) };
+  }
+  return null;
+}
+function eatPill(c) {
+  if (health >= MAX_HEALTH) { toast('You\'re feeling perfectly healthy already! Save the Lovepill for when you need it.'); return; }
+  health = Math.min(MAX_HEALTH, health + 1); renderHealth(); appleSfx.munch(); setTimeout(() => sfx.love(1), 300);
+  for (let i = 0; i < 5; i++) setTimeout(() => spawnHeart(player.x, player.y + 1.6, player.z), i * 120);
+  toast(pick1(['Gulp! The Lovepill fizzes warmly all the way down. You feel much better!', 'Mmm, it tastes like strawberries and sunshine. +1 heart!', 'You swallow the Lovepill and feel a happy little glow. Healed!']));
+  c.state = 'gone'; c.t = 0; c.root.visible = false; c.respawn = 90 + Math.random() * 60;
+}
+function netLovepills() {
+  let got = false;
+  for (const c of lovepills) {
+    if (c.state !== 'stuck' || !inNetZone(c.x, c.y + 0.3 * c.s, c.z)) continue;
+    nextPill = c.pill;
+    if (catchScrumbly('lovepill', c.size, false, c.shiny)) { c.state = 'caught'; c.t = 0; got = true; }
+    nextPill = null;
+  }
+  return got;
+}
+function updateLovepills(dt) {
+  for (const c of lovepills) {
+    c.t += dt;
+    if (c.state === 'gone') {
+      if (c.t > (c.respawn || 0)) { applySize(c, rollSize()); applyShiny(c, rollShiny(), 'lovepill'); c.pill = rollPill(); c.setPill(c.pill, c.shiny); c.body.scale.setScalar(1); if (placePill(c, player)) { c.state = 'stuck'; c.t = 0; c.root.visible = true; } else c.t = (c.respawn || 0) - 5; }
+      else c.root.visible = false;
+      continue;
+    }
+    if (c.state === 'caught') {
+      const k = Math.min(1, c.t / 0.45); camera.getWorldDirection(_cv);
+      c.x = lerp(c.x, camera.position.x + _cv.x * 1.2, k * 0.35); c.z = lerp(c.z, camera.position.z + _cv.z * 1.2, k * 0.35); c.y = lerp(c.y, camera.position.y - 0.5, k * 0.35);
+      c.body.scale.setScalar(1 - k * 0.85); c.root.position.set(c.x, c.y, c.z);
+      if (k >= 1) { c.state = 'gone'; c.t = 0; c.root.visible = false; c.respawn = 100 + Math.random() * 60; }
+      continue;
+    }
+    // stuck fast to the rock: a shy little wiggle if you come close
+    const d = Math.hypot(player.x - c.x, player.z - c.z, (player.y + 1.2) - c.y);
+    c.wig += ((d < 4.5 ? 1 : 0) - c.wig) * Math.min(1, dt * 4);
+    if (!pillHints.seen && d < 12 && playing) { pillHints.seen = true; toast('There\'s a little capsule stuck to the cliff... and it\'s smiling at you!'); }
+    c.body.rotation.z = Math.sin(c.t * 14) * 0.22 * c.wig + Math.sin(c.t * 1.2) * 0.03;
+    c.body.position.y = Math.abs(Math.sin(c.t * 7)) * 0.03 * c.wig;
+    c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(0, c.face, 0);
+  }
+}
+
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -12961,7 +13106,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos, konekos, chupis, frigglies, fragglies, tigglys, geckolos, lubbings, weckles, beribois, berigals], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos, konekos, chupis, frigglies, fragglies, tigglys, geckolos, lubbings, weckles, beribois, berigals, lovepills], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -13047,6 +13192,7 @@ function tick(dt) {
   updateWeckles(dt);
   updateBlob(dt);
   updateBerries(dt);
+  updateLovepills(dt);
   debugTopUp();
   MZIP.root.visible = scrimHere();
   updateSparkles(dt);
@@ -13106,7 +13252,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
