@@ -28,13 +28,30 @@
     padding-block: 24px calc(32px + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(to top, rgba(255,111,165,.38), rgba(255,111,165,0) 60%);
   }
-  .title-card { max-width: 34rem; display: grid; gap: 14px; margin-left: clamp(0px, 4vw, 56px); margin-bottom: clamp(0px, 4vh, 40px); }
-  .logo { font-family: var(--display); font-weight: 700; line-height: .9; margin: 0; font-size: clamp(3rem, 10vw, 6.4rem); color: var(--cream);
+  .title-card { position: relative; max-width: 27rem; display: grid; gap: 14px; margin-left: clamp(0px, 4vw, 56px); margin-bottom: clamp(0px, 4vh, 40px);
+    padding: 22px 26px 18px; border-radius: 30px; background: rgba(255,250,246,.62); backdrop-filter: blur(8px) saturate(1.2); -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    border: 3px solid rgba(255,255,255,.85); box-shadow: 0 8px 0 rgba(44,37,82,.1), 0 26px 60px rgba(44,37,82,.22); animation: cardIn .8s cubic-bezier(.2,1.4,.4,1) both; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(40px) scale(.96); } }
+  #title::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 70% 90% at 0% 100%, rgba(255,111,165,.35), rgba(255,111,165,0) 70%); }
+  #titleSky { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #titleSky span { position: absolute; width: var(--sz, 64px); height: var(--sz, 64px); opacity: .9; filter: drop-shadow(0 6px 8px rgba(44,37,82,.18)); animation: drift var(--d, 9s) ease-in-out infinite alternate; animation-delay: var(--dl, 0s); }
+  #titleSky span svg { width: 100%; height: 100%; }
+  @keyframes drift { from { transform: translate(0, 0) rotate(-8deg); } to { transform: translate(var(--dx, 30px), var(--dy, -26px)) rotate(8deg); } }
+  .ctl-fold summary { cursor: pointer; width: fit-content; font-family: var(--display); font-weight: 600; font-size: .95rem; color: var(--ink); background: rgba(255,255,255,.75); padding: 5px 14px; border-radius: 12px; list-style: none; }
+  .ctl-fold summary::-webkit-details-marker { display: none; }
+  .ctl-fold summary::before { content: '▸ '; } .ctl-fold[open] summary::before { content: '▾ '; }
+  .ctl-fold .controls { margin-top: 10px; }
+  .logo { font-family: var(--display); font-weight: 700; line-height: .9; margin: 0; font-size: clamp(2.8rem, 8vw, 5.6rem); color: var(--cream);
           text-shadow: 0 4px 0 var(--pink-deep), 0 9px 0 rgba(44,37,82,.25); letter-spacing: .01em; text-wrap: balance; }
-  .logo span { display: inline-block; animation: bob 2.6s ease-in-out infinite; }
+  .logo { position: relative; } .logo span { display: block; white-space: nowrap; } .logo .w2 { margin-left: .5em; }
+  .logo i { font-style: normal; display: inline-block; animation: wave 2.8s ease-in-out infinite; animation-delay: calc(var(--i) * .09s); }
+  @keyframes wave { 0%, 60%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-.14em) rotate(-4deg); } }
+  .logo .spark { position: absolute; width: .32em; height: .32em; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: twinkle 2.2s ease-in-out infinite; filter: drop-shadow(0 0 6px #fff6b0); }
+  .logo .s1 { top: -.12em; right: 1.4em; } .logo .s2 { top: .9em; right: .1em; width: .22em; height: .22em; animation-delay: .7s; } .logo .s3 { top: 1.25em; left: -.3em; width: .2em; height: .2em; animation-delay: 1.4s; }
+  @keyframes twinkle { 0%, 100% { transform: scale(.3) rotate(0); opacity: .2; } 50% { transform: scale(1) rotate(45deg); opacity: 1; } }
   .logo .w2 { color: #fff3a8; text-shadow: 0 4px 0 #e59a2f, 0 9px 0 rgba(44,37,82,.25); }
   @keyframes bob { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-6px) rotate(calc(var(--r,0deg) * -1)); } }
-  .tagline { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--ink); background: var(--cream); padding: 8px 14px; border-radius: 14px; width: fit-content; box-shadow: 0 3px 0 rgba(44,37,82,.18); }
+  .tagline { margin: 0; font-size: 1.08rem; font-weight: 800; color: var(--ink); line-height: 1.35; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
   .controls li { background: rgba(255,250,246,.9); border-radius: 10px; padding: 6px 10px; font-size: .9rem; font-weight: 700; }
   kbd { font-family: var(--display); font-weight: 600; background: var(--ink); color: var(--cream); border-radius: 6px; padding: 1px 7px; margin-right: 5px; font-size: .85rem; }
@@ -55,6 +72,7 @@
   .play { justify-self: start; font-family: var(--display); font-weight: 700; font-size: 1.6rem; color: var(--cream); background: var(--lagoon);
           border: 0; border-radius: 18px; padding: 12px 34px; cursor: pointer; box-shadow: 0 6px 0 #0d7f7b; transition: transform .12s, box-shadow .12s; }
   .play:hover { transform: translateY(-2px) rotate(-1.5deg); }
+  .play { animation: playGlow 2.4s ease-in-out infinite; } @keyframes playGlow { 0%, 100% { box-shadow: 0 6px 0 #0d7f7b, 0 0 0 0 rgba(25,179,174,.45); } 50% { box-shadow: 0 6px 0 #0d7f7b, 0 0 0 10px rgba(25,179,174,0); } }
   .play:active { transform: translateY(4px); box-shadow: 0 2px 0 #0d7f7b; }
   .play:focus-visible, .chip:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
@@ -380,7 +398,7 @@
   #ko b { font-family: var(--display); font-size: 3rem; color: var(--pink-deep); }
   #ko span { font-weight: 800; color: rgba(44,37,82,.6); }
   #hint.fade { opacity: 0; transition: opacity 1.5s; }
-  @media (prefers-reduced-motion: reduce) { .logo span { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .logo i, .logo .spark, #titleSky span, .play, .title-card { animation: none; } }
   /* ===== TV-friendly layout: everything scales with --ui and keeps clear of the screen edges (--sx / --sy).
      The UI is enlarged with CSS zoom, which also scales viewport units, so edge offsets are divided by --ui. ===== */
   :root { --ui: 1.5; --sx: 5vw; --sy: 5vh; --ex: calc(var(--sx) / var(--ui)); --ey: calc(var(--sy) / var(--ui)); }
@@ -464,9 +482,11 @@
 <canvas id="game" tabindex="0"></canvas>
 
 <div id="title">
+  <div id="titleSky" aria-hidden="true"></div>
   <div class="title-card">
-    <h1 class="logo"><span style="--r:-3deg">Scrumbly</span><br><span class="w2" style="--r:2deg; animation-delay:.4s">Island</span></h1>
-    <p class="tagline">Pinksand Shore is open. The scrumblies are hiding.</p>
+    <h1 class="logo" aria-label="Scrumbly Island"><span class="w1"><i style="--i:0">S</i><i style="--i:1">c</i><i style="--i:2">r</i><i style="--i:3">u</i><i style="--i:4">m</i><i style="--i:5">b</i><i style="--i:6">l</i><i style="--i:7">y</i></span><span class="w2"><i style="--i:8">I</i><i style="--i:9">s</i><i style="--i:10">l</i><i style="--i:11">a</i><i style="--i:12">n</i><i style="--i:13">d</i></span><b class="spark s1"></b><b class="spark s2"></b><b class="spark s3"></b></h1>
+    <p class="tagline">Explore a cosy island and befriend the scrumblies hiding all over it!</p>
+    <details class="ctl-fold"><summary>Controls</summary>
     <ul class="controls" id="controlsList">
       <li><kbd>WASD</kbd>walk</li>
       <li><kbd>Shift</kbd>run</li>
@@ -478,7 +498,7 @@
       <li><kbd>3</kbd>Scrumblydex: click to scan, <kbd>Tab</kbd>to browse</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
-    </ul>
+    </ul></details>
     <div class="title-btns"><button class="play" id="playBtn">Play</button><button class="ghost" id="newBtn" hidden>New game</button><button class="ghost" id="titleLoad" hidden>Load game</button></div>
     <p class="continue-info" id="continueInfo" hidden></p>
     <div class="debug-row"><button class="ghost debug" id="debugBtn" aria-expanded="false">Debug ▸</button><button class="ghost debug" id="skipForest" hidden>Skip to Forest</button><button class="ghost debug" id="skipMountain" hidden>Skip to Mountain</button></div>
@@ -1486,7 +1506,7 @@ function applyLayout() {
 }
 applyLayout();
 addEventListener('resize', applyLayout);
-let actx = null, musicBus, sfxBus, ambBus, panBus, noiseBuf, oceanGain, musicOn = true;
+let actx = null, musicBus, sfxBus, ambBus, panBus, noiseBuf, oceanGain, musicOn = true, trackBus = null;   // trackBus: one channel each for the beach, forest and mountain themes
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 const CHORDS = [
   { root: 48, tones: [60, 64, 67], third: 4 }, { root: 41, tones: [60, 65, 69], third: 4 },
@@ -1515,11 +1535,14 @@ function initAudio() {
   musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.5 * settings.music : 0; musicBus.connect(master);
   sfxBus = actx.createGain(); sfxBus.gain.value = 0.7 * settings.sfx; sfxBus.connect(master);
   ambBus = actx.createGain(); ambBus.gain.value = 0.5 * settings.sfx; ambBus.connect(master);
-  panBus = actx.createGain(); panBus.connect(musicBus);
+  trackBus = {}; ['beach', 'forest', 'mountain'].forEach(k => { const g = actx.createGain(); g.gain.value = k === 'beach' ? 1 : 0; g.connect(musicBus); trackBus[k] = g; });
+  // the forest and mountain get a long, soft echo of their own
+  ['forest', 'mountain'].forEach(k => { const d = actx.createDelay(1.5), fbk = actx.createGain(), lp = actx.createBiquadFilter(), w = actx.createGain(); d.delayTime.value = STEP * (k === 'forest' ? 6 : 8); fbk.gain.value = 0.35; lp.type = 'lowpass'; lp.frequency.value = 2400; w.gain.value = 0.35; const send = actx.createGain(); send.connect(trackBus[k]); send.connect(d); d.connect(lp); lp.connect(fbk); fbk.connect(d); lp.connect(w); w.connect(trackBus[k]); trackBus[k + 'In'] = send; });
+  panBus = actx.createGain(); panBus.connect(trackBus.beach);
   const delay = actx.createDelay(1); delay.delayTime.value = STEP * 3;
   const fb = actx.createGain(); fb.gain.value = 0.3; const wet = actx.createGain(); wet.gain.value = 0.3;
   const dlp = actx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 3000;
-  panBus.connect(delay); delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(wet); wet.connect(musicBus);
+  panBus.connect(delay); delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(wet); wet.connect(trackBus.beach);
 
   noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -1545,23 +1568,23 @@ function steelPan(t, m, vel = 1) {
     env(g, t, 0.16 * a * vel, 0.004, dec); o.connect(g); g.connect(panBus); o.start(t); o.stop(t + dec + 0.05);
   });
 }
-function pluck(t, m, vel = 1) {
+function pluck(t, m, vel = 1, out = musicBus) {
   const o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain(), f = actx.createBiquadFilter();
   o.type = 'triangle'; o2.type = 'square'; o.frequency.value = mtof(m); o2.frequency.value = mtof(m) * 1.003;
   f.type = 'lowpass'; f.frequency.setValueAtTime(2600, t); f.frequency.exponentialRampToValueAtTime(700, t + 0.2);
   const g2 = actx.createGain(); g2.gain.value = 0.18;
-  o.connect(f); o2.connect(g2); g2.connect(f); f.connect(g); g.connect(musicBus);
+  o.connect(f); o2.connect(g2); g2.connect(f); f.connect(g); g.connect(out);
   env(g, t, 0.05 * vel, 0.004, 0.22); o.start(t); o2.start(t); o.stop(t + 0.3); o2.stop(t + 0.3);
 }
-function bass(t, m) {
+function bass(t, m, out = musicBus) {
   const o = actx.createOscillator(), g = actx.createGain(), f = actx.createBiquadFilter();
   o.type = 'triangle'; o.frequency.value = mtof(m); f.type = 'lowpass'; f.frequency.value = 700;
-  o.connect(f); f.connect(g); g.connect(musicBus); env(g, t, 0.42, 0.01, 0.32); o.start(t); o.stop(t + 0.4);
+  o.connect(f); f.connect(g); g.connect(out); env(g, t, 0.42, 0.01, 0.32); o.start(t); o.stop(t + 0.4);
 }
-function drum(t, f0, f1, dur, vol) {
+function drum(t, f0, f1, dur, vol, out = musicBus) {
   const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine';
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
-  o.connect(g); g.connect(musicBus); env(g, t, vol, 0.003, dur); o.start(t); o.stop(t + dur + 0.05);
+  o.connect(g); g.connect(out); env(g, t, vol, 0.003, dur); o.start(t); o.stop(t + dur + 0.05);
 }
 function noiseHit(t, type, freq, vol, dur, bus = musicBus, q = 0.8) {
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
@@ -1569,36 +1592,42 @@ function noiseHit(t, type, freq, vol, dur, bus = musicBus, q = 0.8) {
   s.connect(f); f.connect(g); g.connect(bus); env(g, t, vol, 0.003, dur);
   s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
 }
-function slideWhistle(t) {
+function slideWhistle(t, out = musicBus) {
   const o = actx.createOscillator(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain();
   o.type = 'sine'; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(1500, t + 0.32); o.frequency.exponentialRampToValueAtTime(1150, t + 0.5);
   lfo.frequency.value = 7; lg.gain.value = 18; lfo.connect(lg); lg.connect(o.frequency);
-  o.connect(g); g.connect(musicBus);
+  o.connect(g); g.connect(out);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.05); g.gain.setValueAtTime(0.05, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.62);
   o.start(t); lfo.start(t); o.stop(t + 0.7); lfo.stop(t + 0.7);
 }
 let nextStepTime = 0, stepCount = 0;
 function scheduler() {
   if (!actx) return;
-  while (nextStepTime < actx.currentTime + 0.15) { playStep(stepCount, nextStepTime); nextStepTime += STEP; stepCount++; }
+  while (nextStepTime < actx.currentTime + 0.15) {
+    // only the themes you can hear are played (they crossfade between areas)
+    if (musicMix.beach.on) playStep(stepCount, nextStepTime);
+    if (musicMix.forest.on) forestStep(stepCount, nextStepTime, trackBus.forestIn);
+    if (musicMix.mountain.on) mountainStep(stepCount, nextStepTime, trackBus.mountainIn);
+    nextStepTime += STEP; stepCount++;
+  }
 }
 function playStep(n, t) {
   const st = n % 16, bar = Math.floor(n / 16) % 8, loop = Math.floor(n / 128);
   if (st % 2 === 1) t += STEP * 0.14;     // a little swing
-  const ch = CHORDS[bar];
+  const ch = CHORDS[bar], out = trackBus ? trackBus.beach : musicBus;
   const intro = loop === 0 && bar < 2;
   // percussion
-  if (st === 0 || st === 8) drum(t, 125, 48, 0.22, 0.45);
-  if ([3, 7, 10, 14].includes(st)) drum(t, st === 10 ? 330 : 240, st === 10 ? 260 : 190, 0.16, 0.16);
-  if (st === 15 && bar % 2) drum(t, 360, 300, 0.1, 0.1);
-  noiseHit(t, 'highpass', 6500, st % 4 === 2 ? 0.07 : st % 2 ? 0.02 : 0.035, 0.05);
+  if (st === 0 || st === 8) drum(t, 125, 48, 0.22, 0.45, out);
+  if ([3, 7, 10, 14].includes(st)) drum(t, st === 10 ? 330 : 240, st === 10 ? 260 : 190, 0.16, 0.16, out);
+  if (st === 15 && bar % 2) drum(t, 360, 300, 0.1, 0.1, out);
+  noiseHit(t, 'highpass', 6500, st % 4 === 2 ? 0.07 : st % 2 ? 0.02 : 0.035, 0.05, out);
   // bass: calypso bounce
   if (!intro) {
     const bp = { 0: 0, 3: 0, 6: 7, 8: 12, 11: 7, 14: ch.third };
-    if (bp[st] !== undefined) bass(t, ch.root + bp[st]);
+    if (bp[st] !== undefined) bass(t, ch.root + bp[st], out);
   }
   // offbeat chord strums
-  if (st % 4 === 2) ch.tones.forEach((m, i) => pluck(t + i * 0.012, m, st === 10 ? 1 : 0.8));
+  if (st % 4 === 2) ch.tones.forEach((m, i) => pluck(t + i * 0.012, m, st === 10 ? 1 : 0.8, out));
   // steel pan melody (with harmony on alternate passes)
   if (!intro || bar >= 2) {
     MELODY[bar].forEach(([s, m]) => {
@@ -1607,7 +1636,75 @@ function playStep(n, t) {
       if (loop % 2 === 1) steelPan(t + 0.01, thirdBelow(m), 0.55);
     });
   }
-  if (bar === 7 && st === 12 && loop % 2 === 1) slideWhistle(t);
+  if (bar === 7 && st === 12 && loop % 2 === 1) slideWhistle(t, out);
+}
+/* ---------- the forest and mountain themes (the beach has its calypso) ---------- */
+// a soft pad: detuned triangles under a gentle low-pass, slow to swell and slow to fade
+function musicPad(t, notes, dur, out, vol = 0.05) {
+  notes.forEach((m, i) => [0, 1].forEach(k => {
+    const o = actx.createOscillator(), g = actx.createGain(), f = actx.createBiquadFilter();
+    o.type = 'triangle'; o.frequency.value = mtof(m) * (k ? 1.004 : 0.996); f.type = 'lowpass'; f.frequency.value = 1400;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol / notes.length, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }));
+}
+// a kalimba: a bright plink with a quick decay
+function kalimba(t, m, out, vel = 1) {
+  [[1, 1, 0.6], [2.0, 0.25, 0.25], [4.1, 0.08, 0.1]].forEach(([mul, a, dec]) => {
+    const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = mtof(m) * mul;
+    env(g, t, 0.09 * a * vel, 0.003, dec); o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.05);
+  });
+}
+// a breathy flute: a sine with a little vibrato and a puff of air
+function flute(t, m, dur, out, vel = 1) {
+  const o = actx.createOscillator(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain();
+  o.type = 'sine'; o.frequency.value = mtof(m); lfo.frequency.value = 5.2; lg.gain.value = mtof(m) * 0.006; lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06 * vel, t + 0.08); g.gain.setValueAtTime(0.06 * vel, t + Math.max(0.1, dur - 0.15)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(out); o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+  noiseHit(t, 'bandpass', mtof(m) * 2, 0.012 * vel, 0.12, out, 2);
+}
+// a bell: inharmonic partials ringing out
+function bell(t, m, out, vel = 1) {
+  [[1, 1, 2.2], [2.76, 0.4, 1.2], [5.4, 0.15, 0.6], [8.9, 0.05, 0.3]].forEach(([mul, a, dec]) => {
+    const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = mtof(m) * mul;
+    env(g, t, 0.06 * a * vel, 0.004, dec); o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.05);
+  });
+}
+// Glimmerwood: dreamy and a little mysterious. Am - F - C - G, a kalimba arpeggio, soft pads, a wandering flute, woodblock ticks
+const FOREST_CH = [[45, [57, 60, 64]], [41, [57, 60, 65]], [48, [55, 60, 64]], [43, [55, 59, 62]]];
+const FOREST_MEL = [[[0, 76, 6], [8, 74, 4], [12, 72, 4]], [[0, 72, 8], [10, 69, 6]], [[0, 67, 4], [4, 72, 4], [8, 76, 8]], [[0, 74, 10], [12, 71, 4]], [[0, 81, 6], [6, 79, 2], [8, 76, 8]], [[0, 77, 6], [8, 76, 4], [12, 72, 4]], [[0, 76, 8], [8, 79, 8]], [[0, 74, 12]]];
+function forestStep(n, t, out) {
+  const st = n % 16, bar = Math.floor(n / 16) % 8, loop = Math.floor(n / 128), [root, ch] = FOREST_CH[Math.floor(bar / 2) % 4];
+  if (st === 0 && bar % 2 === 0) musicPad(t, ch.map(m => m - 12), STEP * 32, out, 0.05);
+  if (st % 2 === 0) { const arp = [0, 1, 2, 1, 2, 0, 1, 2][(st / 2) % 8], oct = st >= 8 ? 12 : 0; kalimba(t, ch[arp] + oct, out, st % 4 ? 0.6 : 1); }
+  if (st === 0 || st === 10) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = mtof(root); env(g, t, 0.18, 0.02, 0.6); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.7); }
+  if (st === 4 || st === 12) noiseHit(t, 'bandpass', 1900, 0.06, 0.04, out, 6);
+  if (st === 14 && bar % 2) noiseHit(t, 'bandpass', 2600, 0.04, 0.03, out, 6);
+  if (loop > 0 || bar >= 2) FOREST_MEL[bar].forEach(([s, m, d]) => { if (s === st) flute(t, m - (loop % 2 ? 0 : 12), d * STEP, out, 0.9); });
+}
+// Mount Scrumble: wide open and airy. A low drone, slow bells, high flute and big soft drums. D - G - Em - A
+const MTN_CH = [[38, [62, 66, 69]], [43, [62, 67, 71]], [40, [59, 64, 67]], [45, [61, 64, 69]]];
+const MTN_MEL = [[[0, 81, 12]], [[0, 83, 6], [8, 86, 8]], [[0, 83, 8], [8, 79, 8]], [[0, 81, 16]], [[0, 86, 8], [8, 88, 8]], [[0, 86, 6], [6, 83, 10]], [[0, 79, 8], [8, 81, 8]], [[0, 78, 16]]];
+function mountainStep(n, t, out) {
+  const st = n % 16, bar = Math.floor(n / 16) % 8, loop = Math.floor(n / 128), [root, ch] = MTN_CH[Math.floor(bar / 2) % 4];
+  if (st === 0 && bar % 2 === 0) { musicPad(t, ch, STEP * 32, out, 0.045); musicPad(t, [root, root + 7], STEP * 32, out, 0.06); }
+  if (st === 0) bell(t, ch[2] + 12, out, 0.9);
+  if (st === 6) bell(t, ch[1] + 12, out, 0.6);
+  if (st === 10 && bar % 2) bell(t, ch[0] + 24, out, 0.5);
+  if (st === 0 || (st === 8 && bar % 2)) drum(t, 90, 42, 0.5, 0.32, out);
+  if (st === 12 && bar % 4 === 3) drum(t, 130, 70, 0.3, 0.16, out);
+  if (loop > 0 || bar >= 2) MTN_MEL[bar].forEach(([s, m, d]) => { if (s === st) flute(t, m - 12, d * STEP, out, 0.75); });
+}
+// which tracks are playing, and how loud: they crossfade as you walk between areas
+const musicMix = { beach: { want: 1, on: true, off: 0 }, forest: { want: 0, on: false, off: 0 }, mountain: { want: 0, on: false, off: 0 } };
+function updateMusicMix(dt) {
+  if (!actx || !trackBus) return;
+  const area = playing ? areaNow : 'beach';
+  for (const k in musicMix) {
+    const m = musicMix[k], want = k === area ? 1 : 0;
+    if (want !== m.want) { m.want = want; trackBus[k].gain.setTargetAtTime(want, actx.currentTime, 1.1); if (want) m.on = true; m.off = 0; }
+    if (!want && m.on) { m.off += dt; if (m.off > 6) m.on = false; }   // stop scheduling a track once it has faded right out
+  }
 }
 function sfxStep(inWater) {
   if (!actx) return;
@@ -13359,7 +13456,7 @@ const blessGlowMat = () => new THREE.MeshBasicMaterial({ color: 0xb8ffb0, transp
 
 /* ---------- the old carved tree in Glimmerwood ---------- */
 const BLESS_TREE = (() => {
-  const [x, z] = polar(1.56, 105), y = heightAt(x, z), face = Math.atan2(x, z);   // its carved side looks out towards the shore
+  const [x, z] = polar(3.0, 106), y = heightAt(x, z), face = Math.atan2(x, z);   // a roomy clearing: its big crown needs space   // its carved side looks out towards the shore
   const root = new THREE.Group(); root.position.set(x, y, z); root.rotation.y = face; scene.add(root);
   const parts = [], R = mulberry32(8181);
   parts.push(bake(new THREE.CylinderGeometry(1.25, 1.6, 7, 22), 0x6a4a30).translate(0, 3.5, 0));
@@ -13377,7 +13474,11 @@ const BLESS_TREE = (() => {
 
 /* ---------- the carved stone set into the mountain's cliff ---------- */
 const BLESS_STONE = (() => {
-  const th = 2.14, Rr = P1.R(th) + 0.18, x = Math.cos(th) * Rr, z = Math.sin(th) * Rr, y = heightAt(Math.cos(th) * (Rr + 1.5), Math.sin(th) * (Rr + 1.5)), face = Math.atan2(Math.cos(th), Math.sin(th));
+  // a stretch where the cliff runs nearly straight round, and the stone faces square out of the rock (along the cliff's real normal)
+  const th = 1.72, R0 = P1.R(th), dR = (P1.R(th + 0.01) - P1.R(th - 0.01)) / 0.02;
+  const tx = dR * Math.cos(th) - R0 * Math.sin(th), tz = dR * Math.sin(th) + R0 * Math.cos(th), tl = Math.hypot(tx, tz);
+  let nx = tz / tl, nz = -tx / tl; if (nx * Math.cos(th) + nz * Math.sin(th) < 0) { nx = -nx; nz = -nz; }
+  const Rr = R0 + 0.18, x = Math.cos(th) * Rr, z = Math.sin(th) * Rr, y = heightAt(x + nx * 1.5, z + nz * 1.5), face = Math.atan2(nx, nz);
   const root = new THREE.Group(); root.position.set(x, y, z); root.rotation.y = face; scene.add(root);
   const W = 3.4, H = W * 256 / (40 + 216 * 5);
   const slab = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, H + 0.3, 0.3), lam(0x9a8f9a)); slab.position.y = 1.7; slab.castShadow = true; root.add(slab);
@@ -13433,6 +13534,19 @@ function updateBlessings(dt) {
       gm.material.opacity = near ? b.glow[k] * (0.85 + Math.sin(time * 7 + k) * 0.15) : 0;
     });
   }
+}
+
+/* ---------- the title screen: a sky full of drifting scrumblies ---------- */
+{
+  const sky = document.getElementById('titleSky');
+  const ids = ['bobo', 'lubbing', 'chupi', 'friggly', 'glimmery', 'beeappy', 'pengin', 'raebit', 'weckle', 'beriboi', 'geckolo', 'pretzello', 'speshul', 'berigal'];
+  ids.forEach((id, i) => {
+    const R = mulberry32(700 + i * 13), sp = document.createElement('span');
+    sp.innerHTML = SPECIES[id].icon;
+    const col = i % 7, row = Math.floor(i / 7);
+    sp.style.cssText = `left:${38 + col * 8.6 + R() * 4}%;top:${4 + row * 22 + R() * 12}%;--sz:${46 + R() * 34}px;--d:${7 + R() * 6}s;--dl:${-R() * 8}s;--dx:${(R() - 0.5) * 60}px;--dy:${(R() - 0.5) * 50}px`;
+    sky.appendChild(sp);
+  });
 }
 
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
@@ -13592,6 +13706,7 @@ function tick(dt) {
   updatePit(dt);
   updateGleep(dt);
   updateBlessings(dt);
+  updateMusicMix(dt);
   debugTopUp();
   MZIP.root.visible = scrimHere();
   updateSparkles(dt);
@@ -13651,7 +13766,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { BLESS_TREE, BLESS_STONE, touchBless: b => touchBless(b), blessTarget: () => blessTarget(), blessings: () => blessings, maxHealth: () => MAX_HEALTH, gleep, rockHitsGleep: r => rockHitsGleep(r), netGleep: () => netGleep(), lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { music: () => ({ on: Object.fromEntries(Object.entries(musicMix).map(([k, m]) => [k, m.on])), gain: trackBus ? { beach: +trackBus.beach.gain.value.toFixed(2), forest: +trackBus.forest.gain.value.toFixed(2), mountain: +trackBus.mountain.gain.value.toFixed(2) } : null, area: areaNow, state: actx && actx.state }), BLESS_TREE, BLESS_STONE, touchBless: b => touchBless(b), blessTarget: () => blessTarget(), blessings: () => blessings, maxHealth: () => MAX_HEALTH, gleep, rockHitsGleep: r => rockHitsGleep(r), netGleep: () => netGleep(), lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
