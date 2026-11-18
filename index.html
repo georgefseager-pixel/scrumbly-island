@@ -5649,7 +5649,7 @@ function updateRocks(dt) {
       else {
         r.state = 'ground'; r.vx = r.vy = r.vz = 0;
         // out of reach (deep water / closed jungle): a fresh rock turns up somewhere on the beach
-        if (!walkable(r.x, r.z) && !canWalk(r.x, r.z)) { for (let i = 0; i < 20; i++) { const [x, z] = polar(Math.random() * 6.28, 10 + Math.random() * 45); if (boboSpotOK(x, z)) { r.x = x; r.z = z; r.y = heightAt(x, z) + 0.07; break; } } }
+        if ((!walkable(r.x, r.z) && !canWalk(r.x, r.z)) || Math.hypot(r.x, r.z) < PIT_R + 0.2) { for (let i = 0; i < 20; i++) { const [x, z] = polar(Math.random() * 6.28, 10 + Math.random() * 45); if (boboSpotOK(x, z)) { r.x = x; r.z = z; r.y = heightAt(x, z) + 0.07; break; } } }
       }
     }
     r.mesh.position.set(r.x, r.y, r.z);
@@ -10268,7 +10268,7 @@ function openPaintPicker() { openScrim('paint', 'Dip the brush, pick a paper, ro
    Everything up here is a "plate": a shape with a flat top. You can step
    up a little; anything taller is a wall unless it's a climbable face.
    ========================================================= */
-const MTN_B = 8, MTN_STEP = 0.55, MTN_PAD = 0.35;
+const MTN_B = 8, MTN_STEP = 0.55, MTN_PAD = 0.35, PIT_R = 1.35;   // (PIT_R: the smoking pit in the middle of the peak)
 const MTN_TOP = { p1: 17, p2: 26, p3: 35, peak: 42.5 };
 // the forest's inner edge, smoothed so the cliffs aren't jagged
 const mtnEdge = (() => {
@@ -10294,7 +10294,7 @@ const circlePlate = (x, z, r, top, kind = 'pillar') => { const p = { kind: 'circ
 function plateDepth(p, x, z) {
   if (p.kind === 'circle') return p.r - Math.hypot(x - p.x, z - p.z);
   const r = Math.hypot(x, z), th = Math.atan2(z, x);
-  let d = p.R(th) - r;
+  let d = Math.min(p.R(th) - r, r - PIT_R);     // a hole all the way down the middle
   if (p.notch) { const rv = ravineAt(th, r); if (rv >= 0) d = Math.min(d, -rv); else { for (const [a, w] of MTN_RAVINES) d = Math.min(d, angGap(th, a) * r - w); } }
   return d;
 }
@@ -10475,7 +10475,7 @@ const mountain = (() => {
   cliff(P1, 260, th => ravineAt(th, P1.R(th)) >= -0.05); cap(P1, mtnR2, 360, [0.62, 0.82, 0.54], true);
   cliff(P2, 150); cap(P2, mtnR3, 240, [0.6, 0.8, 0.58]);
   cliff(P3, 100); cap(P3, () => MTN_PEAK_R, 160, [0.66, 0.82, 0.62]);
-  cliff(PEAK, 56); cap(PEAK, () => 0, 80, [0.97, 0.9, 0.95]);
+  cliff(PEAK, 56); cap(PEAK, () => PIT_R + 0.6, 80, [0.97, 0.9, 0.95]);
   // the ravine walls
   MTN_RAVINES.forEach(([a, w]) => [-1, 1].forEach(s => {
     const pos = [], col = [], steps = 10, rows = 7, pts = [];
@@ -10536,7 +10536,7 @@ const mountain = (() => {
   mtnBoulders.forEach((b, i) => rocks.push(rockGeo(b.rad, b.h * 0.62, 300 + i, MTN_ROCK[i % MTN_ROCK.length]).translate(b.x, b.top - b.h * 0.6, b.z)));
   plates.filter(p => p.look === 'boulder' && !mtnBoulders.some(b => b.x === p.x && b.z === p.z)).forEach((p, i) => { const h = p.top - MTN_TOP.p2; rocks.push(rockGeo(p.r * 1.15, (h + 0.4) * 0.62, 90 + i, MTN_FACE[i % 3]).translate(p.x, p.top - (h + 0.4) * 0.6, p.z)); });
   // the peak's cairn
-  for (let k = 0; k < 5; k++) rocks.push(rockGeo(0.55 - k * 0.08, 0.24, 200 + k, MTN_ROCK[k % 5]).translate(0, MTN_TOP.peak + 0.2 + k * 0.36, 0));
+  for (let k = 0; k < 5; k++) rocks.push(rockGeo(0.55 - k * 0.08, 0.24, 200 + k, MTN_ROCK[k % 5]).translate(0.3, MTN_TOP.peak + 0.2 + k * 0.36, -3.0));
   const rm = new THREE.Mesh(merge(rocks), mtnFlatMat); rm.castShadow = rm.receiveShadow = true; root.add(rm);
   // the handholds: lots of chunky rounded knobs all over each climbable face, with vines and moss
   const knobs = [], K = mulberry32(99);
@@ -10581,10 +10581,10 @@ const mountain = (() => {
   const fm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), flowers.length);
   flowers.forEach((f, i) => { dm.position.set(f.x, f.y, f.z); dm.rotation.set(0, 0, 0); dm.scale.setScalar(1); dm.updateMatrix(); fm.setMatrixAt(i, dm.matrix); fm.setColorAt(i, kc.setHex(f.c)); }); root.add(fm);
   // the peak: a pole with a pink pennant, sparkly crystals and alpine flowers
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.2, 6), lam(0x8a5a33)); pole.position.set(1.4, MTN_TOP.peak + 2.1, 0.6); root.add(pole);
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8), new THREE.MeshLambertMaterial({ color: 0xff6fa5, side: THREE.DoubleSide })); flag.position.set(2.1, MTN_TOP.peak + 3.7, 0.6); root.add(flag);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.2, 6), lam(0x8a5a33)); pole.position.set(2.4, MTN_TOP.peak + 2.1, 1.0); root.add(pole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8), new THREE.MeshLambertMaterial({ color: 0xff6fa5, side: THREE.DoubleSide })); flag.position.set(3.1, MTN_TOP.peak + 3.7, 1.0); root.add(flag);
   for (let k = 0; k < 6; k++) { const a = k * 1.05 + 0.3, r = 3.4 + (k % 2) * 0.8, cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshLambertMaterial({ color: [0xc8e8ff, 0xffd6f0, 0xe8dcff][k % 3], emissive: 0x303040 })); cr.scale.set(0.7, 1.6, 0.7); cr.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.4, Math.sin(a) * r); cr.rotation.z = (k % 2 ? 1 : -1) * 0.25; root.add(cr); }
-  for (let k = 0; k < 18; k++) { const a = k * 2.39, r = 1.5 + (k % 5) * 0.7, f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), lam(k % 3 ? 0xff9cc0 : 0xffffff)); f.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.1, Math.sin(a) * r); root.add(f); }
+  for (let k = 0; k < 18; k++) { const a = k * 2.39, r = 2.1 + (k % 5) * 0.55, f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), lam(k % 3 ? 0xff9cc0 : 0xffffff)); f.position.set(Math.cos(a) * r, MTN_TOP.peak + 0.1, Math.sin(a) * r); root.add(f); }
   return { root, flag };
 })();
 // a signpost by the way in
@@ -13057,6 +13057,62 @@ function updateLovepills(dt) {
   }
 }
 
+/* ---------- the smoking pit at the top of Mount Scrumble ----------
+   A deep shaft straight down into the mountain. Smoke curls out of it,
+   and far below something glows orange. (One day, with the right gear,
+   it'll lead somewhere. For now: it's very, very hot.) */
+const PIT_DEPTH = 11;
+const pit = (() => {
+  const root = new THREE.Group(); root.position.set(0, MTN_TOP.peak, 0); scene.add(root);
+  // the shaft: dark rock fading to a deep ember glow at the bottom
+  const g = new THREE.CylinderGeometry(PIT_R, PIT_R * 0.8, PIT_DEPTH, 28, 8, true), pos = g.attributes.position, col = [];
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i), t = (PIT_DEPTH / 2 - y) / PIT_DEPTH, a = Math.atan2(pos.getZ(i), pos.getX(i)), j = 1 + Math.sin(a * 5 + y * 2) * 0.05;
+    pos.setX(i, pos.getX(i) * j); pos.setZ(i, pos.getZ(i) * j);
+    // near-black just under the rim, then a deepening ember glow lower down
+    const c = new THREE.Color(0x221a20).lerp(new THREE.Color(0x0e0a0c), Math.min(1, t * 4)).lerp(new THREE.Color(0xb8461a), smooth(0.3, 0.85, t)).lerp(new THREE.Color(0xff8a3a), smooth(0.85, 1, t));
+    col.push(c.r, c.g, c.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const shaft = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })); shaft.position.y = -PIT_DEPTH / 2 + 0.02; root.add(shaft);
+  // the lava, faint and far below, with a soft glow
+  const lava = new THREE.Mesh(new THREE.CircleGeometry(PIT_R * 0.85, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff6a1a })); lava.position.y = -PIT_DEPTH + 0.05; root.add(lava);
+  const glowTex = spriteTex((g2, s) => { const gr = g2.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(255,170,80,.9)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, s, s); });
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.position.y = -PIT_DEPTH + 1.2; glow.scale.setScalar(3.4); root.add(glow);
+  // a ring of scorched, blackened rocks round the rim
+  const parts = [], R = mulberry32(6661);
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 + R() * 0.15, r = PIT_R + 0.15 + R() * 0.25, s = 0.18 + R() * 0.2; parts.push(bake(new THREE.DodecahedronGeometry(s, 0).scale(1.2, 0.6, 1), [0x5a4a52, 0x3a3038, 0x6a5a5e][i % 3]).translate(Math.cos(a) * r, s * 0.2, Math.sin(a) * r)); }
+  parts.push(bake(new THREE.TorusGeometry(PIT_R + 0.05, 0.12, 6, 32).rotateX(Math.PI / 2), 0x4a3a40).translate(0, 0.02, 0));
+  const rim = new THREE.Mesh(merge(parts), vcLambert()); rim.castShadow = rim.receiveShadow = true; root.add(rim);
+  // smoke, curling up out of it
+  const smokeM = Array.from({ length: 16 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xb8b0b8, transparent: true, depthWrite: false })); sp.visible = false; root.add(sp); return { sp, life: 0, x: 0, y: 0, z: 0, vx: 0, vz: 0 }; });
+  return { root, lava, glow, smokeM, next: 0, idx: 0 };
+})();
+const pitHints = {};
+const pitSfx = { sizzle() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'highpass', 3000, 0.25, 0.6, sfxBus, 0.7); tone(t, 180, 60, 0.6, 0.08, 'sawtooth'); } };
+function updatePit(dt) {
+  const P = pit, near = Math.hypot(player.x, player.z, player.y - MTN_TOP.peak);
+  if (near < 160) {
+    // smoke puffs drift up and spread out
+    P.next -= dt;
+    if (P.next <= 0) { P.next = 0.22 + Math.random() * 0.15; const s = P.smokeM[P.idx++ % P.smokeM.length]; Object.assign(s, { life: 3.2, x: (Math.random() - 0.5) * PIT_R, y: -1.2, z: (Math.random() - 0.5) * PIT_R, vx: (Math.random() - 0.5) * 0.25, vz: (Math.random() - 0.5) * 0.25 }); s.sp.visible = true; }
+    for (const s of P.smokeM) {
+      if (s.life <= 0) { s.sp.visible = false; continue; }
+      s.life -= dt; s.x += s.vx * dt + Math.sin(time + s.y) * 0.08 * dt; s.z += s.vz * dt; s.y += dt * 1.3;
+      const k = 1 - s.life / 3.2; s.sp.position.set(s.x, s.y, s.z); s.sp.scale.setScalar(0.8 + k * 2.6); s.sp.material.opacity = Math.min(1, s.life / 1.2) * 0.22 * Math.min(1, k * 3);   // thin, wispy smoke
+    }
+    // the lava glows and pulses, faintly
+    const pulse = 0.5 + Math.sin(time * 1.7) * 0.2 + Math.sin(time * 4.3) * 0.08;
+    P.lava.material.color.setRGB(1, 0.32 + pulse * 0.18, 0.08); P.glow.material.opacity = 0.35 + pulse * 0.3;
+  }
+  if (!pitHints.seen && playing && near < 9) { pitHints.seen = true; toast('A deep pit plunges straight down into the mountain. Smoke curls up out of it... and far below, something glows orange.'); }
+  // fall in, and it's far, far too hot
+  if (playing && !knocked && Math.hypot(player.x, player.z) < PIT_R + 0.1 && player.y < MTN_TOP.peak - 3) {
+    pitSfx.sizzle(); toast('AAAH! HOT HOT HOT! The heat rushing up out of the pit is unbearable!');
+    hurtPlayer(MAX_HEALTH + 1);
+  }
+}
+
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -13211,6 +13267,7 @@ function tick(dt) {
   updateBlob(dt);
   updateBerries(dt);
   updateLovepills(dt);
+  updatePit(dt);
   debugTopUp();
   MZIP.root.visible = scrimHere();
   updateSparkles(dt);
