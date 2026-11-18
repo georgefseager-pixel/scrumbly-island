@@ -13456,12 +13456,12 @@ const blessGlowMat = () => new THREE.MeshBasicMaterial({ color: 0xb8ffb0, transp
 
 /* ---------- the old carved tree in Glimmerwood ---------- */
 const BLESS_TREE = (() => {
-  const [x, z] = polar(3.0, 106), y = heightAt(x, z), face = Math.atan2(x, z);   // a roomy clearing: its big crown needs space   // its carved side looks out towards the shore
+  const [x, z] = polar(2.7, 94), y = heightAt(x, z), face = Math.atan2(x, z);   // a clearing of its own: well away from the river, the bridges and the other trees   // its carved side looks out towards the shore
   const root = new THREE.Group(); root.position.set(x, y, z); root.rotation.y = face; scene.add(root);
   const parts = [], R = mulberry32(8181);
   parts.push(bake(new THREE.CylinderGeometry(1.25, 1.6, 7, 22), 0x6a4a30).translate(0, 3.5, 0));
   for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + 0.3; parts.push(bake(new THREE.ConeGeometry(0.45, 2.2, 6).rotateZ(Math.PI / 2 - 0.5).rotateY(-a), 0x5a3e28).translate(Math.cos(a) * 1.7, 0.35, Math.sin(a) * 1.7)); }
-  for (let i = 0; i < 9; i++) { const a = R() * Math.PI * 2, r = 2.2 + R() * 2.4, s = 2.2 + R() * 1.4; parts.push(bake(new THREE.DodecahedronGeometry(s, 1), [0x3f8a4a, 0x4fa65a, 0x6fbf6a][i % 3]).translate(Math.cos(a) * r * 0.7, 8.6 + R() * 2.6, Math.sin(a) * r * 0.7)); }
+  for (let i = 0; i < 9; i++) { const a = R() * Math.PI * 2, r = 2.2 + R() * 2.4, s = 2.0 + R() * 1.1; parts.push(bake(new THREE.DodecahedronGeometry(s, 1), [0x3f8a4a, 0x4fa65a, 0x6fbf6a][i % 3]).translate(Math.cos(a) * r * 0.55, 8.6 + R() * 2.6, Math.sin(a) * r * 0.55)); }
   for (let i = 0; i < 14; i++) { const a = R() * Math.PI * 2, h = R() * 6; if (Math.abs(Math.atan2(Math.sin(a - Math.PI / 2), Math.cos(a - Math.PI / 2))) < 0.6 && h > 0.8 && h < 5.4) continue; parts.push(bake(new THREE.SphereGeometry(0.22 + R() * 0.2, 6, 4).scale(1, 0.5, 1), 0x7fae5a).translate(Math.cos(a) * 1.45, h + 0.3, Math.sin(a) * 1.45)); }   // moss (never over the carvings)
   const m = new THREE.Mesh(merge(parts), vcLambert()); m.castShadow = m.receiveShadow = true; root.add(m);
   // the carvings: a strip wrapped round the trunk's front, following its taper
