@@ -2214,6 +2214,7 @@ function rollSize() { const r = Math.random(); return r < 0.08 ? 'big' : r < 0.1
 /* ---------- Shiny variants: about 1 in 40 scrumblies has its own special colours ---------- */
 const SHINY_RATE = 1 / 60;
 var debugInfinite = false;   // a debug game: bottomless apples and rocks
+var biggleNamed = false;     // the first Small Friggly you catch is always Biggle Baggle
 const rollShiny = () => Math.random() < SHINY_RATE;
 // per species: rotate the hue of coloured parts, and tint the white/grey parts
 const SHINY = {
@@ -2272,7 +2273,7 @@ function applyShiny(c, on, species) {
   c.shiny = on;
 }
 const shinyWord = sh => sh ? 'Shiny ' : '';
-function applySize(c, size) { if (c.giantTip) size = 'giant'; c.size = size; c.s = size ? SIZES[size].scale : 1; c.root.scale.setScalar(c.s); }
+function applySize(c, size) { if (c.giantTip) size = 'giant'; c.size = size; c.s = size ? SIZES[size].scale : 1; c.root.scale.setScalar(c.s); if (c.bowtie) c.bowtie.visible = size === 'small'; }
 const sizeWord = size => size ? SIZES[size].label + ' ' : '';
 
 function newBobo(home) {
@@ -2322,6 +2323,7 @@ function catchScrumbly(species, size, ambush, shiny) {
   catchBurst();
   dexMarkCaught(species);
   const p = addToParty(species, null, false, size, shiny);
+  if (species === 'friggly' && size === 'small' && !biggleNamed) { biggleNamed = true; p.name = 'Biggle Baggle'; renderPartyHud(); }   // the first little bowtied Friggly is always this one
   lionelOnCatch(species, size);
   tutOnCatch(p);
   tealOnCatch(species, ambush);
@@ -6959,7 +6961,7 @@ function snapshot() {
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), y: +t.y.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
-    debug: debugInfinite, music: musicOn
+    debug: debugInfinite, biggle: biggleNamed, music: musicOn
   };
 }
 const unpackP = p => p && SPECIES[p.species] && p.name ? Object.assign(makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny), p.species === 'sita' && isFinite(p.growT) ? { growT: clamp(+p.growT, 0, 600) } : {}, p.home ? { home: true } : {}, p.species === 'friggly' && isFinite(p.fed) ? { fed: clamp(Math.floor(+p.fed), 0, 99) } : {}) : null;
@@ -6986,7 +6988,7 @@ function applySnapshot(s) {
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
   titansScanned.clear(); (Array.isArray(s.titans) ? s.titans : []).forEach(id => { if (TITANS.some(t => t.id === id)) titansScanned.add(id); });
-  pillarLoad(s.pillar); lionelLoad(s.lionel); debugInfinite = !!s.debug;
+  pillarLoad(s.pillar); lionelLoad(s.lionel); debugInfinite = !!s.debug; biggleNamed = !!s.biggle;
   forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
@@ -11836,7 +11838,15 @@ function makeFrigglyMesh(dark, fat, tiny, geck) {
   for (let i = 0; i < 3; i++) { const st = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex })); st.scale.setScalar(0.16); st.visible = false; root.add(st); stars.push(st); }
   const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.36); ex.position.y = fat ? 1.75 : 1.5; ex.visible = false; ex.renderOrder = 6; root.add(ex);
   scene.add(root);
-  return { root, body, head, eyes, lids, arms, stars, ex, mouth };
+  // a plain Friggly keeps a little pink bowtie handy: it only wears it when it's a Small one
+  let bowtie = null;
+  if (!dark && !fat && !tiny && !geck) {
+    bowtie = new THREE.Group(); bowtie.position.set(0, 0.55, 0.3); bowtie.rotation.x = -0.35; body.add(bowtie); bowtie.visible = false;
+    const pinkM = lam(0xff7ab8);
+    [-1, 1].forEach(s => { const w = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.15, 4), pinkM); w.position.x = s * 0.08; w.rotation.z = s * Math.PI / 2; w.scale.z = 0.5; bowtie.add(w); });
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), lam(0xe0559a)); knot.scale.z = 0.7; bowtie.add(knot);
+  }
+  return { root, body, head, eyes, lids, arms, stars, ex, mouth, bowtie };
 }
 
 /* ---------- the ponds, and the little streams across each loop ---------- */
