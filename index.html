@@ -2472,10 +2472,10 @@ function addToBox(p) { const i = boxSlots.indexOf(null); if (i < 0 || i >= boxCa
 function renderPartyHud(popIndex) {
   [...partyEl.children].forEach((el, i) => {
     const p = party[i], pn = el.querySelector('.pname');
-    el.classList.toggle('shiny', !!p && !!p.shiny); el.querySelector('.pic').style.filter = p && p.shiny && SHINY[p.species] ? SHINY[p.species].css : '';
+    el.classList.toggle('shiny', !!p && !!p.shiny); el.querySelector('.pic').style.filter = iconFilter(p);
     el.classList.toggle('filled', !!p); el.classList.remove('pop');
     el.classList.toggle('big', !!p && p.size === 'big'); el.classList.toggle('small', !!p && p.size === 'small');
-    el.querySelector('.pic').innerHTML = p ? SPECIES[p.species].icon : '';
+    el.querySelector('.pic').innerHTML = p ? iconOf(p) : '';
     if (p) { pn.innerHTML = SPECIES[p.species].unique ? '<b></b> <span><em class="unique">One of a kind</em></span>' : `<b></b> <span>the ${p.shiny ? '<em class="shiny">Shiny</em> ' : ''}${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em> ` : ''}${SPECIES[p.species].name}</span>`; pn.querySelector('b').textContent = p.name; }
     else pn.innerHTML = '';
   });
@@ -6525,7 +6525,7 @@ const cellGet = c => c.area === 'party' ? (party[c.i] || null) : boxSlots[c.i];
 const sameCell = (a, b) => a && b && a.area === b.area && a.i === b.i;
 function cellHtml(p, partner) {
   return (partner ? '<span class="tag">PARTNER</span>' : '') + (p
-    ? `<span class="ic ${p.size || ''}" style="${p.shiny && SHINY[p.species] ? 'filter:' + SHINY[p.species].css : ''}">${SPECIES[p.species].icon}</span><span class="nm"><b></b>${p.shiny ? '<em class="shiny">Shiny</em>' : ''}${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em>` : ''}<i>${SPECIES[p.species].unique ? 'One of a kind' : SPECIES[p.species].name}</i></span>`
+    ? `<span class="ic ${p.size || ''}" style="${iconFilter(p) ? 'filter:' + iconFilter(p) : ''}">${iconOf(p)}</span><span class="nm"><b></b>${p.shiny ? '<em class="shiny">Shiny</em>' : ''}${p.size ? `<em class="${p.size}">${SIZES[p.size].label}</em>` : ''}<i>${SPECIES[p.species].unique ? 'One of a kind' : SPECIES[p.species].name}</i></span>`
     : '<span class="empty"></span>');
 }
 function renderBox() {
@@ -6814,7 +6814,7 @@ function showBond() {
   if (!bondBag.length) bondBag = BOND_LINES.concat(BOND_SPECIES_LINES[partner.p.species] || []).sort(() => Math.random() - 0.5);
   const line = bondBag.pop().replace('{species}', SPECIES[partner.p.species].name);
   const [before, after] = line.split('{name}');
-  bondEl.innerHTML = `<span class="pic">${SPECIES[partner.p.species].icon}</span><p></p>`;
+  bondEl.innerHTML = `<span class="pic">${iconOf(partner.p)}</span><p></p>`;
   const pEl = bondEl.querySelector('p'); pEl.append(before || ''); const b = document.createElement('b'); b.textContent = partner.p.name; pEl.append(b, after || '');
   bondEl.hidden = false; bondEl.classList.remove('in'); void bondEl.offsetWidth; bondEl.classList.add('in');
   clearTimeout(bondHide); bondHide = setTimeout(() => bondEl.classList.remove('in'), 6000);
@@ -7065,7 +7065,7 @@ function renderSlots() {
     const sum = saveSummary(readSave(r.key)), b = document.createElement('button');
     b.className = 'slotrow' + (sum ? '' : ' blank') + (armed === r.key ? ' armed' : '');
     b.disabled = savesMode === 'load' && !sum;
-    b.innerHTML = `<span class="sl">${r.label}</span><span class="pics">${sum ? sum.party.map(p => `<i class="${p.size || ''}">${SPECIES[p.species].icon}</i>`).join('') : ''}</span>
+    b.innerHTML = `<span class="sl">${r.label}</span><span class="pics">${sum ? sum.party.map(p => `<i class="${p.size || ''}">${iconOf(p)}</i>`).join('') : ''}</span>
       <span class="info">${sum ? `<b></b><small>${sum.caught} species caught · ${sum.scanned} scanned · ${sum.boxed} in the Box · ${sum.when}</small>` : '<b>Empty</b>'}</span>
       ${armed === r.key ? '<span class="confirm">Overwrite? Click again</span>' : ''}`;
     if (sum) b.querySelector('.info b').textContent = sum.lead + (sum.party.length > 1 ? ` + ${sum.party.length - 1} more` : '');
@@ -12921,6 +12921,32 @@ SCRIM_PRICE.lovepill = 30; SCRIM_PLEAS.lovepill = 'Lovepills belong on the mount
 BOND_SPECIES_LINES.lovepill = ['{name} gave a happy little wiggle.', '{name} is radiating good vibes. You can feel it.', '{name} hopes you\'re looking after yourself.', '{name} thinks you\'re doing really, really well.'];
 WELCOME_SPECIES.lovepill = '*wiggle wiggle* Welcome home! Have you been drinking enough water? Have you eaten? I worry!';
 TAG_HIGH.lovepill = 0.95;
+// the four Lovepill faces (winking > <, heart eyes, dot eyes, happy ^ ^), as SVG bits for icons and textures for the capsule
+const PILL_EYES = [
+  '<path d="M19.5 29.2 l2.6 1.6 -2.6 1.6 M28.5 29.2 l-2.6 1.6 2.6 1.6" stroke="#4a3a4a" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  '<path d="M21 32.2 l-2 -1.8 a1.15 1.15 0 0 1 2 -1.3 a1.15 1.15 0 0 1 2 1.3 z M27 32.2 l-2 -1.8 a1.15 1.15 0 0 1 2 -1.3 a1.15 1.15 0 0 1 2 1.3 z" fill="#4a3a4a"/>',
+  '<circle cx="21" cy="30.8" r="1.3" fill="#4a3a4a"/><circle cx="27" cy="30.8" r="1.3" fill="#4a3a4a"/>',
+  '<path d="M19.6 31.6 q1.4 -2.2 2.8 0 M25.6 31.6 q1.4 -2.2 2.8 0" stroke="#4a3a4a" stroke-width="1.3" fill="none" stroke-linecap="round"/>'
+];
+function pillIcon(v, shiny) {
+  v = v || { c: 0, f: 0 };
+  const top = shiny ? '#ffc83a' : '#' + PILL_COLS[v.c].toString(16).padStart(6, '0'), bot = shiny ? '#ffe27a' : '#fff';
+  return `<svg viewBox="0 0 48 48"><rect x="15" y="4" width="18" height="40" rx="9" fill="${bot}" stroke="#e4e0ea" stroke-width="1.2"/><path d="M15 13 a9 9 0 0 1 18 0 V24 H15 Z" fill="${top}"/><path d="M18 9 a6 6 0 0 1 4 -3" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/>${PILL_EYES[v.f] || PILL_EYES[0]}<path d="M21.5 35.4 Q24 37.9 26.5 35.4" stroke="#4a3a4a" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
+}
+// a party member's icon: Lovepills show their own colour and face; everyone else uses their species' picture
+function iconOf(p) { return p && p.species === 'lovepill' ? pillIcon(p.pill, p.shiny) : SPECIES[p.species].icon; }
+function iconFilter(p) { return p && p.shiny && SHINY[p.species] && p.species !== 'lovepill' ? SHINY[p.species].css : ''; }
+const PILL_FACE_TEX = [0, 1, 2, 3].map(f => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 200; const g = c.getContext('2d');
+  g.strokeStyle = g.fillStyle = '#4a3a4a'; g.lineWidth = 11; g.lineCap = g.lineJoin = 'round';
+  const L = 92, Rx = 164, ey = 78;
+  if (f === 0) { g.beginPath(); g.moveTo(L - 16, ey - 14); g.lineTo(L + 12, ey); g.lineTo(L - 16, ey + 14); g.moveTo(Rx + 16, ey - 14); g.lineTo(Rx - 12, ey); g.lineTo(Rx + 16, ey + 14); g.stroke(); }
+  else if (f === 1) [L, Rx].forEach(x => { g.beginPath(); g.moveTo(x, ey + 20); g.bezierCurveTo(x - 30, ey - 2, x - 14, ey - 26, x, ey - 9); g.bezierCurveTo(x + 14, ey - 26, x + 30, ey - 2, x, ey + 20); g.fill(); });
+  else if (f === 2) [L, Rx].forEach(x => { g.beginPath(); g.arc(x, ey, 13, 0, 7); g.fill(); });
+  else { g.beginPath(); g.arc(L, ey + 10, 17, Math.PI * 1.1, Math.PI * 1.9); g.moveTo(Rx - 17 * Math.cos(0.1 * Math.PI), ey + 10 - 17 * Math.sin(0.1 * Math.PI)); g.arc(Rx, ey + 10, 17, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+  g.beginPath(); g.arc(128, 122, 24, Math.PI * 0.15, Math.PI * 0.85); g.stroke();      // a little smile
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+});
 function makeLovepillMesh() {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
   const R = 0.13, H = 0.34, mid = R + H / 2;
@@ -12934,23 +12960,15 @@ function makeLovepillMesh() {
   m(new THREE.SphereGeometry(R, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), botMat, 0, mid - H / 2, 0);
   m(new THREE.TorusGeometry(R * 1.01, 0.006, 4, 24), topMat, 0, mid, 0).rotation.x = Math.PI / 2;      // a tiny lip where the halves meet
   const shine = m(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }), -0.06, mid + H / 2 + 0.03, 0.08); shine.scale.set(0.6, 1.4, 0.4);
-  // four faces, only one shown at a time: winking > <, heart eyes, dot eyes, happy ^ ^
-  const fy = mid - 0.06, fz = R + 0.003, faces = [];
-  const face = () => { const g = new THREE.Group(); body.add(g); faces.push(g); g.visible = false; return g; };
-  const bit = (g, geo, x, y, rz = 0) => { const o = new THREE.Mesh(geo, ink); o.position.set(x, y, fz); o.rotation.z = rz; g.add(o); return o; };
-  { const g = face(); [-1, 1].forEach(s => { bit(g, new THREE.BoxGeometry(0.03, 0.007, 0.004), s * 0.045, fy + 0.008, s * 0.5); bit(g, new THREE.BoxGeometry(0.03, 0.007, 0.004), s * 0.045, fy - 0.008, -s * 0.5); }); }
-  { const g = face(); [-1, 1].forEach(s => { const h = new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.07)), ink); h.position.set(s * 0.045, fy, fz); g.add(h); }); }
-  { const g = face(); [-1, 1].forEach(s => { const e = bit(g, new THREE.CircleGeometry(0.012, 10), s * 0.045, fy); }); }
-  { const g = face(); [-1, 1].forEach(s => { const a = bit(g, new THREE.TorusGeometry(0.016, 0.004, 4, 10, Math.PI), s * 0.045, fy - 0.006); }); }
-  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.004, 4, 12, Math.PI), ink); smile.position.set(0, fy - 0.045, fz); smile.rotation.z = Math.PI; body.add(smile);
-  // the shape curves, so tip each face onto the capsule's surface
-  [...faces, smile].forEach(o => { o.position.z = fz; });
+  // the face: drawn onto a strip wrapped round the capsule, so every bit of it sits flush on the curve
+  const faceMat = new THREE.MeshBasicMaterial({ map: PILL_FACE_TEX[0], transparent: true, depthWrite: false });
+  const faceWrap = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.002, R + 0.002, 0.14, 24, 1, true, -0.7, 1.4), faceMat); faceWrap.position.y = mid - 0.075; body.add(faceWrap);
   scene.add(root);
-  const c = { root, body, topMat, botMat, faces, pill: null };
+  const c = { root, body, topMat, botMat, faceMat, pill: null };
   // pick this one's colour and face (a Shiny is gold all over)
   c.setPill = (v, shiny) => {
     v = v || { c: 0, f: 0 }; c.pill = v;
-    c.faces.forEach((g, i) => { g.visible = i === v.f; });
+    c.faceMat.map = PILL_FACE_TEX[v.f] || PILL_FACE_TEX[0]; c.faceMat.color.setHex(0xffffff); c.faceMat.needsUpdate = true;
     if (shiny) { c.topMat.color.setHex(0xffc83a); c.botMat.color.setHex(0xffe27a); c.topMat.specular.setHex(0xfff2c0); }
     else { c.topMat.color.setHex(PILL_COLS[v.c] ?? PILL_COLS[0]); c.botMat.color.setHex(0xfaf8f4); c.topMat.specular.setHex(0xffffff); }
   };
