@@ -1745,6 +1745,8 @@ function toast(msg) {
 function blockedMessage(x, z) {
   const w = mtnWall(x, z, player.x, player.z, player.y);
   if (w) toast(w.kind === 'radial' ? 'Too smooth and steep to climb here. Look for the tan rock covered in knobbly handholds!' : w.look === 'pine' ? 'A little mountain pine is in the way.' : 'Too big to step up on. Try jumping!');
+  else if (inMtnPond(x, z, 0.3)) toast('That little pond is far too deep to wade into.');
+  else if (inPond(x, z, 0.35)) toast('Glimmer Pond is far too deep to wade into. Who knows what lives down there...');
   else if (inland(x, z) > INLAND_LIMIT) toast(forestBlocked(x, z));
   else toast("Whoa, too deep! You're a catcher, not a swimmer.");
 }
@@ -2210,7 +2212,8 @@ function setBoboAt(b, x, z) { b.x = x; b.z = z; b.y = heightAt(x, z); b.tx = x; 
 const SIZES = { big: { label: 'Big', scale: 1.65 }, small: { label: 'Small', scale: 0.55 }, giant: { label: 'Giant', scale: 2.5 } };   // giants never spawn by themselves: Lionel spots them
 function rollSize() { const r = Math.random(); return r < 0.08 ? 'big' : r < 0.16 ? 'small' : null; }   // 8% big, 8% small
 /* ---------- Shiny variants: about 1 in 40 scrumblies has its own special colours ---------- */
-const SHINY_RATE = 1 / 40;
+const SHINY_RATE = 1 / 60;
+var debugInfinite = false;   // a debug game: bottomless apples and rocks
 const rollShiny = () => Math.random() < SHINY_RATE;
 // per species: rotate the hue of coloured parts, and tint the white/grey parts
 const SHINY = {
@@ -5405,12 +5408,12 @@ function knockOut() {
 const rocks = [];
 const rockGeo = (() => { const g = new THREE.DodecahedronGeometry(0.15, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 0.72); g.computeVertexNormals(); return g; })();
 const ROCK_COLORS = [0x9d8f9a, 0xb4a2a9, 0x8c8496, 0xa99487];
-function addRock(x, z) {
+function addRock(x, z, y) {
   if (nooks.some(n => Math.hypot(n.x - x, n.z - z) < 2.4)) return;
   const mesh = new THREE.Mesh(rockGeo, new THREE.MeshLambertMaterial({ color: ROCK_COLORS[rocks.length % ROCK_COLORS.length] }));
   mesh.castShadow = true; mesh.rotation.set(Math.random() * 3, Math.random() * 6, 0);
   scene.add(mesh);
-  const r = { mesh, x, z, y: heightAt(x, z) + 0.08, vx: 0, vy: 0, vz: 0, state: 'ground', bounces: 0 };
+  const r = { mesh, x, z, y: isFinite(y) ? y : heightAt(x, z) + 0.08, vx: 0, vy: 0, vz: 0, state: 'ground', bounces: 0 };
   mesh.position.set(r.x, r.y, r.z);
   rocks.push(r);
 }
@@ -5457,9 +5460,9 @@ function renderHotbar() {
     el.classList.toggle('locked', !!inv.slots[i] && !owns(inv.slots[i]));
     el.classList.toggle('active', i === inv.active);
     el.classList.toggle('dim', !!inv.slots[i] && !slotUsable(i));
-    if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = inv.rocks ? inv.rocks : '';
+    if (inv.slots[i] === 'rock') el.querySelector('.count').textContent = debugInfinite ? '∞' : inv.rocks ? inv.rocks : '';
     if (inv.slots[i] === 'trap') el.querySelector('.count').textContent = inv.traps ? inv.traps : '';
-    if (inv.slots[i] === 'apple') el.querySelector('.count').textContent = inv.apples ? inv.apples : '';
+    if (inv.slots[i] === 'apple') el.querySelector('.count').textContent = debugInfinite ? '∞' : inv.apples ? inv.apples : '';
     if (inv.slots[i] === 'tele' || inv.slots[i] === 'tele2' || inv.slots[i] === 'tele3') { const c = inv.slots[i] === 'tele2' ? teleCool2 : inv.slots[i] === 'tele3' ? teleCool3 : teleCool; el.querySelector('.count').textContent = c > 0 ? Math.ceil(c / 60) + 'm' : ''; el.classList.toggle('cooling', c > 0); }
   });
 }
@@ -5630,7 +5633,7 @@ function updateRocks(dt) {
       else {
         r.state = 'ground'; r.vx = r.vy = r.vz = 0;
         // out of reach (deep water / closed jungle): a fresh rock turns up somewhere on the beach
-        if (!walkable(r.x, r.z)) { for (let i = 0; i < 20; i++) { const [x, z] = polar(Math.random() * 6.28, 10 + Math.random() * 45); if (boboSpotOK(x, z)) { r.x = x; r.z = z; r.y = heightAt(x, z) + 0.07; break; } } }
+        if (!walkable(r.x, r.z) && !canWalk(r.x, r.z)) { for (let i = 0; i < 20; i++) { const [x, z] = polar(Math.random() * 6.28, 10 + Math.random() * 45); if (boboSpotOK(x, z)) { r.x = x; r.z = z; r.y = heightAt(x, z) + 0.07; break; } } }
       }
     }
     r.mesh.position.set(r.x, r.y, r.z);
@@ -6082,6 +6085,7 @@ function entryIcon(e) {
   return SPECIES[e.id].icon;
 }
 function renderDex() {
+  DEX_ENTRIES.forEach((e, i) => { if (!e.id) { const id = Object.keys(SPECIES).find(k => SPECIES[k].num === i + 1); if (id) { e.id = id; delete e.sil; } } });
   const known = id => id && dexState.scanned.has(id);
   [...dexGrid.children].forEach((b, i) => {
     const e = DEX_ENTRIES[i], k = known(e.id), c = e.id && dexState.caught.has(e.id);
@@ -6951,7 +6955,7 @@ function snapshot() {
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), y: +t.y.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
-    music: musicOn
+    debug: debugInfinite, music: musicOn
   };
 }
 const unpackP = p => p && SPECIES[p.species] && p.name ? Object.assign(makeScrumbly(p.species, String(p.name).slice(0, 40), p.size, p.shiny), p.species === 'sita' && isFinite(p.growT) ? { growT: clamp(+p.growT, 0, 600) } : {}, p.home ? { home: true } : {}, p.species === 'friggly' && isFinite(p.fed) ? { fed: clamp(Math.floor(+p.fed), 0, 99) } : {}) : null;
@@ -6978,7 +6982,7 @@ function applySnapshot(s) {
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
   titansScanned.clear(); (Array.isArray(s.titans) ? s.titans : []).forEach(id => { if (TITANS.some(t => t.id === id)) titansScanned.add(id); });
-  pillarLoad(s.pillar); lionelLoad(s.lionel);
+  pillarLoad(s.pillar); lionelLoad(s.lionel); debugInfinite = !!s.debug;
   forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
@@ -6992,6 +6996,7 @@ function applySnapshot(s) {
   if (P && isFinite(P.x) && isFinite(P.z) && canWalk(P.x, P.z)) { player.x = P.x; player.z = P.z; player.yaw = isFinite(P.yaw) ? P.yaw : player.yaw; player.pitch = clamp(isFinite(P.pitch) ? P.pitch : 0, -1.2, 1.2); }
   else { player.x = spawnX; player.z = spawnZ; const fx = Math.cos(spawnTheta + 0.55), fz = Math.sin(spawnTheta + 0.55); player.yaw = Math.atan2(-fx, -fz); player.pitch = -0.05; }
   player.y = heightAt(player.x, player.z); player.vx = player.vz = player.vy = 0; player.climb = null; player.grounded = true;
+  if (P && isFinite(P.y) && inMountain(player.x, player.z)) player.y = Math.max(player.y, mtnGround(player.x, player.z, P.y + 0.6));
   if (P && isFinite(P.y) && houseFloorAt(player.x, player.z, P.y) !== null) player.y = HOUSE.deck;
   // what's in your pockets, and traps left out on the sand
   traps.slice().forEach(t => { if (t.occupant) releaseTrap(t, true, true); scene.remove(t.g); });
@@ -7198,7 +7203,7 @@ function debugForestSave() {
   // just inside a gap in the hedge, looking into Glimmerwood
   const th = GAP_TH[1], [x, z] = polar(th, HEDGE_OUT + 3);
   return {
-    tutorial: 'done', metProf: true, owned: { net: true, dex: true, tele: true, apple: false }, trapsOwned: 2,
+    tutorial: 'done', metProf: true, debug: true, owned: { net: true, dex: true, tele: true, apple: true }, trapsOwned: 2,
     party: [pk('bobo')], box: BEACH_SPECIES.map(pk), scanned: BEACH_SPECIES, caught: BEACH_SPECIES,
     gold: 9999, scrim: { met: true, sold: 1, boardOn: true, profComplained: true, requests: [] },
     teal: { stage: 'ranch', ambushDone: true }, forest: { open: true, hopMet: true },
@@ -9630,7 +9635,8 @@ let nearHouse = null;
 function houseTarget() {
   if (!scrimHere() || player.climb || houseRide) return null;
   const pt = pillarTarget(); if (pt) return pt;
-  const lt = lionelTarget(); if (lt) return lt;                     // (the carved pillar on the beach uses the same E prompt)
+  const lt = lionelTarget(); if (lt) return lt;
+  const zt = mzipTarget(); if (zt) return zt;                     // (the carved pillar on the beach uses the same E prompt)
   const up = houseUp();
   if (!up) {
     if (!houseStageAt('carlos')) return facingPoint(bouncy.x, bouncy.z, 3.6) ? { label: 'talk to Lord Bouncybun', act: talkToBouncy } : null;
@@ -9948,7 +9954,7 @@ const ZIP = (() => {
   }
   return { lu, lv, sx, sy, sz, ex, ez, ey: eg + eh, eg, eh, len: Math.hypot(ex - sx, sy - eg - eh, ez - sz) };
 })();
-const zipAt = t => [lerp(ZIP.sx, ZIP.ex, t), lerp(ZIP.sy, ZIP.ey, t) - Math.sin(t * Math.PI) * 0.5, lerp(ZIP.sz, ZIP.ez, t)];
+const zipAt = (t, L = ZIP) => [lerp(L.sx, L.ex, t), lerp(L.sy, L.ey, t) - Math.sin(t * Math.PI) * 0.5, lerp(L.sz, L.ez, t)];
 {
   const root = new THREE.Group(); scene.add(root);
   const wood = lam(0xa8703c), woodD = lam(0x8a5a33), metal = lam(0x9aa6b8);
@@ -9977,27 +9983,29 @@ const zipAt = t => [lerp(ZIP.sx, ZIP.ex, t), lerp(ZIP.sy, ZIP.ey, t) - Math.sin(
 }
 // the beach end of the zipline is a landmark: you can bump into its legs
 const ZIP_LAND = (() => { const ang = Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz); return [ZIP.ex + Math.sin(ang) * 1.6, ZIP.ez + Math.cos(ang) * 1.6]; })();
-let zipRide = null, zipHint = false;
-function startZip() {
-  zipRide = { t: 0, v: 2, whoosh: 0 }; player.vx = player.vz = player.vy = 0; player.climb = null; for (const k in keys) keys[k] = false;
-  player.yaw = Math.atan2(-(ZIP.ex - ZIP.sx), -(ZIP.ez - ZIP.sz)); player.pitch = -0.15;
+ZIP.land = ZIP_LAND;
+let zipRide = null, zipHint = false, mzipHint = false;
+function startZip(L = ZIP) {
+  zipRide = { t: 0, v: 2, whoosh: 0, L }; player.vx = player.vz = player.vy = 0; player.climb = null; for (const k in keys) keys[k] = false;
+  player.yaw = Math.atan2(-(L.ex - L.sx), -(L.ez - L.sz)); player.pitch = -0.15;
   if (actx) { const t = actx.currentTime; tone(t, 300, 900, 0.3, 0.05, 'sawtooth'); }
 }
 function updateZip(dt) {
-  const r = zipRide;
+  const r = zipRide, L = r.L;
   r.v = Math.min(13, r.v + dt * 7);                 // picking up speed
-  r.t = Math.min(1, r.t + r.v * dt / ZIP.len);
-  const [x, y, z] = zipAt(r.t);
+  r.t = Math.min(1, r.t + r.v * dt / L.len);
+  const [x, y, z] = zipAt(r.t, L);
   player.x = x; player.z = z; player.y = y - 2.15;
   camera.position.set(x, y - 0.5 + Math.sin(r.t * 40) * 0.015, z);
   r.whoosh -= dt; if (r.whoosh <= 0 && actx) { r.whoosh = 0.18; const t = actx.currentTime; noiseHit(t, 'bandpass', 600 + r.v * 80, 0.03 + r.v * 0.004, 0.2, sfxBus, 1.4); }
   if (r.t >= 1) {
     zipRide = null;
     // let go and drop onto the cushion
-    const [lx, lz] = ZIP_LAND; player.x = lx; player.z = lz; player.y = heightAt(lx, lz) + 1.6; player.vy = 0; player.grounded = false;
-    player.vx = Math.sin(Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz)) * 2; player.vz = Math.cos(Math.atan2(ZIP.ex - ZIP.sx, ZIP.ez - ZIP.sz)) * 2;
+    const [lx, lz] = L.land; player.x = lx; player.z = lz; player.y = heightAt(lx, lz) + 1.6; player.vy = 0; player.grounded = false;
+    player.vx = Math.sin(Math.atan2(L.ex - L.sx, L.ez - L.sz)) * 2; player.vz = Math.cos(Math.atan2(L.ex - L.sx, L.ez - L.sz)) * 2;
     sfx.thud && sfx.thud(); for (let i = 0; i < 10; i++) spawnSparkle(lx, heightAt(lx, lz) + 0.5, lz);
-    if (!zipHint) { zipHint = true; toast('WHEEEE! Down on the beach in no time. (It only goes one way: take the ladder to get back up.)'); }
+    if (L !== ZIP) { if (!mzipHint) { mzipHint = true; toast('WHEEEE! Off the mountain and down into Glimmerwood in no time. (It only goes one way!)'); } }
+    else if (!zipHint) { zipHint = true; toast('WHEEEE! Down on the beach in no time. (It only goes one way: take the ladder to get back up.)'); }
   }
 }
 
@@ -11848,7 +11856,7 @@ function pondAt(x, z) { return MTN_PONDS.find(p => Math.hypot(x - p.x, z - p.z) 
 function footPondApple(p) {
   riverSplash(p.x, p.y, p.z, 10, 0.6); riverRipple(p.x, p.y, p.z, 1.2);
   if (p.state !== 'bubbling' || p.out) { if (!pondHints.plop) { pondHints.plop = true; toast('Plop. The apple sinks out of sight. Nothing happens... yet.'); } return; }
-  const fr = Math.random() < 0.13, list = fr ? fragglies : frigglies, c = list.find(o => o.state === 'gone');
+  const fr = Math.random() < 0.28, list = fr ? fragglies : frigglies, c = list.find(o => o.state === 'gone');
   if (!c) return;
   p.state = 'calm'; p.t = 0; p.next = 40 + Math.random() * 40; p.out = c;
   c.pond = p; c.t = 0; c.life = fr ? 75 : 110; applySize(c, rollSize()); applyShiny(c, rollShiny(), c.species);
@@ -12100,6 +12108,69 @@ function updateTiggly(dt) {
   c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(0, c.face, 0);
 }
 
+/* ---------- loose rocks up on Mount Scrumble too: some in the foothills and on every plateau ---------- */
+{
+  const R = mulberry32(9191);
+  for (const [on, n] of [[null, 7], [P1, 7], [P2, 4], [P3, 2]]) {
+    const next = on === P1 ? P2 : on === P2 ? P3 : on === P3 ? PEAK : P1;
+    for (let i = 0, tries = 0; i < n && tries < 500; tries++) {
+      const th = R() * Math.PI * 2, r = R() * MTN_MAX_R, x = Math.cos(th) * r, z = Math.sin(th) * r;
+      if (!inMountain(x, z) || (on ? plateDepth(on, x, z) < 1 : inland(x, z) < FOREST_OUT + 6) || plateDepth(next, x, z) > -1) continue;
+      if (plates.some(q => q.kind === 'circle' && Math.hypot(q.x - x, q.z - z) < q.r + 0.5) || inMtnPond(x, z, 0.8)) continue;
+      addRock(x, z, on ? on.top + 0.08 : undefined); i++;
+    }
+  }
+}
+
+/* ---------- a second zipline: off the first plateau's rim, out over the brambles, down into Glimmerwood ---------- */
+const MZIP = (() => {
+  const th = 1.8, r = P1.R(th) - 1.3, sx = Math.cos(th) * r, sz = Math.sin(th) * r, sy = P1.top + 3.3;
+  const [ex, ez] = polar(th, FOREST_OUT - 13), eg = heightAt(ex, ez), eh = 4.2, ang = Math.atan2(ex - sx, ez - sz);
+  return { sx, sy, sz, ex, ez, eg, eh, ey: eg + eh, len: Math.hypot(ex - sx, sy - eg - eh, ez - sz), land: [ex + Math.sin(ang) * 1.6, ez + Math.cos(ang) * 1.6], base: P1.top };
+})();
+{
+  const L = MZIP, root = new THREE.Group(); scene.add(root);
+  const wood = lam(0xa8703c), woodD = lam(0x8a5a33), metal = lam(0x9aa6b8);
+  const add = (geo, mat, x, y, z, parent = root) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  const pts = []; for (let k = 0; k <= 40; k++) { const [x, y, z] = zipAt(k / 40, L); pts.push(new THREE.Vector3(x, y, z)); }
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.03, 5, false), lam(0x4a5060), 0, 0, 0).castShadow = false;
+  // the launch post on the plateau's rim, with a little platform and a sign
+  add(new THREE.CylinderGeometry(0.12, 0.14, 3.5, 8), woodD, L.sx, L.base + 1.75, L.sz);
+  add(new THREE.TorusGeometry(0.16, 0.04, 6, 14), metal, L.sx, L.sy, L.sz);
+  const pad = add(new THREE.CylinderGeometry(0.9, 0.95, 0.12, 12), wood, L.sx, L.base + 0.06, L.sz); pad.receiveShadow = true;
+  // the forest tower: four legs, a platform, a pink cushion and a flag
+  const ang = Math.atan2(L.ex - L.sx, L.ez - L.sz);
+  const tower = new THREE.Group(); tower.position.set(L.ex, L.eg, L.ez); tower.rotation.y = ang; root.add(tower);
+  [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]].forEach(([a, b]) => add(new THREE.CylinderGeometry(0.1, 0.12, L.eh + 0.4, 8), woodD, a, (L.eh + 0.4) / 2, b, tower));
+  add(new THREE.BoxGeometry(1.8, 0.12, 1.8), wood, 0, L.eh + 0.45, 0, tower);
+  add(new THREE.TorusGeometry(0.16, 0.04, 6, 14), metal, 0, L.eh, -0.2, tower);
+  for (let k = 1; k < L.eh / 1.2; k++) add(new THREE.BoxGeometry(1.5, 0.06, 0.06), wood, 0, k * 1.2, 0.7, tower);
+  const cushion = add(new THREE.SphereGeometry(1.2, 16, 10), lam(0xff8ab8), 0, 0.25, 1.6, tower); cushion.scale.set(1.2, 0.35, 1.2);
+  add(new THREE.TorusGeometry(1.2, 0.08, 6, 24), lam(0xffffff), 0, 0.32, 1.6, tower).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 5), woodD, 0.75, L.eh + 1.05, 0.75, tower);
+  add(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshLambertMaterial({ color: 0x7fd060, side: THREE.DoubleSide }), 1.05, L.eh + 1.45, 0.75, tower);
+  L.root = root;
+}
+function mzipTarget() {
+  if (player.climb || Math.abs(player.y - MZIP.base) > 1 || Math.hypot(player.x - MZIP.sx, player.z - MZIP.sz) > 2.2) return null;
+  return { label: 'ride the zipline down into Glimmerwood', act: () => startZip(MZIP) };
+}
+
+/* ---------- debug games: bottomless pockets of apples and rocks ---------- */
+function debugTopUp() {
+  if (!debugInfinite || !playing) return;
+  let changed = false;
+  if (inv.apples < MAX_APPLES) { inv.apples = MAX_APPLES; changed = true; }
+  while (inv.rocks < MAX_ROCKS) {
+    // the furthest-away rock on the ground hops into your pocket
+    let best = null, bd = -Infinity;
+    for (const r of rocks) if (r.state === 'ground') { const d = Math.hypot(r.x - player.x, r.z - player.z) - (inMountain(r.x, r.z) ? 1000 : 0); if (d > bd) { bd = d; best = r; } }   // (beach rocks first: leave the mountain's be)
+    if (!best) break;
+    best.state = 'inv'; best.mesh.visible = false; inv.rocks++; changed = true;
+  }
+  if (changed) renderHotbar();
+}
+
 function forestSave() { return { open: forestState.open, hopMet: forestState.hopMet }; }
 function forestLoad(o) { o = o && typeof o === 'object' ? o : {}; forestState.open = !!o.open; forestState.hopMet = !!o.hopMet; placeHops(); hops.forEach(h => { h.greeted = false; }); areaNow = 'beach'; }
 
@@ -12248,6 +12319,8 @@ function tick(dt) {
   updateChupis(dt);
   updateFrogs(dt);
   updateTiggly(dt);
+  debugTopUp();
+  MZIP.root.visible = scrimHere();
   updateSparkles(dt);
   cullDecor();
   cullCreatures();
@@ -12305,7 +12378,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
