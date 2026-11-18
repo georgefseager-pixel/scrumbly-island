@@ -2313,7 +2313,7 @@ const SHINY_RATE = 1 / 60;
 var debugInfinite = false;   // a debug game: bottomless apples and rocks
 var biggleNamed = false;
 var nextPill = null;
-var blessings = { forest: false, mountain: false };   // the Blessings of the Forest and the Mountain (+1 max heart each)          // the colour and face of the Lovepill being caught     // the first Small Friggly you catch is always Biggle Baggle
+var blessings = { forest: false, mountain: false };   // the Blessings of the Forest and the Mountain (double apple / rock pockets)          // the colour and face of the Lovepill being caught     // the first Small Friggly you catch is always Biggle Baggle
 const rollShiny = () => Math.random() < SHINY_RATE;
 // per species: rotate the hue of coloured parts, and tint the white/grey parts
 const SHINY = {
@@ -5532,7 +5532,8 @@ function addRock(x, z, y) {
   for (let i = 0; i < 26; i++) { const [x, z] = polar(Math.random() * 6.28, 8 + Math.random() * 52); if (boboSpotOK(x, z)) addRock(x, z); }
 }
 /* ---------- inventory hotbar ---------- */
-const MAX_ROCKS = 10;
+const ROCK_BASE = 10;
+function maxRocks() { return ROCK_BASE * (blessings.mountain ? 2 : 1); }   // the Blessing of the Mountain doubles it
 const ITEM_DEFS = {
   net: { name: 'Net', icon: '<svg viewBox="0 0 48 48"><path d="M10 40 L24 24" stroke="#e0b07a" stroke-width="4.5" stroke-linecap="round"/><path d="M8 42 L13 37" stroke="#ff6fa5" stroke-width="6" stroke-linecap="round"/><ellipse cx="31" cy="16" rx="11" ry="11" fill="rgba(255,255,255,.55)" stroke="#19b3ae" stroke-width="4"/><path d="M23 9 L39 23 M21 16 L34 28 M27 6 L41 18 M22 22 L28 27 M39 9 L25 25 M41 15 L31 26 M35 6 L22 19" stroke="#fff" stroke-width="1.6" opacity=".9"/></svg>' },
   rock: { name: 'Rocks', icon: '<svg viewBox="0 0 48 48"><path d="M9 32 C7 24 13 15 22 14 C31 12 40 18 41 27 C42 35 34 38 25 38 C16 38 10 37 9 32 Z" fill="#a99487" stroke="#7d6d70" stroke-width="2.5"/><path d="M15 22 C18 19 22 18 26 18" stroke="#cbb9b3" stroke-width="3" stroke-linecap="round" fill="none"/></svg>' }
@@ -5589,7 +5590,7 @@ function useItem() {
 let targetRock = null, throwAnim = -1, pickQueued = false;
 const _dir = new THREE.Vector3(), _to = new THREE.Vector3();
 function findTargetRock() {
-  if (player.climb || inv.rocks >= MAX_ROCKS) return null;
+  if (player.climb || inv.rocks >= maxRocks()) return null;
   camera.getWorldDirection(_dir);
   let best = null, bestScore = Infinity;
   for (const r of rocks) {
@@ -5605,7 +5606,7 @@ function findTargetRock() {
   return best;
 }
 function pickUpRock() {
-  if (!targetRock) { if (inv.rocks >= MAX_ROCKS) toast(`Your pockets are full! (${MAX_ROCKS} rocks)`); return; }
+  if (!targetRock) { if (inv.rocks >= maxRocks()) toast(`Your pockets are full! (${maxRocks()} rocks)`); return; }
   targetRock.state = 'inv'; targetRock.mesh.visible = false; targetRock = null;
   inv.rocks++; renderHotbar(); sfx.pickup();
   const el = hotbarEl.children[inv.slots.indexOf('rock')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
@@ -7128,8 +7129,8 @@ function applySnapshot(s) {
   traps.length = 0;
   (Array.isArray(s.placedTraps) ? s.placedTraps : []).slice(0, inv.trapsOwned).forEach(t => { if (isFinite(t.x) && isFinite(t.z)) spawnTrapAt(t.x, t.z, t.yaw || 0, t.y); });
   inv.traps = clamp(s.inv && isFinite(s.inv.traps) ? s.inv.traps : inv.trapsOwned - traps.length, 0, Math.max(0, inv.trapsOwned - traps.length));
-  setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, MAX_ROCKS));
-  inv.apples = clamp(s.inv && isFinite(s.inv.apples) ? Math.floor(s.inv.apples) : 0, 0, MAX_APPLES);
+  setRockCount(clamp(s.inv && isFinite(s.inv.rocks) ? s.inv.rocks : 0, 0, maxRocks()));
+  inv.apples = clamp(s.inv && isFinite(s.inv.apples) ? Math.floor(s.inv.apples) : 0, 0, maxApples());
   inv.active = inv.shown = 0; inv.eq = 0; swing.t = -1; throwAnim = -1; renderHotbar();
   if (typeof s.music === 'boolean' && s.music !== musicOn) toggleMusic();
   gold = clamp(Math.floor(+s.gold || 0), 0, 9999999); scrimLoad(s.scrim); renderGold(); fluffLoad(s.fluff); carlosLoad(s.carlos); houseLoad(s.house); tealLoad(s.teal);
@@ -8514,7 +8515,7 @@ function tealLoad(o) {
   if (tealState.stage === 'leaving') tealState.stage = 'ranch';
   tealState.ambushDone = !!o.ambushDone;
   teleCool = clamp(+o.teleCool || 0, 0, TELE_COOLDOWN); teleHold = 0;
-  setMaxHealth(1 + (tealAt('ufo') ? 1 : 0) + (fluffAt('rose') ? 1 : 0) + (blessings.forest ? 1 : 0) + (blessings.mountain ? 1 : 0)); health = MAX_HEALTH; renderHealth();
+  setMaxHealth(1 + (tealAt('ufo') ? 1 : 0) + (fluffAt('rose') ? 1 : 0)); health = MAX_HEALTH; renderHealth();
   teal.greeted = false; placeTeal();
 }
 
@@ -8724,7 +8725,8 @@ function forestBlocked(x, z) {
 }
 
 /* ---------- apples: picked from the trees, thrown like rocks, gobbled up by scrumblies ---------- */
-const MAX_APPLES = 10, APPLE_REGROW = [90, 150];
+const APPLE_BASE = 10, APPLE_REGROW = [90, 150];
+function maxApples() { return APPLE_BASE * (blessings.forest ? 2 : 1); }   // the Blessing of the Forest doubles it
 const appleGeo = (() => { const parts = [bake(new THREE.SphereGeometry(0.11, 12, 10), 0xffffff).scale(1, 0.92, 1), bake(new THREE.CylinderGeometry(0.008, 0.01, 0.06, 5), 0x6b4226).translate(0, 0.12, 0), bake(new THREE.SphereGeometry(0.03, 6, 4), 0x5cc277).scale(1.6, 0.4, 0.8).translate(0.03, 0.12, 0)]; return merge(parts); })();
 const appleMat = vcLambert({ emissive: 0x200404 });
 const heldAppleMesh = new THREE.Mesh(appleGeo, new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xe8283c, emissive: 0x300606 }));
@@ -8735,7 +8737,7 @@ let targetTreeApple = null, appleGlow = null;
 // the apple you're looking at while up an apple tree (it swells a little so you can tell)
 function findTreeApple() {
   let best = null, bestScore = Infinity;
-  if (player.climb && inv.apples < MAX_APPLES) {
+  if (player.climb && inv.apples < maxApples()) {
     camera.getWorldDirection(_dir);
     for (const t of appleTrees) {
       if (Math.abs(t.x - player.x) > 6 || Math.abs(t.z - player.z) > 6) continue;
@@ -8750,7 +8752,7 @@ function findTreeApple() {
   }
   if (best !== appleGlow) { if (appleGlow && appleGlow.on) showApple(appleGlow, true); appleGlow = best; if (best) showApple(best, true, 1.2); }
   if (player.climb && player.climb.p.apple && !appleHints.climb && player.y > player.climb.p.y + player.climb.p.H - 2.6) { appleHints.climb = true; toast('Apples! Look at one and press E to pick it.'); }
-  if (player.climb && player.climb.p.apple && inv.apples >= MAX_APPLES && !appleHints.full && player.y > player.climb.p.y + player.climb.p.H - 2.6) { appleHints.full = true; toast(`Your pockets are full of apples! ( max)`); }
+  if (player.climb && player.climb.p.apple && inv.apples >= maxApples() && !appleHints.full && player.y > player.climb.p.y + player.climb.p.H - 2.6) { appleHints.full = true; toast(`Your pockets are full of apples! ( max)`); }
   return best;
 }
 function pickTreeApple(a) {
@@ -8819,7 +8821,7 @@ function updateApples(dt) {
   }
 }
 function findTargetApple() {
-  if (player.climb || inv.apples >= MAX_APPLES) return null;
+  if (player.climb || inv.apples >= maxApples()) return null;
   camera.getWorldDirection(_dir);
   let best = null, bestScore = Infinity;
   for (const a of appleShots) {
@@ -9322,7 +9324,7 @@ const CARLOS_STOCK = [
 const carlosStock = () => CARLOS_STOCK.filter(w => (w.furn ? houseState.stage === 'furnish' : w.id !== 'deed' || !houseStageAt('carlos')) && (!w.tier || w.tier === Math.min(5, petSlots() + 1)));
 const carlosSold = id => id.startsWith('cp_') ? (houseState.carpets || []).includes(id.slice(3)) : id.startsWith('wp_') ? (houseState.papers || []).includes(id.slice(3)) : id === 'deed' ? carlosState.deed : HOUSE_ITEMS.includes(id) ? houseOwns(id) : /^pet\d$/.test(id) ? petSlots() >= +id[3] : false;
 const carlosIcon = id => id.startsWith('cp_') ? carpetSwatch(id.slice(3)) : id.startsWith('wp_') ? wallSwatch(id.slice(3)) : id === 'deed' ? DEED_ICON : /^pet\d$/.test(id) ? FURN_ICONS.pet : FURN_ICONS[id] || ITEM_DEFS[id].icon;
-const carlosHave = id => id === 'rock' ? `${inv.rocks}/${MAX_ROCKS}` : id === 'apple' ? `${inv.apples}/${MAX_APPLES}` : carlosState.deed ? 'Yours!' : '';
+const carlosHave = id => id === 'rock' ? `${inv.rocks}/${maxRocks()}` : id === 'apple' ? `${inv.apples}/${maxApples()}` : carlosState.deed ? 'Yours!' : '';
 function buildCarlosShop(m) {
   m.items = carlosStock(); m.cols = m.items.length > 3 ? 4 : 3;
   scrimBody.innerHTML = `<h3>Carlos’ Deals <span>all sales final</span></h3><div class="board-cards ware-cards${m.cols === 4 ? ' four' : ''}"></div>`;
@@ -9351,12 +9353,12 @@ function carlosActivate(it) {
   if (HOUSE_ITEMS.includes(it.id) && houseOwns(it.id)) return scrimNope('Already up in your treehouse, chief! One per customer. Don’t get greedy. That’s MY job.');
   if (gold < price) return scrimNope(pick1(['Ooh, a little short there, amigo. Carlos doesn’t do credit. Carlos got burned on credit.', `That’s ${price} gold, my friend. You’ve got ${gold}. I can do maths. Sometimes.`, 'Come back when your purse is heavier! I’ll be right here. Probably.']));
   if (it.id === 'rock') {
-    if (inv.rocks >= MAX_ROCKS) return scrimNope('Your pockets are bulging, my friend! Even Carlos can’t sell you what you can’t carry. Believe me, I’ve tried.');
+    if (inv.rocks >= maxRocks()) return scrimNope('Your pockets are bulging, my friend! Even Carlos can’t sell you what you can’t carry. Believe me, I’ve tried.');
     const before = inv.rocks; setRockCount(inv.rocks + 1);
     if (inv.rocks === before) return scrimNope('Huh. Fresh out of rocks. Somebody’s been throwing them all over the beach.');
     inv.owned.rock = true;
   } else if (it.id === 'apple') {
-    if (inv.apples >= MAX_APPLES) return scrimNope('No more room for apples, amigo! Eat one. Throw one. Live a little.');
+    if (inv.apples >= maxApples()) return scrimNope('No more room for apples, amigo! Eat one. Throw one. Live a little.');
     inv.apples++; inv.owned.apple = true;
   }
   gold -= price; carlosSfx.till(); renderHotbar(); renderGold();
@@ -12313,8 +12315,8 @@ function mzipTarget() {
 function debugTopUp() {
   if (!debugInfinite || !playing) return;
   let changed = false;
-  if (inv.apples < MAX_APPLES) { inv.apples = MAX_APPLES; changed = true; }
-  while (inv.rocks < MAX_ROCKS) {
+  if (inv.apples < maxApples()) { inv.apples = maxApples(); changed = true; }
+  while (inv.rocks < maxRocks()) {
     // the furthest-away rock on the ground hops into your pocket
     let best = null, bd = -Infinity;
     for (const r of rocks) if (r.state === 'ground') { const d = Math.hypot(r.x - player.x, r.z - player.z) - (inMountain(r.x, r.z) ? 1000 : 0); if (d > bd) { bd = d; best = r; } }   // (beach rocks first: leave the mountain's be)
@@ -13426,7 +13428,7 @@ function updateGleep(dt) {
    The Blessings: a carved old tree in Glimmerwood and a carved stone in
    Mount Scrumble's cliff. Like the pillar on the beach, each shows five
    scrumblies; bring a party in exactly that order (partner first) and
-   examine it, and you're blessed with an extra heart.
+   examine it, and you're blessed: the forest doubles how many apples you can carry, the mountain how many rocks.
    ========================================================= */
 const BLESS_FOREST = ['raebit', 'glimmery', 'willowet', 'flops', 'pretzello'];
 const BLESS_MOUNTAIN = ['chupi', 'friggly', 'geckolo', 'lubbing', 'weckle'];
@@ -13465,9 +13467,9 @@ const BLESS_TREE = (() => {
   for (let i = 0; i < 14; i++) { const a = R() * Math.PI * 2, h = R() * 6; if (Math.abs(Math.atan2(Math.sin(a - Math.PI / 2), Math.cos(a - Math.PI / 2))) < 0.6 && h > 0.8 && h < 5.4) continue; parts.push(bake(new THREE.SphereGeometry(0.22 + R() * 0.2, 6, 4).scale(1, 0.5, 1), 0x7fae5a).translate(Math.cos(a) * 1.45, h + 0.3, Math.sin(a) * 1.45)); }   // moss (never over the carvings)
   const m = new THREE.Mesh(merge(parts), vcLambert()); m.castShadow = m.receiveShadow = true; root.add(m);
   // the carvings: a strip wrapped round the trunk's front, following its taper
-  const strip = new THREE.Mesh(new THREE.CylinderGeometry(1.36, 1.54, 4.3, 24, 1, true, -0.42, 0.84), new THREE.MeshLambertMaterial({ map: carveTex(BLESS_FOREST, true, '#7a5a3c', '#4a3220', '#6a4a30') }));
+  const strip = new THREE.Mesh(new THREE.CylinderGeometry(1.37, 1.58, 4.3, 24, 1, true, -0.42, 0.84), new THREE.MeshLambertMaterial({ map: carveTex(BLESS_FOREST, true, '#7a5a3c', '#4a3220', '#6a4a30') }));
   strip.position.y = 3.15; root.add(strip);
-  const glows = BLESS_FOREST.map((_, k) => { const yk = 3.15 + 4.3 / 2 - (20 + k * 216 + 105) / (40 + 216 * 5) * 4.3, rk = lerp(1.54, 1.36, (yk - 1) / 4.3) + 0.06; const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.72), blessGlowMat()); pm.position.set(0, yk, rk); root.add(pm); return pm; });
+  const glows = BLESS_FOREST.map((_, k) => { const yk = 3.15 + 4.3 / 2 - (20 + k * 216 + 105) / (40 + 216 * 5) * 4.3, rk = lerp(1.58, 1.37, (yk - 1) / 4.3) + 0.04; const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.72), blessGlowMat()); pm.position.set(0, yk, rk); root.add(pm); return pm; });
   forestColliders.push({ x, z, r: 1.65 });
   return { key: 'forest', name: 'the Forest', label: 'examine the carved old tree', order: BLESS_FOREST, x, z, y, face, reach: 3.6, glows, glow: [0, 0, 0, 0, 0], tries: 0, seq: null, root };
 })();
@@ -13511,10 +13513,10 @@ function touchBless(b) {
     b.order.forEach((_, k) => setTimeout(() => { b.glow[k] = 1; pillarSfx.chime(k); }, 300 + k * 420));
     setTimeout(() => {
       blessings[b.key] = true; b.seq = null;
-      setMaxHealth(MAX_HEALTH + 1); health = MAX_HEALTH; renderHealth(); sfx.love(1);
+      renderHotbar(); sfx.love(1);
       for (let i = 0; i < 8; i++) setTimeout(() => spawnHeart(player.x, player.y + 1.6, player.z), i * 110);
       for (let i = 0; i < 20; i++) spawnSparkle(b.x + (Math.random() - 0.5) * 2, b.y + 1 + Math.random() * 3, b.z + (Math.random() - 0.5) * 2);
-      toast(`The Blessing of ${b.name}! A warm glow fills you up... your maximum health went up by one heart!`);
+      toast(b.key === 'forest' ? `The Blessing of the Forest! A warm glow fills you up... your pockets feel roomier: you can now carry ${maxApples()} apples!` : `The Blessing of the Mountain! A warm glow fills you up... your pockets feel sturdier: you can now carry ${maxRocks()} rocks!`);
       saveGame();
     }, 2600);
     return;
