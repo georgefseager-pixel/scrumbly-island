@@ -12577,14 +12577,14 @@ function updateLubbings(dt) {
       c.a += c.sp * dt; tx = Math.cos(c.a) * c.r; tz = Math.sin(c.a) * c.r; ty = c.h + Math.sin(c.t * 0.7) * 1.1;
       const near = Math.hypot(player.x - c.x, player.z - c.z);
       if (!lubHints.seen && near < 40 && playing) { lubHints.seen = true; toast('Something pink and heart-shaped is fluttering high above the mountain...'); }
-      if (pal && !busy && playing && Math.hypot(P.x - c.x, P.z - c.z) < 45) {
+      if (pal && !busy && playing && inMountain(P.x, P.z) && Math.hypot(P.x - c.x, P.z - c.z) < 45) {
         c.state = 'swoop'; c.t = 0;
         toast(`A Lubbing has spotted ${P.p.name} the Pretzello... and it's swooping down! It's fallen head over heels!`);
         if (actx) { const t = actx.currentTime; [72, 76, 79, 84].forEach((m, i) => tone(t + i * 0.12, mtof(m), mtof(m), 0.25, 0.04, 'sine')); }
       }
     }
     if (c.state === 'swoop' || c.state === 'smitten') {
-      if (!pal) { c.state = 'rise'; c.t = 0; if (Math.hypot(player.x - c.x, player.z - c.z) < 40) toast('The Lubbing looks around for its sweetheart... and drifts sadly back up into the sky.'); }
+      if (!pal || !inMountain(P.x, P.z)) { c.state = 'rise'; c.t = 0; if (Math.hypot(player.x - c.x, player.z - c.z) < 40) toast('The Lubbing looks around for its sweetheart... and drifts sadly back up into the sky.'); }
       else {
         const oa = c.t * 0.8;
         tx = P.x + Math.cos(oa) * 1.0; tz = P.z + Math.sin(oa) * 1.0; ty = P.y + 0.9 + Math.sin(c.t * 2) * 0.12; speed = c.state === 'swoop' ? 7 : 2.5;
@@ -13080,7 +13080,11 @@ function makeLovepillMesh() {
   return c;
 }
 const rollPill = () => ({ c: Math.floor(Math.random() * PILL_COLS.length), f: Math.floor(Math.random() * 4) });
-function dressPill(c, p) { if (c && c.setPill) c.setPill(p && p.pill, p && p.shiny); }
+function dressPill(c, p) {
+  if (c && c.setPill) c.setPill(p && p.pill, p && p.shiny);
+  // (wild Pretzellos get their glaze where they're placed; in your party, ranch and treehouse a Shiny one needs it too)
+  if (c && c.dough && p && p.species === 'pretzello' && p.shiny) { c.dough.color.setHex(0xff8fc0); c.dough.emissive.setHex(0x3a0a20); }
+}
 
 /* ---------- stuck to the cliffs ---------- */
 const lovepills = [];
@@ -13116,15 +13120,17 @@ function lovepillTarget() {
   if (player.climb) return null;
   for (const c of lovepills) {
     if (c.state !== 'stuck' || Math.abs(c.y + 0.3 * c.s - (player.y + 1.2)) > 1.6 || !facingPoint(c.x, c.z, 2.6)) continue;
-    return { label: health < MAX_HEALTH ? 'eat the Lovepill (+1 heart)' : 'eat the Lovepill', act: () => eatPill(c) };
+    const heal = c.size === 'big' || c.size === 'giant' ? 2 : 1;
+    return { label: health < MAX_HEALTH ? `eat the Lovepill (+${heal} heart${heal > 1 ? 's' : ''})` : 'eat the Lovepill', act: () => eatPill(c) };
   }
   return null;
 }
 function eatPill(c) {
   if (health >= MAX_HEALTH) { toast('You\'re feeling perfectly healthy already! Save the Lovepill for when you need it.'); return; }
-  health = Math.min(MAX_HEALTH, health + 1); renderHealth(); appleSfx.munch(); setTimeout(() => sfx.love(1), 300);
+  const heal = c.size === 'big' || c.size === 'giant' ? 2 : 1;   // a Big one heals two
+  health = Math.min(MAX_HEALTH, health + heal); renderHealth(); appleSfx.munch(); setTimeout(() => sfx.love(1), 300);
   for (let i = 0; i < 5; i++) setTimeout(() => spawnHeart(player.x, player.y + 1.6, player.z), i * 120);
-  toast(pick1(['Gulp! The Lovepill fizzes warmly all the way down. You feel much better!', 'Mmm, it tastes like strawberries and sunshine. +1 heart!', 'You swallow the Lovepill and feel a happy little glow. Healed!']));
+  toast(pick1(['Gulp! The Lovepill fizzes warmly all the way down. You feel much better!', heal > 1 ? 'Mmm, a BIG one! It tastes like strawberries and sunshine. +2 hearts!' : 'Mmm, it tastes like strawberries and sunshine. +1 heart!', 'You swallow the Lovepill and feel a happy little glow. Healed!']));
   c.state = 'gone'; c.t = 0; c.root.visible = false; c.respawn = 90 + Math.random() * 60;
 }
 function netLovepills() {
