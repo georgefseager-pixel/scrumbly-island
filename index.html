@@ -2480,6 +2480,7 @@ function tryNetCatch() {
   if (netWeckles()) got = true;
   if (netCornelio()) got = true;
   if (netFigglies()) got = true;
+  if (netDorhinjs()) got = true;
   if (netBerries()) got = true;
   if (netLovepills()) got = true;
   if (netGleep()) got = true;
@@ -3076,7 +3077,7 @@ function makeSpeshulMesh() {
   return { root, body, head, eyes, arms, legs, tail, ex, stars };
 }
 function makeSpeciesMesh(species) { return compactCreature(rawSpeciesMesh(species)); }
-function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : species === 'koneko' ? makeKonekoMesh() : species === 'chupi' ? makeChupiMesh() : species === 'friggly' ? makeFrigglyMesh(false) : species === 'fraggly' ? makeFrigglyMesh(true) : species === 'jiggly' ? makeFrigglyMesh(false, true) : species === 'tiggly' ? makeFrigglyMesh(false, false, true) : species === 'geckolo' ? makeFrigglyMesh(false, false, false, true) : species === 'lubbing' ? makeLubbingMesh() : species === 'figgly' ? makeFigglyMesh(false) : species === 'zombiggly' ? makeFigglyMesh(true) : species === 'cornelio' ? makeCornelioMesh() : species === 'weckle' ? makeWeckleMesh() : species === 'beriboi' ? makeBerryMesh(false) : species === 'berigal' ? makeBerryMesh(true) : species === 'lovepill' ? makeLovepillMesh() : species === 'gleep' ? makeGleepMesh() : makeBoboMesh(); }
+function rawSpeciesMesh(species) { return species === 'mermiggly' ? makeMermMesh() : species === 'speshul' ? makeSpeshulMesh() : species === 'pengin' ? makePenginMesh() : species === 'duckshark' ? makeDucksharkMesh() : species === 'weevil' ? makeWeevilMesh() : species === 'beeappy' ? makeBeeappyMesh() : species === 'beeangy' ? makeBeeangyMesh() : species === 'bink' ? makeBinkMesh() : species === 'glimmery' ? makeGlimmeryMesh() : species === 'raebit' ? makeRaebitMesh() : species === 'blorbo' ? makeBlorboMesh() : species === 'willowet' ? makeWillowetMesh() : species === 'flops' ? makeFlopsMesh() : species === 'sita' ? makeSitaMesh() : species === 'rosita' ? makeRositaMesh() : species === 'froggle' ? makeFroggleMesh() : species === 'pretzello' ? makePretzelloMesh() : species === 'koneko' ? makeKonekoMesh() : species === 'chupi' ? makeChupiMesh() : species === 'friggly' ? makeFrigglyMesh(false) : species === 'fraggly' ? makeFrigglyMesh(true) : species === 'jiggly' ? makeFrigglyMesh(false, true) : species === 'tiggly' ? makeFrigglyMesh(false, false, true) : species === 'geckolo' ? makeFrigglyMesh(false, false, false, true) : species === 'lubbing' ? makeLubbingMesh() : species === 'dorhinj' ? makeDorhinjMesh() : species === 'figgly' ? makeFigglyMesh(false) : species === 'zombiggly' ? makeFigglyMesh(true) : species === 'cornelio' ? makeCornelioMesh() : species === 'weckle' ? makeWeckleMesh() : species === 'beriboi' ? makeBerryMesh(false) : species === 'berigal' ? makeBerryMesh(true) : species === 'lovepill' ? makeLovepillMesh() : species === 'gleep' ? makeGleepMesh() : makeBoboMesh(); }
 
 const SPESHUL_COUNT = 6;
 const speshuls = [];
@@ -6164,6 +6165,7 @@ function scrumblyCandidates() {
   for (const c of weckles) if (c.root.visible && !['caught', 'gone'].includes(c.state)) out.push({ o: c, id: 'weckle', y: 0.6 * c.s });
   for (const c of cornelios) if (c.root.visible && !['caught', 'gone'].includes(c.state)) out.push({ o: c, id: 'cornelio', y: 1.0 * c.s });
   for (const c of figglyFolk) if (c.root.visible && !['caught', 'gone'].includes(c.state)) out.push({ o: c, id: c.species, y: 0.5 * c.s });
+  for (const c of dorhinjs) if (c.root.visible && ['bob', 'snack'].includes(c.state)) out.push({ o: c, id: 'dorhinj', y: 0.35 * c.s });
   if (gleep.root.visible && !['caught', 'gone'].includes(gleep.state)) out.push({ o: gleep, id: 'gleep', y: 0.5 });
   for (const c of lovepills) if (c.state === 'stuck') out.push({ o: c, id: 'lovepill', y: 0.3 * c.s });
   for (const c of beribois.concat(berigals)) if (c.root.visible && ['hop', 'fall'].includes(c.state)) out.push({ o: c, id: c.species, y: 0.22 * c.s });
@@ -14412,15 +14414,15 @@ function placeCornelio(c, away) {
   for (let i = 0; i < 300; i++) {
     const r = CAVE_ROOMS[1 + Math.floor(Math.random() * 3)], a = Math.random() * 6.28, k = Math.sqrt(Math.random()) * 0.75;
     const [x, z] = caveWorld(r.x + Math.cos(a) * r.rx * k, r.z + Math.sin(a) * r.rz * k);
-    if (!corOK(x, z) || caveLavaD(x - CAVE.x, z - CAVE.z) > -2.5 || (away && Math.hypot(x - away.x, z - away.z) < 30)) continue;
+    if (!corOK(x, z) || caveLavaD(x - CAVE.x, z - CAVE.z) > -2.5 || (away && Math.hypot(x - away.x, z - away.z) < 30) || cornelios.some(o => o !== c && o.root.visible && Math.hypot(o.x - x, o.z - z) < 20)) continue;
     c.x = c.hx = c.tx = x; c.z = c.hz = c.tz = z; c.y = heightAt(x, z); return true;
   }
   return false;
 }
-{
+for (let i = 0; i < 3; i++) {   // three of them about the caves (each one rare)
   const c = compactCreature(makeCornelioMesh());
   Object.assign(c, { species: 'cornelio', s: 1, size: null, shiny: false, state: 'gone', t: 0, x: 0, y: -50, z: 0, hx: 0, hz: 0, tx: 0, tz: 0, face: 0, hits: 0, calm: 0, step: 0, beat: 0, flinch: 0, retarget: 0, respawn: 4 });
-  c.root.visible = false; cornelios.push(c);
+  c.respawn = 4 + i * 25; c.root.visible = false; cornelios.push(c);
 }
 const corHints = {};
 const corSfx = {
@@ -14803,6 +14805,145 @@ function updateFigglies(dt) {
   }
 }
 
+/* =========================================================
+   Scrumblies: the Dorhinj, a carton of orange squash with a face
+   Bobbing about far out on the lava, well out of reach of the shore:
+   the only way to net one is to wade out into the lava after it (and
+   that burns). Like a Pretzello, hang about near one and your partner
+   gets thirsty: it sniffs, then it dashes out and drinks it right up.
+   ========================================================= */
+SPECIES.dorhinj = {
+  name: 'Dorhinj', num: 35, where: 'Emberdeep Caverns · bobbing far out on the lava',
+  icon: '<svg viewBox="0 0 48 48"><path d="M13 14 L24 5 L35 14 Z" fill="#fff4e0" stroke="#e08a2a" stroke-width="1.5"/><rect x="21" y="2" width="6" height="5" rx="1.5" fill="#ff8a1f"/><rect x="12" y="14" width="24" height="30" rx="2" fill="#ff9a2a"/><rect x="12" y="34" width="24" height="5" fill="#fff4e0"/><circle cx="31" cy="38" r="5" fill="#ffb84a" stroke="#fff" stroke-width="1"/><path d="M31 33 V43 M26 38 H36 M27.5 34.5 L34.5 41.5 M34.5 34.5 L27.5 41.5" stroke="#fff" stroke-width=".8"/><ellipse cx="19" cy="22" rx="2" ry="2.7" fill="#1d1b22"/><ellipse cx="29" cy="22" rx="2" ry="2.7" fill="#1d1b22"/><circle cx="19.6" cy="21.2" r=".7" fill="#fff"/><circle cx="29.6" cy="21.2" r=".7" fill="#fff"/><path d="M19 27 Q24 31 29 27" stroke="#8a3a10" stroke-width="1.8" fill="none" stroke-linecap="round"/><ellipse cx="15.5" cy="26.5" rx="2" ry="1.2" fill="#ff6a7a"/><ellipse cx="32.5" cy="26.5" rx="2" ry="1.2" fill="#ff6a7a"/></svg>',
+  fact: 'Nobody knows how a carton of orange squash ended up bobbing about on a lake of lava. The Dorhinj doesn\'t know either. It\'s just happy to be here. It is always very, very warm, and it smells wonderful.',
+  hint: 'Bobs about far out on the lava, smiling to itself, much too far from the edge to reach. Smells delicious, too... so delicious that a thirsty friend might not be able to help themselves.'
+};
+SHINY.dorhinj = { shift: 0.85, tint: 0.6, sat: 0.5, css: 'hue-rotate(270deg) saturate(1.3)' };
+SCRIM_PRICE.dorhinj = 110; SCRIM_PLEAS.dorhinj = 'A Dorhinj out on the lava is a happy Dorhinj, man. Let one bob free.';
+BOND_SPECIES_LINES.dorhinj = ['{name} sloshed happily.', '{name} smells of fresh oranges today.', '{name} is very proud that nobody has drunk it.', '{name} wants you to know it is NOT a snack. It is a friend.'];
+WELCOME_SPECIES.dorhinj = '*slosh slosh* You\'re back! I kept myself nice and cool for you. Well. Nice and warm.';
+TAG_HIGH.dorhinj = 1.35;
+const dorhinjLabel = (() => {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 160; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 160); gr.addColorStop(0, '#ffb04a'); gr.addColorStop(1, '#ff8a1f'); g.fillStyle = gr; g.fillRect(0, 0, 128, 160);
+  g.fillStyle = '#fff4e0'; g.fillRect(0, 108, 128, 22);
+  g.fillStyle = '#e8700f'; g.font = '700 15px Fredoka, sans-serif'; g.textAlign = 'center'; g.fillText('SQUASH', 64, 125);
+  // orange slices round the bottom
+  [[26, 146, 14], [64, 150, 16], [102, 146, 14]].forEach(([x, y, r]) => { g.fillStyle = '#ffd27a'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * r * 0.85, y + Math.sin(a) * r * 0.85); g.stroke(); } });
+  [[100, 92], [24, 96]].forEach(([x, y]) => { g.fillStyle = '#5cb85c'; g.beginPath(); g.ellipse(x, y, 9, 4, 0.5, 0, 7); g.fill(); });
+  return new THREE.CanvasTexture(c);
+})();
+function makeDorhinjMesh() {
+  const root = new THREE.Group(), scaler = new THREE.Group(), body = new THREE.Group(); root.add(scaler); scaler.add(body); scaler.scale.setScalar(1.35);   // (a good big carton, so it shows up against the lava)
+  const carton = new THREE.MeshLambertMaterial({ color: 0xff9a2a, emissive: 0x2a1004 }), white = lam(0xfff4e0), dark = new THREE.MeshBasicMaterial({ color: 0x1d1b22 });
+  const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = body) => campAdd(geo, mat, x, y, z, parent, sx, sy, sz);
+  // the carton: a tall box, a gabled top with a fin, and a screw cap
+  add(new THREE.BoxGeometry(0.42, 0.6, 0.32), carton, 0, 0.3, 0);
+  add(new THREE.BoxGeometry(0.43, 0.04, 0.33), white, 0, 0.6, 0);
+  [-1, 1].forEach(s => { const r = add(new THREE.BoxGeometry(0.42, 0.02, 0.24), white, 0, 0.67, s * 0.08); r.rotation.x = s * 0.62; });
+  add(new THREE.BoxGeometry(0.42, 0.06, 0.02), white, 0, 0.75, 0);
+  add(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 14), lam(0xff7a10), 0.1, 0.71, 0.08, 1, 1, 1).rotation.x = 0.62;
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.5), new THREE.MeshLambertMaterial({ map: dorhinjLabel, emissive: 0x1a0a02 })); label.position.set(0, 0.3, 0.162); body.add(label);
+  // a happy face on the front of the carton
+  const eyes = [-1, 1].map(s => {
+    const e = add(new THREE.SphereGeometry(0.034, 10, 8), dark, s * 0.08, 0.44, 0.165, 0.85, 1.2, 0.4);
+    add(new THREE.SphereGeometry(0.011, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), s * 0.08 - 0.01, 0.455, 0.178, 1, 1, 1);
+    add(new THREE.SphereGeometry(0.026, 8, 6), lam(0xff6a7a), s * 0.14, 0.38, 0.164, 1.3, 0.8, 0.3);
+    return e;
+  });
+  const smile = new THREE.TorusGeometry(0.06, 0.011, 5, 14, Math.PI); smile.rotateZ(Math.PI);
+  add(smile, lam(0x8a3a10), 0, 0.39, 0.166, 1, 0.9, 1);
+  // a little bendy straw poking out of the top, because of course
+  const straw = new THREE.Group(); straw.position.set(-0.1, 0.72, -0.04); straw.rotation.z = 0.25; body.add(straw);
+  add(new THREE.CylinderGeometry(0.014, 0.014, 0.22, 6), lam(0xff6fa5), 0, 0.11, 0, 1, 1, 1, straw);
+  const stars = [];
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); ex.scale.setScalar(0.34); ex.position.y = 1.1; ex.visible = false; ex.renderOrder = 6; root.add(ex);
+  scene.add(root);
+  return { root, body, eyes, label, ex, stars, mat: carton };
+}
+
+/* ---------- four of them, far out on the lava: three on the Lava Lake, one in the pool by Scrimple's camp ---------- */
+const DOR_FAR = 3.6, DOR_NOTICE = 6, DOR_SNIFF = 1.5, DOR_DASH = 3.5;
+const DOR_POOLS = [CAVE_LAVA[3], CAVE_LAVA[3], CAVE_LAVA[3], CAVE_LAVA[1]];
+const dorhinjs = [];
+const dorOK = (lx, lz, pool) => caveLavaD(lx, lz) >= DOR_FAR && Math.hypot(lx - pool.x, lz - pool.z) < pool.r && caveS(lx, lz) > 2;
+function placeDorhinj(c) {
+  for (let i = 0; i < 200; i++) {
+    const a = Math.random() * 6.28, r = Math.random() * c.pool.r * 0.8, lx = c.pool.x + Math.cos(a) * r, lz = c.pool.z + Math.sin(a) * r;
+    if (!dorOK(lx, lz, c.pool) || dorhinjs.some(o => o !== c && o.root.visible && Math.hypot(o.x - CAVE.x - lx, o.z - CAVE.z - lz) < 5)) continue;
+    [c.x, c.z] = caveWorld(lx, lz); c.tx = c.x; c.tz = c.z; return true;
+  }
+  return false;
+}
+DOR_POOLS.forEach((pool, i) => {
+  const c = compactCreature(makeDorhinjMesh());
+  Object.assign(c, { species: 'dorhinj', pool, s: 1, size: null, shiny: false, state: 'gone', t: 0, x: 0, y: -0.75, z: 0, tx: 0, tz: 0, face: Math.random() * 6.28, near: 0, sniffed: false, snackT: 0, blink: 2, respawn: 0.5 + i * 0.4, drift: 0 });
+  c.root.visible = false; dorhinjs.push(c);
+});
+const dorHints = {};
+const dorSfx = { slosh(v = 1) { if (!actx || v < 0.05) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 700, 0.05 * v, 0.25, sfxBus, 1); tone(t, 300, 220, 0.2, 0.03 * v, 'sine'); }, slurp() { if (!actx) return; const t = actx.currentTime; for (let i = 0; i < 4; i++) { noiseHit(t + i * 0.15, 'bandpass', 1500 - i * 200, 0.1, 0.12, sfxBus, 3); tone(t + i * 0.15, 500 - i * 60, 300, 0.1, 0.04, 'sine'); } } };
+const canDrink = () => partner && party[0] && party[0].species !== 'dorhinj';
+const dorHitBy = (c, x, y, z) => Math.hypot(x - c.x, y - (c.y + 0.45 * c.s), z - c.z) < 0.45 * c.s + 0.2;
+function netDorhinjs() {
+  let got = false;
+  for (const c of dorhinjs) {
+    if (!c.root.visible || !['bob', 'snack'].includes(c.state) || !inNetZone(c.x, c.y, c.z)) continue;
+    if (catchScrumbly('dorhinj', c.size, false, c.shiny)) { if (partnerSnack === c) partnerSnack = null; c.state = 'caught'; c.t = 0; c.ex.visible = false; got = true; }
+  }
+  return got;
+}
+function updateDorhinjs(dt) {
+  for (const c of dorhinjs) {
+    c.t += dt;
+    if (c.state === 'gone') {
+      if (c.t > c.respawn) { applySize(c, rollSize()); applyShiny(c, rollShiny(), 'dorhinj'); c.body.scale.setScalar(1); c.body.rotation.set(0, 0, 0); c.near = 0; c.sniffed = false; if (placeDorhinj(c)) { c.state = 'bob'; c.t = 0; c.root.visible = true; } else c.t = c.respawn - 3; }
+      continue;
+    }
+    if (c.state === 'caught') {
+      const k = Math.min(1, c.t / 0.45); camera.getWorldDirection(_cv);
+      c.x = lerp(c.x, camera.position.x + _cv.x * 1.2, k * 0.35); c.z = lerp(c.z, camera.position.z + _cv.z * 1.2, k * 0.35); c.y = lerp(c.y, camera.position.y - 0.5, k * 0.35);
+      c.body.scale.setScalar(1 - k * 0.85); c.root.position.set(c.x, c.y, c.z);
+      if (k >= 1) { c.state = 'gone'; c.t = 0; c.root.visible = false; c.respawn = 90 + Math.random() * 60; }
+      continue;
+    }
+    if (c.state === 'drunk') {
+      // slurped down to nothing
+      const k = Math.min(1, c.t / 0.8); c.body.scale.set(1, 1 - k * 0.95, 1); c.body.rotation.z = k * 0.6;
+      if (k >= 1) { c.state = 'gone'; c.t = 0; c.root.visible = false; c.respawn = 60 + Math.random() * 40; }
+      c.root.position.set(c.x, c.y, c.z); continue;
+    }
+    if (!c.root.visible) continue;
+    const lx = c.x - CAVE.x, lz = c.z - CAVE.z, d = Math.hypot(player.x - c.x, player.z - c.z);
+    // drifting slowly about on the lava, bobbing, never anywhere near the edge
+    c.drift -= dt;
+    if (c.drift <= 0 || Math.hypot(c.tx - c.x, c.tz - c.z) < 0.2) { c.drift = 4 + Math.random() * 5; for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = 1 + Math.random() * 3, nx = lx + Math.cos(a) * r, nz = lz + Math.sin(a) * r; if (dorOK(nx, nz, c.pool)) { [c.tx, c.tz] = caveWorld(nx, nz); break; } } }
+    if (c.state === 'bob') { const mx = c.tx - c.x, mz = c.tz - c.z, ml = Math.hypot(mx, mz); if (ml > 0.05) { const st = Math.min(ml, 0.3 * dt), nx = c.x + mx / ml * st, nz = c.z + mz / ml * st; if (dorOK(nx - CAVE.x, nz - CAVE.z, c.pool)) { c.x = nx; c.z = nz; } } }
+    if (d < 10) c.face += angDiff(c.face, Math.atan2(player.x - c.x, player.z - c.z)) * Math.min(1, dt * 2); else c.face += dt * 0.15;   // it turns to smile at you
+    c.y = -0.66 + Math.sin(time * 1.6 + c.x) * 0.05;          // (floating high: only its bottom edge is in the lava)
+    c.body.rotation.x = Math.sin(time * 1.1 + c.z) * 0.08; c.body.rotation.z = Math.sin(time * 1.3 + c.x) * 0.08;
+    c.blink -= dt; const bl = c.blink < 0.12; if (c.blink < 0) c.blink = 2 + Math.random() * 3; c.eyes.forEach(e => { e.scale.y = bl ? 0.2 : 1.2; });
+    if (!dorHints.seen && underground && d < 26 && playing) { dorHints.seen = true; toast('Is that... a carton of orange squash? Bobbing about on the lava? And it\'s SMILING at you.'); }
+    if (!dorHints.far && underground && d < 9 && playing && caveLavaD(player.x - CAVE.x, player.z - CAVE.z) < 0) { dorHints.far = true; toast('It\'s much too far out to reach from the edge. You\'d have to wade out into the lava after it...'); }
+    if (c.state === 'bob') {
+      // linger close by and your partner gets thirsty...
+      if (d < DOR_NOTICE && canDrink() && playing && !knocked && underground && !partnerSnack) c.near += dt; else c.near = Math.max(0, c.near - dt * 0.5);
+      if (c.near > DOR_SNIFF && !c.sniffed) { c.sniffed = true; dorSfx.slosh(1); toast(`${party[0].name} is sniffing the air... is that orange squash?!`); partner.squish = 0.6; }
+      if (c.near > DOR_DASH && !partnerSnack) { c.state = 'snack'; c.snackT = 0; partnerSnack = c; c.ex.visible = true; toast(`Uh oh, ${party[0].name} is thirsty! It's heading for the Dorhinj! Quick, net it!`); }
+      if (c.near === 0) c.sniffed = false;
+    } else if (c.state === 'snack') {
+      // ...then it heads straight out across the lava for a drink
+      c.snackT += dt; c.ex.position.y = 1.35 + Math.abs(Math.sin(time * 9)) * 0.1;
+      if (!canDrink() || !underground) { c.state = 'bob'; c.near = 0; c.ex.visible = false; if (partnerSnack === c) partnerSnack = null; }
+      else if (Math.hypot(partner.x - c.x, partner.z - c.z) < 0.8 || c.snackT > 7) {
+        partnerSnack = null; c.state = 'drunk'; c.t = 0; c.ex.visible = false; dorSfx.slurp(); partner.squish = 1;
+        for (let i = 0; i < 4; i++) setTimeout(() => spawnHeart(partner.x, partner.y + 0.8, partner.z), i * 150);
+        toast(`Oh no! ${party[0].name} drank up the Dorhinj! *slurrrrp* Ahh, refreshing. You'll have to be quicker next time.`);
+      }
+    }
+    c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(0, c.face, 0);
+  }
+}
+
 /* ---------- the old carved tree in Glimmerwood ---------- */
 const BLESS_TREE = (() => {
   const [x, z] = polar(2.7, 94), y = heightAt(x, z), face = Math.atan2(x, z);   // a clearing of its own: well away from the river, the bridges and the other trees   // its carved side looks out towards the shore
@@ -14965,7 +15106,7 @@ let time = 0;
 camera.position.set(player.x, player.y + 1.65, player.z);
 /* ---------- performance helpers ---------- */
 // far-off scrumblies keep living their lives, but their bodies aren't drawn
-const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos, konekos, chupis, frigglies, fragglies, tigglys, geckolos, lubbings, weckles, beribois, berigals, lovepills, gleeps, cornelios, figglyFolk], CREATURE_FAR = 150;
+const CREATURE_LISTS = [bobos, mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, binks, glimmeries, raebits, blorbos, willowets, flopses, sitas, froggles, pretzellos, konekos, chupis, frigglies, fragglies, tigglys, geckolos, lubbings, weckles, beribois, berigals, lovepills, gleeps, cornelios, figglyFolk, dorhinjs], CREATURE_FAR = 150;
 function cullCreatures() {
   const cx = camera.position.x, cz = camera.position.z;
   for (const list of CREATURE_LISTS) for (const c of list) if (c.body) c.body.visible = Math.hypot(c.root.position.x - cx, c.root.position.z - cz) < CREATURE_FAR * Math.max(1, c.s || 1);
@@ -15054,6 +15195,7 @@ function tick(dt) {
   updateWeckles(dt);
   updateCornelios(dt);
   updateFigglies(dt);
+  updateDorhinjs(dt);
   updateCaveApples(dt);
   updateBlob(dt);
   updateBerries(dt);
@@ -15121,7 +15263,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { figglyFolk, figSpores, netFigglies, FIG_C, cornelios, rockHitsCornelio, netCornelio, caveApples, caveDescend, caveState, setUnderground, CAVE, caveProf, caveTarget, caveWalk, peakProf, peakProfState: () => peakProfState, talkToPeakProf, peakProfTarget, inv, teleportHome, ffan, ffanState: () => ffanState, talkToFfan, ffanTarget, dialogAdvance, music: () => ({ on: Object.fromEntries(Object.entries(musicMix).map(([k, m]) => [k, m.on])), gain: trackBus ? { beach: +trackBus.beach.gain.value.toFixed(2), forest: +trackBus.forest.gain.value.toFixed(2), mountain: +trackBus.mountain.gain.value.toFixed(2) } : null, area: areaNow, state: actx && actx.state }), BLESS_TREE, BLESS_STONE, touchBless: b => touchBless(b), blessTarget: () => blessTarget(), blessings: () => blessings, maxHealth: () => MAX_HEALTH, gleep, rockHitsGleep: r => rockHitsGleep(r), netGleep: () => netGleep(), lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { dorhinjs, netDorhinjs, figglyFolk, figSpores, netFigglies, FIG_C, cornelios, rockHitsCornelio, netCornelio, caveApples, caveDescend, caveState, setUnderground, CAVE, caveProf, caveTarget, caveWalk, peakProf, peakProfState: () => peakProfState, talkToPeakProf, peakProfTarget, inv, teleportHome, ffan, ffanState: () => ffanState, talkToFfan, ffanTarget, dialogAdvance, music: () => ({ on: Object.fromEntries(Object.entries(musicMix).map(([k, m]) => [k, m.on])), gain: trackBus ? { beach: +trackBus.beach.gain.value.toFixed(2), forest: +trackBus.forest.gain.value.toFixed(2), mountain: +trackBus.mountain.gain.value.toFixed(2) } : null, area: areaNow, state: actx && actx.state }), BLESS_TREE, BLESS_STONE, touchBless: b => touchBless(b), blessTarget: () => blessTarget(), blessings: () => blessings, maxHealth: () => MAX_HEALTH, gleep, rockHitsGleep: r => rockHitsGleep(r), netGleep: () => netGleep(), lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
