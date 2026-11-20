@@ -14,7 +14,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Mouse | Look (click to capture the mouse) |
 | Esc (or controller Start) | Pause menu: keep exploring, save, load, new game, settings, controls |
 | Click | Use the item in hand (swing the net, throw a rock) |
-| 1–9 / scroll wheel / Q | Swap item |
+| 1–9, 0 / scroll wheel / Q | Swap item (0 is the tenth slot: Glowcaps) |
 | E | Pick up a rock you're looking at |
 | Click (Scrumblydex out) | Scan the scrumbly in your sights |
 | Tab (Scrumblydex out) | Open / close the Scrumblydex list (arrows browse, Esc closes) |
@@ -27,6 +27,7 @@ Open `index.html` in a browser. You need an internet connection because Three.js
 | Hold click (green teleporter out, slot 7) | Hold the green button for three seconds to zap to Scrimple Scrumple's shop (its own 10-minute recharge) |
 | Hold click (orange teleporter out, slot 8) | Hold the orange button for three seconds to zap to the foot of your treehouse (ten-minute recharge) |
 | Hold click (purple teleporter out, slot 9) | Hold the purple button for three seconds to zap to the top of Mount Scrumble (ten-minute recharge) |
+| E (looking at a Glowcap in the caves) / click (Glowcaps out, slot 0) | Pick a Glowcap (up to 8); throw one and it bursts into a cloud of sleepy spores |
 | E (looking at an apple, up an apple tree) | Pick it (they grow back); throw them like rocks with apples out (6) |
 | E (looking at an apple on the ground) | Pick it back up |
 | E (near Sir Hopsalot, Lady Fluffytail or Dr. Tealbottom) | Talk; arrows / d-pad pick an answer |
@@ -113,6 +114,7 @@ Playing with a controller (Xbox layout): the on-screen hints switch to controlle
 - Titan Pengin: a sixth titan, an enormous Pengin that very, very rarely rises up out of the middle of the Lava Lake in a shower of embers, has a slow look round, flaps its flippers and sinks back down. Scan it like the others (Lionel has a tip about it too).
 - Knocked out in the caves: you wake up at the underground ranch, in front of the Professor, rather than back on the beach.
 - Rocks and apples in the caverns: loose rocks lie all over the caves (a rock thrown into lava melts away and another turns up somewhere else in the cave), and apples lie about among the mushrooms in Glowcap Grotto only (picked ones grow back after a while, like the ones on the trees). An apple tossed into lava just sizzles.
+- Glowcaps (slot 0): soft, glowing teal mushroom caps you pick off the cave floor (E): lots of them in Glowcap Grotto and a few all over the caverns; picked ones grow back after a couple of minutes. Carry up to 8, and throw them like apples (they're fine to take back up to the island too). One bursts into a glittering cloud of teal and lilac spores, and every scrumbly caught in it reacts in its own way. Some doze off or go down, ready to net: a Bobo flops over snoring, a Duckshark rolls belly-up, a Flops, a Chupi or a Fraggly nods off, a Weckle forgets its grudge and sits, a Raebit goes dizzy, a Speshul tumbles out of its tree, Bink's saucer splutters down, a Glimmery floats down all dreamy, a dancing Figgly sits down groggy, and Cornelio and the Genghost or Lubghost are knocked clean out in one (a ghost drifts down out of the air). Some calm down: a furious Beeangy turns back into a happy Beeappy. Some really don't help: a happy Beeappy sneezes and gets furious, a Pengin waddles home in a huff, a Weevil sneezes and runs even faster, and a Zombiggly perks right up (it stays a zombie longer, and a dazed one gets back up). And the rest just do something silly: the Mermiggly gets the hiccups, the Blorbo blows a huge bubble, a Sita sprouts a tiny glowing mushroom, the Pretzello gives itself away with a sneeze, Koneko purrs and loops the loop, Gleep's saucer does a loop-the-loop, the Dorhinj fizzes... Your partner sneezes too, and so do you. Sleepers get a floating "Zzz".
 - Apples: 34 apple trees with white blossom grow in Glimmerwood, with apples hanging under their canopies. Climb to the top, look at an apple and press E to pick it, one at a time (up to 10 carried; they regrow after a couple of minutes). Throw them from slot 6 like rocks (they show the same aim arc). Hit a scrumbly and it gobbles the apple up with a munch and a burst of hearts; misses can be picked back up
 - A giant Mermiggly lives far out to sea on the opposite side from the giant Duckshark. Every minute or so it rises up out of the water, waves over at the island with a deep, far-off ribbit, then sinks back down
 - A giant Beeappy drifts in slow circles high above the island, with a deep, distant hum now and then
