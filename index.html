@@ -506,7 +506,7 @@
     </ul></details>
     <div class="title-btns"><button class="play" id="playBtn">Play</button><button class="ghost" id="newBtn" hidden>New game</button><button class="ghost" id="titleLoad" hidden>Load game</button></div>
     <p class="continue-info" id="continueInfo" hidden></p>
-    <div class="debug-row"><button class="ghost debug" id="debugBtn" aria-expanded="false">Debug ▸</button><button class="ghost debug" id="skipForest" hidden>Skip to Forest</button><button class="ghost debug" id="skipMountain" hidden>Skip to Mountain</button></div>
+    <div class="debug-row"><button class="ghost debug" id="debugBtn" aria-expanded="false">Debug ▸</button><button class="ghost debug" id="skipForest" hidden>Skip to Forest</button><button class="ghost debug" id="skipMountain" hidden>Skip to Mountain</button><button class="ghost debug" id="skipCave" hidden>Skip to Cave</button></div>
   </div>
 </div>
 
@@ -7334,7 +7334,7 @@ titleLoad.addEventListener('click', () => openSaves('load', 'title'));
 /* ---------- debug: jump straight to the forest with the beach finished ---------- */
 const debugBtn = document.getElementById('debugBtn'), skipForest = document.getElementById('skipForest');
 let skipArmed = false;
-debugBtn.addEventListener('click', () => { skipForest.hidden = !skipForest.hidden; document.getElementById('skipMountain').hidden = skipForest.hidden; debugBtn.setAttribute('aria-expanded', String(!skipForest.hidden)); debugBtn.textContent = skipForest.hidden ? 'Debug ▸' : 'Debug ▾'; });
+debugBtn.addEventListener('click', () => { skipForest.hidden = !skipForest.hidden; document.getElementById('skipMountain').hidden = document.getElementById('skipCave').hidden = skipForest.hidden; debugBtn.setAttribute('aria-expanded', String(!skipForest.hidden)); debugBtn.textContent = skipForest.hidden ? 'Debug ▸' : 'Debug ▾'; });
 const BEACH_SPECIES = ['bobo', 'mermiggly', 'speshul', 'pengin', 'duckshark', 'weevil', 'beeappy', 'beeangy', 'bink'];
 function debugForestSave() {
   const pk = sp => ({ species: sp, name: SPECIES[sp].unique ? SPECIES[sp].name : pickName(), size: null, shiny: false });
@@ -7353,8 +7353,7 @@ function skipToForest() {
   toast('Debug: skipped to Glimmerwood. Beach done, 9999 gold, one of every beach scrumbly in your Box.');
 }
 let skipMtnArmed = false;
-document.getElementById('skipMountain').addEventListener('click', e => {
-  if (readSave(SAVE_KEY) && !skipMtnArmed) { skipMtnArmed = true; e.target.textContent = 'Replace the autosave? Click again'; return; }
+function debugMountainSave() {
   const s = debugForestSave(), [x, z] = polar(MTN_ENTRY_TH, FOREST_OUT + 8); s.lionel = { stage: 'peak' }; s.player = { x, z, yaw: Math.atan2(x, z), pitch: 0.1 };
   // every forest quest done: Lady Fluffytail (three traps, the royal kiss, the green teleporter), the deed, the treehouse unlocked
   const FOREST = ['glimmery', 'raebit', 'blorbo', 'willowet', 'flops', 'sita', 'rosita', 'froggle', 'pretzello', 'koneko'];
@@ -7362,7 +7361,30 @@ document.getElementById('skipMountain').addEventListener('click', e => {
   s.scanned = s.scanned.concat(FOREST); s.caught = s.caught.concat(FOREST);
   Object.assign(s.owned, { tele2: true, apple: true }); s.trapsOwned = 3; s.inv = { rocks: 0, traps: 3, apples: 5 };
   s.fluff = { stage: 'ranch' }; s.carlos = { met: true, deed: true }; s.house = { stage: 'furnish', met: true };
-  applySnapshot(s); fillRequests(); beginGame(); toast('Debug: skipped to the foot of Mount Scrumble. Beach and forest done, 9999 gold, one of every scrumbly in your Box.');
+  return s;
+}
+document.getElementById('skipMountain').addEventListener('click', e => {
+  if (readSave(SAVE_KEY) && !skipMtnArmed) { skipMtnArmed = true; e.target.textContent = 'Replace the autosave? Click again'; return; }
+  applySnapshot(debugMountainSave()); fillRequests(); beginGame(); toast('Debug: skipped to the foot of Mount Scrumble. Beach and forest done, 9999 gold, one of every scrumbly in your Box.');
+});
+// every quest so far done (beach, forest and mountain), the Heat-Resistant Suit on, standing where you land in Emberdeep Caverns
+let skipCaveArmed = false;
+document.getElementById('skipCave').addEventListener('click', e => {
+  if (readSave(SAVE_KEY) && !skipCaveArmed) { skipCaveArmed = true; e.target.textContent = 'Replace the autosave? Click again'; return; }
+  const s = debugMountainSave(), pk = sp => ({ species: sp, name: SPECIES[sp].unique ? SPECIES[sp].name : pickName(), size: null, shiny: false });
+  const MOUNTAIN = ['chupi', 'friggly', 'fraggly', 'jiggly', 'tiggly', 'geckolo', 'lubbing', 'weckle', 'beriboi', 'berigal', 'lovepill', 'gleep'].filter(sp => SPECIES[sp]);
+  s.box = s.box.concat(MOUNTAIN.map(pk)); s.scanned = s.scanned.concat(MOUNTAIN); s.caught = s.caught.concat(MOUNTAIN);
+  s.titans = TITANS.map(t => t.id); s.pillar = { awake: true }; s.blessings = { forest: true, mountain: true };
+  s.lionel = { stage: 'peak', giantBoboCaught: true, giantsCaught: 5, gifted: true };          // the orange teleporter
+  s.ffan = { stage: 'ranch', charm: true };                                                     // 200 gold, the Friggly Charm, the room set
+  s.house = Object.assign(s.house, { papers: ['friggly'], carpets: ['friggly'] });
+  s.peakProf = { stage: 'done', suit: true };                                                  // the purple teleporter and the Heat-Resistant Suit
+  Object.assign(s.owned, { tele3: true, tele4: true });
+  s.cave = { visited: true };
+  const [x, z] = caveWorld(CAVE_LAND.x, CAVE_LAND.z), [tx, tz] = caveWorld(-2, 14);
+  s.player = { x, z, y: caveHeight(x, z), yaw: Math.atan2(x - tx, z - tz), pitch: 0.05 };
+  applySnapshot(s); fillRequests(); beginGame();
+  toast('Debug: skipped to Emberdeep Caverns. Every quest done, the Heat-Resistant Suit on, all four teleporters, one of every scrumbly in your Box.');
 });
 skipForest.addEventListener('click', () => {
   if (readSave(SAVE_KEY) && !skipArmed) { skipArmed = true; skipForest.textContent = 'Replace the autosave? Click again'; return; }
