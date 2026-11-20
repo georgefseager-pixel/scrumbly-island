@@ -479,6 +479,7 @@
   #sleepFade i { font-style: normal; font-size: .75em; opacity: .8; } #sleepFade i + i { font-size: .55em; opacity: .6; }
   #teleFlash.orange { background: radial-gradient(circle, #ffffff 0%, #ffe0b0 45%, #ffa020 100%); }
   #teleFlash.purple { background: radial-gradient(circle, #ffffff 0%, #ecd8ff 45%, #a65cf0 100%); }
+  #teleFlash.lava { background: radial-gradient(circle, #fff6d0 0%, #ffb040 40%, #c8300c 100%); }
   #teleFlash.green { background: radial-gradient(circle, #ffffff 0%, #c8ffd4 45%, #3ddc6a 100%); }
   .slot.cooling svg { opacity: .45; }
 </style>
@@ -661,6 +662,7 @@ function shoreR(theta) {
 }
 function inland(x, z) { return shoreR(Math.atan2(z, x)) - Math.hypot(x, z); }
 function heightAt(x, z) {
+  if (x > 2300) return caveHeight(x, z);    // Emberdeep Caverns, far out past the edge of the sea
   const d = inland(x, z);
   const dune = (fbm(x * 0.045, z * 0.045) - 0.5) * 2.4 * smooth(4, 24, d);
   let h;
@@ -1539,9 +1541,9 @@ function initAudio() {
   musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.5 * settings.music : 0; musicBus.connect(master);
   sfxBus = actx.createGain(); sfxBus.gain.value = 0.7 * settings.sfx; sfxBus.connect(master);
   ambBus = actx.createGain(); ambBus.gain.value = 0.5 * settings.sfx; ambBus.connect(master);
-  trackBus = {}; ['beach', 'forest', 'mountain'].forEach(k => { const g = actx.createGain(); g.gain.value = k === 'beach' ? 1 : 0; g.connect(musicBus); trackBus[k] = g; });
+  trackBus = {}; ['beach', 'forest', 'mountain', 'cave'].forEach(k => { const g = actx.createGain(); g.gain.value = k === 'beach' ? 1 : 0; g.connect(musicBus); trackBus[k] = g; });
   // the forest and mountain get a long, soft echo of their own
-  ['forest', 'mountain'].forEach(k => { const d = actx.createDelay(1.5), fbk = actx.createGain(), lp = actx.createBiquadFilter(), w = actx.createGain(); d.delayTime.value = STEP * (k === 'forest' ? 6 : 8); fbk.gain.value = 0.35; lp.type = 'lowpass'; lp.frequency.value = 2400; w.gain.value = 0.35; const send = actx.createGain(); send.connect(trackBus[k]); send.connect(d); d.connect(lp); lp.connect(fbk); fbk.connect(d); lp.connect(w); w.connect(trackBus[k]); trackBus[k + 'In'] = send; });
+  ['forest', 'mountain', 'cave'].forEach(k => { const d = actx.createDelay(1.5), fbk = actx.createGain(), lp = actx.createBiquadFilter(), w = actx.createGain(); d.delayTime.value = STEP * (k === 'forest' ? 6 : 8); fbk.gain.value = 0.35; lp.type = 'lowpass'; lp.frequency.value = 2400; w.gain.value = 0.35; const send = actx.createGain(); send.connect(trackBus[k]); send.connect(d); d.connect(lp); lp.connect(fbk); fbk.connect(d); lp.connect(w); w.connect(trackBus[k]); trackBus[k + 'In'] = send; });
   panBus = actx.createGain(); panBus.connect(trackBus.beach);
   const delay = actx.createDelay(1); delay.delayTime.value = STEP * 3;
   const fb = actx.createGain(); fb.gain.value = 0.3; const wet = actx.createGain(); wet.gain.value = 0.3;
@@ -1612,6 +1614,7 @@ function scheduler() {
     if (musicMix.beach.on) playStep(stepCount, nextStepTime);
     if (musicMix.forest.on) forestStep(stepCount, nextStepTime, trackBus.forestIn);
     if (musicMix.mountain.on) mountainStep(stepCount, nextStepTime, trackBus.mountainIn);
+    if (musicMix.cave.on) caveStep(stepCount, nextStepTime, trackBus.caveIn);
     nextStepTime += STEP; stepCount++;
   }
 }
@@ -1700,7 +1703,7 @@ function mountainStep(n, t, out) {
   if (loop > 0 || bar >= 2) MTN_MEL[bar].forEach(([s, m, d]) => { if (s === st) flute(t, m - 12, d * STEP, out, 0.75); });
 }
 // which tracks are playing, and how loud: they crossfade as you walk between areas
-const musicMix = { beach: { want: 1, on: true, off: 0 }, forest: { want: 0, on: false, off: 0 }, mountain: { want: 0, on: false, off: 0 } };
+const musicMix = { beach: { want: 1, on: true, off: 0 }, forest: { want: 0, on: false, off: 0 }, mountain: { want: 0, on: false, off: 0 }, cave: { want: 0, on: false, off: 0 } };
 function updateMusicMix(dt) {
   if (!actx || !trackBus) return;
   const area = playing ? areaNow : 'beach';
@@ -1844,6 +1847,7 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 function blockedMessage(x, z) {
+  if (x > 2300) { toast(caveLavaD(x - CAVE.x, z - CAVE.z) > -1 ? 'Lava! Even the suit is not THAT heat-resistant.' : 'Solid rock. No way through there.'); return; }
   const w = mtnWall(x, z, player.x, player.z, player.y);
   if (w) toast(w.kind === 'radial' ? 'Too smooth and steep to climb here. Look for the tan rock covered in knobbly handholds!' : w.look === 'pine' ? 'A little mountain pine is in the way.' : 'Too big to step up on. Try jumping!');
   else if (inMtnPond(x, z, 0.3)) toast('That little pond is far too deep to wade into.');
@@ -2028,6 +2032,7 @@ function updatePlayer(dt) {
   { const lp2 = collideLionel(nx, nz); nx = lp2[0]; nz = lp2[1]; }
   { const ff = collideFfan(nx, nz); nx = ff[0]; nz = ff[1]; }
   { const pp2 = collidePeakProf(nx, nz); nx = pp2[0]; nz = pp2[1]; }
+  { const cv = collideCave(nx, nz); nx = cv[0]; nz = cv[1]; }
   { const fp = collideForest(nx, nz); nx = fp[0]; nz = fp[1]; }
   { const rp = collideNooks(nx, nz); nx = rp[0]; nz = rp[1]; }
   if (hit.p) {
@@ -2100,7 +2105,7 @@ function updatePlayer(dt) {
   const targetFov = run && hs > 6 ? 80 : 72;
   camera.fov = lerp(camera.fov, targetFov, Math.min(1, dt * 5)); camera.updateProjectionMatrix();
 
-  if (oceanGain) { const near = 1 - smooth(5, 60, inland(player.x, player.z)); oceanGain.gain.setTargetAtTime(0.25 + near * 0.75, actx.currentTime, 0.5); }
+  if (oceanGain) { const near = 1 - smooth(5, 60, inland(player.x, player.z)); oceanGain.gain.setTargetAtTime(underground ? 0 : 0.25 + near * 0.75, actx.currentTime, 0.5); }
 }
 
 function onLook(dx, dy, k) {
@@ -7084,7 +7089,7 @@ function snapshot() {
   return {
     v: 2, savedAt: Date.now(),
     party: party.map(packP), box: boxSlots.map(packP), boxCap,
-    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned], pillar: { awake: pillarState.awake }, lionel: lionelSave(), ffan: ffanSave(), peakProf: peakProfSave(),
+    scanned: [...dexState.scanned], caught: [...dexState.caught], metProf, titans: [...titansScanned], pillar: { awake: pillarState.awake }, lionel: lionelSave(), ffan: ffanSave(), peakProf: peakProfSave(), cave: caveSave(),
     player: { x: +player.x.toFixed(2), z: +player.z.toFixed(2), y: +player.y.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) },
     inv: { rocks: inv.rocks, traps: inv.traps, apples: inv.apples }, owned: { ...inv.owned }, trapsOwned: inv.trapsOwned, tutorial: tut.stage, placedTraps: traps.map(t => ({ x: +t.x.toFixed(2), z: +t.z.toFixed(2), y: +t.y.toFixed(2), yaw: +t.g.rotation.y.toFixed(3) })),
     gold, scrim: scrimSave(), teal: tealSave(), fluff: fluffSave(), carlos: carlosSave(), house: houseSave(), forest: forestSave(),
@@ -7115,7 +7120,7 @@ function applySnapshot(s) {
   (s.caught || []).forEach(id => SPECIES[id] && dexState.caught.add(id));
   metProf = !!s.metProf;
   titansScanned.clear(); (Array.isArray(s.titans) ? s.titans : []).forEach(id => { if (TITANS.some(t => t.id === id)) titansScanned.add(id); });
-  pillarLoad(s.pillar); lionelLoad(s.lionel); ffanLoad(s.ffan); peakProfLoad(s.peakProf); debugInfinite = !!s.debug; biggleNamed = !!s.biggle; blessings = { forest: !!(s.blessings && s.blessings.forest), mountain: !!(s.blessings && s.blessings.mountain) };
+  pillarLoad(s.pillar); lionelLoad(s.lionel); ffanLoad(s.ffan); peakProfLoad(s.peakProf); caveLoad(s.cave); debugInfinite = !!s.debug; biggleNamed = !!s.biggle; blessings = { forest: !!(s.blessings && s.blessings.forest), mountain: !!(s.blessings && s.blessings.mountain) };
   forestLoad(s.forest);
   health = MAX_HEALTH; renderHealth();
   // older saves (from before the tutorial) start with everything
@@ -8575,6 +8580,7 @@ const forestState = { open: false, hopMet: false };
 const FOREST_TOLL = 400;
 // where you can walk: the beach always; past the hedge (through a gap) once Sir Hopsalot lets you
 function canWalk(x, z) {
+  if (x > 2300) return caveWalk(x, z);
   if (heightAt(x, z) < -MAX_DEPTH) return false;
   const d = inland(x, z);
   if (d <= INLAND_LIMIT) return true;
@@ -9778,6 +9784,7 @@ function houseTarget() {
   const lt = lionelTarget(); if (lt) return lt;
   const ft = ffanTarget(); if (ft) return ft;
   const pt2 = peakProfTarget(); if (pt2) return pt2;
+  const ct = caveTarget(); if (ct) return ct;
   const zt = mzipTarget(); if (zt) return zt;
   const lp = lovepillTarget(); if (lp) return lp;
   const bt = blessTarget(); if (bt) return bt;                     // (the carved pillar on the beach uses the same E prompt)
@@ -13541,7 +13548,8 @@ function updatePit(dt) {
   }
   if (!pitHints.seen && playing && near < 9) { pitHints.seen = true; toast('A deep pit plunges straight down into the mountain. Smoke curls up out of it... and far below, something glows orange.'); }
   // fall in, and it's far, far too hot
-  if (playing && !knocked && Math.hypot(player.x, player.z) < PIT_R + 0.1 && player.y < MTN_TOP.peak - 3) {
+  if (playing && !knocked && !caveDropping && Math.hypot(player.x, player.z) < PIT_R + 0.1 && player.y < MTN_TOP.peak - 3) {
+    if (peakProfState.suit) { caveDescend(); return; }        // the Heat-Resistant Suit: down into Emberdeep Caverns
     pitSfx.sizzle(); toast('AAAH! HOT HOT HOT! The heat rushing up out of the pit is unbearable!');
     hurtPlayer(MAX_HEALTH + 1);
   }
@@ -13846,7 +13854,7 @@ GIFT.suit = { name: 'Heat-Resistant Suit', blurb: 'For the depths of Scrumbly Is
 /* ---------- what he says ---------- */
 const telesOwned = () => ['tele', 'tele2', 'tele3'].filter(id => inv.owned[id]);
 const PEAK_PROF_IDLE = [
-  'Don’t jump in just yet, dear! I’m still taking my readings. The suit will keep you toasty, not toasted. I think. Let me double-check my sums.',
+  'Go on, dear, in you jump! The suit will keep you toasty, not toasted. I double-checked my sums. Well. I checked them once.',
   'Two thousand degrees, and climbing! The thermometer, I mean. I’m staying right here. My legs have had quite enough climbing.',
   'Something down there is rumbling, and it isn’t Lionel’s tummy. I checked.',
   'The view is lovely up here, isn’t it? You can see the whole ranch! Is that... is that ME down there? Goodness, I do get about.',
@@ -13887,7 +13895,7 @@ function talkToPeakProf() {
       { text: 'Four ways home, and a lovely view whenever you like. You know... you might just be ready. Ready to go into the depths of Scrumbly Island.' },
       { text: 'Only one thing left. You can’t go jumping into lava in THOSE clothes! Hold still, let me get your measurements...' },
       { text: 'A heat-resistant suit! Stitched it myself, out of very fancy fireproof fluff. It should keep you safe down there.', give: 'suit' },
-      { text: 'But not just yet! I still need to finish my readings. Pop back and see me soon, dear. We’ll have you down there in no time.' }
+      { text: 'Whenever you’re ready, just jump right in! The suit will keep you safe, and your teleporters will zap you home again. Do say hello to anyone you meet down there.' }
     ], () => { peakProfState.stage = 'done'; done(); }, 'prof');
   } else {
     openDialog([{ text: pick1(PEAK_PROF_IDLE) }], null, 'prof');
@@ -13931,6 +13939,356 @@ function peakProfLoad(o) {
   peakProfState.suit = !!o.suit || peakProfState.stage === 'done';
   teleCool4 = clamp(+o.teleCool4 || 0, 0, TELE_COOLDOWN);
   peakProf.greeted = false;
+}
+
+/* =========================================================
+   Emberdeep Caverns: the depths under Mount Scrumble
+   Jump into the smoking pit in the Heat-Resistant Suit and you drop into
+   a huge cave system full of lava: a great hall (where you land, by a
+   lavafall), and tunnels off to a lava lake, a grotto of glowing
+   mushrooms and a hollow full of crystals. Right by where you land, the
+   Professor has opened an underground ranch and Scrimple has pitched his
+   tent (they're still on the beach as well). Teleporters get you home.
+   (The whole cave sits far out past the edge of the sea, so the island's
+   own ground, walking, rocks and apples all just work down here.)
+   ========================================================= */
+const CAVE = { x: 2600, z: 0 };
+const inCave = x => x > 2300;
+var underground = false;
+const caveState = { visited: false, profMet: false, scrimMet: false };
+const caveWorld = (lx, lz) => [CAVE.x + lx, CAVE.z + lz];
+// the rooms (ellipses) and the tunnels between them, in cave-local metres
+const CAVE_ROOMS = [
+  { x: 0, z: 0, rx: 54, rz: 42, name: 'The Ember Hall' },
+  { x: 100, z: -26, rx: 36, rz: 32, name: 'The Lava Lake' },
+  { x: -8, z: -100, rx: 30, rz: 27, name: 'Glowcap Grotto' },
+  { x: -94, z: -38, rx: 27, rz: 24, name: 'The Crystal Hollow' }
+];
+const CAVE_TUNNELS = [[40, -14, 72, -22], [-4, -36, -8, -76], [-46, -16, -72, -32]];
+const CAVE_LAVA = [{ x: 8, z: -22, r: 6.5 }, { x: 34, z: -18, r: 5 }, { x: -16, z: -28, r: 4.5 }, { x: 102, z: -27, r: 19 }, { x: -16, z: -106, r: 5 }, { x: -100, z: -46, r: 4 }, { x: 116, z: -2, r: 3.5 }, { x: 88, z: -52, r: 3 }];
+const CAVE_LAND = { x: -1, z: -9 };
+const CAVE_FALL = { x: 8, z: -22 };   // the lavafall pours from the ceiling into the first pool
+// the copies of the ranch and Scrimple's camp: moved (not turned), so their ground is the beach's own ground, shifted down here
+const CAVE_RANCH_L = { x: -28, z: 9 }, CAVE_CAMP_L = { x: 25, z: 15 };
+const caveRanchOff = { dx: CAVE.x + CAVE_RANCH_L.x - RANCH_X, dz: CAVE.z + CAVE_RANCH_L.z - RANCH_Z };
+const caveCampOff = { dx: CAVE.x + CAVE_CAMP_L.x - SCRIM.x, dz: CAVE.z + CAVE_CAMP_L.z - SCRIM.z };
+const CAVE_PATCHES = [{ l: CAVE_RANCH_L, o: caveRanchOff, r: RANCH_R + 3 }, { l: CAVE_CAMP_L, o: caveCampOff, r: 6.5 }];
+// how far inside the cave a point is (negative: inside the rock)
+function caveS(lx, lz) {
+  let s = -Infinity;
+  for (const r of CAVE_ROOMS) {
+    const dx = (lx - r.x) / r.rx, dz = (lz - r.z) / r.rz, a = Math.atan2(dz, dx);
+    const wob = Math.sin(a * 5 + r.x * 0.1) * 0.05 + Math.sin(a * 9 + r.z * 0.1) * 0.03;
+    s = Math.max(s, (1 + wob - Math.hypot(dx, dz)) * Math.min(r.rx, r.rz));
+  }
+  for (const [ax, az, bx, bz] of CAVE_TUNNELS) {
+    const ux = bx - ax, uz = bz - az, t = clamp(((lx - ax) * ux + (lz - az) * uz) / (ux * ux + uz * uz), 0, 1);
+    s = Math.max(s, 4 + Math.sin(lx * 0.3 + lz * 0.2) * 0.6 - Math.hypot(lx - ax - ux * t, lz - az - uz * t));
+  }
+  return s;
+}
+// how far inside a lava pool a point is
+function caveLavaD(lx, lz) {
+  let d = -Infinity;
+  for (const p of CAVE_LAVA) { const dx = lx - p.x, dz = lz - p.z, a = Math.atan2(dz, dx); d = Math.max(d, p.r * (1 + 0.08 * Math.sin(a * 5 + p.x) + 0.05 * Math.sin(a * 11 + p.z)) - Math.hypot(dx, dz)); }
+  return d;
+}
+function caveFloorL(lx, lz) {
+  let h = 0.25 + (fbm(lx * 0.07 + 40, lz * 0.07) - 0.5) * 0.9;
+  const lv = caveLavaD(lx, lz); if (lv > -1.5) h = lerp(h, -1.6, smooth(-1.5, 0.8, lv));
+  for (const P of CAVE_PATCHES) { const d = Math.hypot(lx - P.l.x, lz - P.l.z); if (d < P.r + 4) h = lerp(h, heightAt(CAVE.x + lx - P.o.dx, CAVE.z + lz - P.o.dz), 1 - smooth(P.r, P.r + 4, d)); }
+  const s = caveS(lx, lz);
+  if (s < 1.5) { const w = 1.5 - s; h += 30 * smooth(0, 8.5, w) + (fbm(lx * 0.15, lz * 0.15) - 0.5) * 6 * smooth(0, 4, w); }
+  return h;
+}
+const caveCeilL = (lx, lz) => 15 + 10 * smooth(0, 28, caveS(lx, lz)) + (fbm(lx * 0.05, lz * 0.05 + 9) - 0.5) * 5;
+// the island's ground and walking rules hand over to these out here
+function caveHeight(x, z) { return caveFloorL(x - CAVE.x, z - CAVE.z); }
+const caveSpikes = [];   // stalagmites you can't walk through
+function caveWalk(x, z) {
+  const lx = x - CAVE.x, lz = z - CAVE.z;
+  if (caveS(lx, lz) < 1.2 || caveLavaD(lx, lz) > -0.4) return false;
+  for (const p of caveSpikes) if (Math.abs(lx - p.x) < 2 && Math.abs(lz - p.z) < 2 && Math.hypot(lx - p.x, lz - p.z) < p.r + 0.25) return false;
+  return true;
+}
+const caveRoomAt = (lx, lz) => CAVE_ROOMS.find(r => Math.hypot((lx - r.x) / r.rx, (lz - r.z) / r.rz) < 1) || null;
+
+/* ---------- how it looks ---------- */
+const caveRoot = new THREE.Group(); caveRoot.position.set(CAVE.x, 0, CAVE.z); caveRoot.visible = false; scene.add(caveRoot);
+const lavaTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), R = mulberry32(777);
+  g.fillStyle = '#b8300c'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 70; i++) { const x = R() * 256, y = R() * 256, r = 10 + R() * 30, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, i % 3 ? 'rgba(255,170,40,.9)' : 'rgba(255,230,120,.95)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g.fillStyle = gr; [-256, 0, 256].forEach(ox => [-256, 0, 256].forEach(oy => { g.save(); g.translate(ox, oy); g.fillRect(x - r, y - r, r * 2, r * 2); g.restore(); })); }
+  g.strokeStyle = 'rgba(60,10,4,.55)'; g.lineWidth = 3; g.lineCap = 'round';
+  for (let i = 0; i < 26; i++) { let x = R() * 256, y = R() * 256; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (R() - 0.5) * 50; y += (R() - 0.5) * 50; g.lineTo(x, y); } g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+})();
+const CG = { x0: -130, x1: 144, z0: -138, z1: 52, step: 1.25 };
+function caveGrid(fn, colFn, mat) {
+  const W = CG.x1 - CG.x0, D = CG.z1 - CG.z0, geo = new THREE.PlaneGeometry(W, D, Math.round(W / CG.step), Math.round(D / CG.step)); geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position, col = [], cx = (CG.x0 + CG.x1) / 2, cz = (CG.z0 + CG.z1) / 2, c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) { const lx = pos.getX(i) + cx, lz = pos.getZ(i) + cz, y = fn(lx, lz); pos.setXYZ(i, lx, y, lz); colFn(lx, lz, y, c); col.push(c.r, c.g, c.b); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; caveRoot.add(m); return m;
+}
+{
+  const basalt = new THREE.Color(0x4e3e4a), dark = new THREE.Color(0x2c2230), rim = new THREE.Color(0xb4481e), wall = new THREE.Color(0x3e3242), wallTop = new THREE.Color(0x221a24), ash = new THREE.Color(0x8a8288);
+  caveGrid(caveFloorL, (lx, lz, y, c) => {
+    const s = caveS(lx, lz), lv = caveLavaD(lx, lz);
+    c.copy(basalt).lerp(dark, fbm(lx * 0.12 + 3, lz * 0.12));
+    if (lv > -4) c.lerp(rim, smooth(-4, 0, lv) * 0.85);                                  // rock glowing hot round the lava
+    const la = Math.hypot(lx - CAVE_LAND.x, lz - CAVE_LAND.z); if (la < 4) c.lerp(ash, 0.7 * (1 - smooth(2, 4, la)));   // the soft ash heap you land on
+    if (s < 1.5) c.copy(wall).lerp(wallTop, smooth(2, 26, y)).lerp(rim, lv > -6 ? smooth(-6, -1, lv) * 0.5 * (1 - smooth(1, 10, y)) : 0);
+  }, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const ceil = new THREE.Color(0x2a2028), ceil2 = new THREE.Color(0x46343c), glowC = new THREE.Color(0x7a3018);
+  caveGrid(caveCeilL, (lx, lz, y, c) => { c.copy(ceil).lerp(ceil2, fbm(lx * 0.09, lz * 0.09 + 5) * 0.8); const lv = caveLavaD(lx, lz); if (lv > -10) c.lerp(glowC, smooth(-10, 2, lv) * 0.7); }, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+}
+// one sheet of lava under everything: it only shows where the floor dips into a pool
+const caveLavaMat = new THREE.MeshBasicMaterial({ map: lavaTex, color: 0xffffff });
+{
+  const W = CG.x1 - CG.x0, D = CG.z1 - CG.z0, lava = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2), caveLavaMat);
+  lavaTex.repeat.set(W / 9, D / 9); lava.position.set((CG.x0 + CG.x1) / 2, -0.55, (CG.z0 + CG.z1) / 2); caveRoot.add(lava);
+}
+// the lavafall, pouring out of a crack in the ceiling
+const lavaFallTex = lavaTex.clone(); lavaFallTex.needsUpdate = true; lavaFallTex.repeat.set(2, 3);
+const lavaFall = (() => {
+  const top = caveCeilL(CAVE_FALL.x, CAVE_FALL.z) + 1, g = new THREE.CylinderGeometry(1.6, 2.6, top + 0.6, 20, 1, true);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: lavaFallTex, side: THREE.DoubleSide })); m.position.set(CAVE_FALL.x, top / 2 - 0.6, CAVE_FALL.z); caveRoot.add(m); return m;
+})();
+// stalagmites (solid), stalactites, glowing mushrooms in the grotto, crystals in the hollow
+const caveGlowMats = [];
+{
+  const R = mulberry32(3131), parts = [], free = (lx, lz, pad) => caveS(lx, lz) > pad && caveLavaD(lx, lz) < -2.5 && Math.hypot(lx - CAVE_LAND.x, lz - CAVE_LAND.z) > 9
+    && CAVE_PATCHES.every(P => Math.hypot(lx - P.l.x, lz - P.l.z) > P.r + 5) && CAVE_TUNNELS.every(([ax, az, bx, bz]) => { const ux = bx - ax, uz = bz - az, t = clamp(((lx - ax) * ux + (lz - az) * uz) / (ux * ux + uz * uz), 0, 1); return Math.hypot(lx - ax - ux * t, lz - az - uz * t) > 6; })
+    && caveSpikes.every(p => Math.hypot(lx - p.x, lz - p.z) > p.r + 3.5);
+  const cols = [0x5a4856, 0x4a3a48, 0x6a5560];
+  for (let i = 0; i < 400 && caveSpikes.length < 46; i++) {
+    const r = CAVE_ROOMS[i % CAVE_ROOMS.length], a = R() * Math.PI * 2, k = Math.sqrt(R()) * 0.85, lx = r.x + Math.cos(a) * r.rx * k, lz = r.z + Math.sin(a) * r.rz * k;
+    if (!free(lx, lz, 3)) continue;
+    const rad = 0.5 + R() * 0.9, h = 2 + R() * 5, y = caveFloorL(lx, lz);
+    caveSpikes.push({ x: lx, z: lz, r: rad });
+    parts.push(bake(new THREE.ConeGeometry(rad, h, 7), cols[i % 3]).translate(lx, y + h / 2 - 0.2, lz));
+    if (R() < 0.5) { const r2 = rad * 0.5, h2 = h * 0.45; parts.push(bake(new THREE.ConeGeometry(r2, h2, 6), cols[(i + 1) % 3]).translate(lx + rad * 0.9, y + h2 / 2 - 0.1, lz + rad * 0.3)); }
+  }
+  for (let i = 0; i < 140; i++) {
+    const r = CAVE_ROOMS[i % CAVE_ROOMS.length], a = R() * Math.PI * 2, k = Math.sqrt(R()) * 0.9, lx = r.x + Math.cos(a) * r.rx * k, lz = r.z + Math.sin(a) * r.rz * k;
+    if (caveS(lx, lz) < 2) continue;
+    const rad = 0.3 + R() * 0.7, h = 1.5 + R() * 4.5, y = caveCeilL(lx, lz);
+    parts.push(bake(new THREE.ConeGeometry(rad, h, 6).rotateX(Math.PI), cols[(i + 2) % 3]).translate(lx, y - h / 2 + 0.3, lz));
+  }
+  const m = new THREE.Mesh(merge(parts), vcLambert()); m.castShadow = m.receiveShadow = true; caveRoot.add(m);
+  // glowcaps: pale stems, big glowing teal and blue caps
+  const stems = [], capMat = new THREE.MeshBasicMaterial({ color: 0x5ff0e0 }), capMat2 = new THREE.MeshBasicMaterial({ color: 0x7ab8ff }); caveGlowMats.push(capMat, capMat2);
+  const capA = [], capB = [];
+  for (let i = 0; i < 60; i++) {
+    const r = CAVE_ROOMS[2], a = R() * Math.PI * 2, k = 0.3 + Math.sqrt(R()) * 0.6, lx = r.x + Math.cos(a) * r.rx * k, lz = r.z + Math.sin(a) * r.rz * k;
+    if (caveS(lx, lz) < 2 || caveLavaD(lx, lz) > -2) continue;
+    const s = 0.4 + R() * (i % 7 ? 0.6 : 1.8), y = caveFloorL(lx, lz);
+    stems.push(bake(new THREE.CylinderGeometry(0.08 * s, 0.12 * s, 0.9 * s, 6), 0xe8e0d8).translate(lx, y + 0.45 * s, lz));
+    (i % 3 ? capA : capB).push(new THREE.SphereGeometry(0.42 * s, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.6, 1).translate(lx, y + 0.85 * s, lz));
+  }
+  const sm = new THREE.Mesh(merge(stems), vcLambert()); caveRoot.add(sm);
+  [[capA, capMat], [capB, capMat2]].forEach(([g, mat]) => { if (g.length) caveRoot.add(new THREE.Mesh(merge(g.map(x => bake(x, 0xffffff))), mat)); });
+  // crystals: clusters of glowing purple and pink spikes
+  const crys = [], crysMat = new THREE.MeshLambertMaterial({ color: 0xc89aff, emissive: 0x6a2ab0 }), crysMat2 = new THREE.MeshLambertMaterial({ color: 0xffb3e6, emissive: 0x8a2a6a }); caveGlowMats.push(crysMat, crysMat2);
+  const crysB = [];
+  for (let i = 0; i < 26; i++) {
+    const r = CAVE_ROOMS[3], a = R() * Math.PI * 2, k = 0.35 + Math.sqrt(R()) * 0.55, lx = r.x + Math.cos(a) * r.rx * k, lz = r.z + Math.sin(a) * r.rz * k;
+    if (caveS(lx, lz) < 2.5 || caveLavaD(lx, lz) > -2) continue;
+    const y = caveFloorL(lx, lz);
+    for (let j = 0; j < 4; j++) { const h = 0.8 + R() * 2.2, g = new THREE.OctahedronGeometry(0.35, 0).scale(0.6, h, 0.6).rotateZ((R() - 0.5) * 0.9).rotateY(R() * 6.28).translate(lx + (R() - 0.5), y + h * 0.3, lz + (R() - 0.5)); (j % 2 ? crysB : crys).push(g); }
+    caveSpikes.push({ x: lx, z: lz, r: 0.9 });
+  }
+  const mergeAll = list => merge(list.map(g => bake(g, 0xffffff)));
+  if (crys.length) caveRoot.add(new THREE.Mesh(mergeAll(crys), crysMat));
+  if (crysB.length) caveRoot.add(new THREE.Mesh(mergeAll(crysB), crysMat2));
+}
+// soft glows over the lava, and the lights that make the cave visible at all
+const caveGlowTex = spriteTex((g2, s) => { const gr = g2.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(255,170,80,.75)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, s, s); });
+const caveGlows = CAVE_LAVA.map(p => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: caveGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); sp.position.set(p.x, 0.6, p.z); sp.scale.setScalar(p.r * 2.6); caveRoot.add(sp); return sp; });
+const caveLights = [[8, 5, -22, 0xff7a2a, 2.4, 60], [34, 3, -18, 0xff6a1a, 1.2, 30], [102, 6, -27, 0xff6a1a, 2.8, 85], [-8, 5, -100, 0x5ff0e0, 1.8, 45], [-94, 5, -38, 0xc88aff, 1.8, 45], [-28, 9, 9, 0xffd8a0, 1.1, 40], [25, 4, 15, 0xffa060, 0.9, 25]].map(([x, y, z, c, i, d]) => {
+  const l = new THREE.PointLight(c, 0, d, 1); l.position.set(CAVE.x + x, y, CAVE.z + z); l.userData.i = i; scene.add(l); return l;   // always in the scene (so nothing recompiles), dark until you're down here
+});
+// embers drifting up off the lava near you
+const caveEmbers = Array.from({ length: 40 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: caveGlowTex, color: 0xffc070, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); sp.visible = false; caveRoot.add(sp); return { sp, life: 0, x: 0, y: 0, z: 0, vx: 0, vz: 0 }; });
+
+/* ---------- the underground ranch and Scrimple's underground camp ---------- */
+function twinOf(o, root, croot) { const path = []; for (let p = o; p !== root; p = p.parent) path.unshift(p.parent.children.indexOf(p)); let c = croot; for (const i of path) c = c.children[i]; return c; }
+const caveRanch = ranch.clone(); caveRanch.position.x += caveRanchOff.dx; caveRanch.position.z += caveRanchOff.dz; caveRanch.visible = false; scene.add(caveRanch);
+const caveCamp = camp.clone(); caveCamp.position.x += caveCampOff.dx; caveCamp.position.z += caveCampOff.dz; caveCamp.visible = false; scene.add(caveCamp);
+const caveBoard = twinOf(scrimBoard, camp, caveCamp), caveBoardMark = twinOf(boardMark, camp, caveCamp);
+const caveFlames = campFlames.map(f => twinOf(f, camp, caveCamp));
+const caveGuy = (() => {
+  const root = twinOf(guy.root, camp, caveCamp);
+  const g = { root, body: twinOf(guy.body, camp, caveCamp), head: twinOf(guy.head, camp, caveCamp), arms: guy.arms.map(a => twinOf(a, camp, caveCamp)), mark: twinOf(guy.mark, camp, caveCamp), tag: null, face: 0, wave: 0, greeted: false };
+  root.children.filter(c => c.isSprite && c !== g.mark).forEach(c => root.remove(c));
+  return g;
+})();
+const setCaveGuyTag = () => { if (caveGuy.tag) caveGuy.root.remove(caveGuy.tag); caveGuy.tag = nameTag('Scrimple Scrumple'); caveGuy.tag.position.y = 2.7; caveGuy.root.add(caveGuy.tag); };
+setCaveGuyTag();
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(setCaveGuyTag);
+const [CAVE_GUY_X, CAVE_GUY_Z] = [GUY_X + caveCampOff.dx, GUY_Z + caveCampOff.dz], [CAVE_BOARD_X, CAVE_BOARD_Z] = [BOARD_X + caveCampOff.dx, BOARD_Z + caveCampOff.dz];
+const caveProf = (() => {
+  const root = prof.root.clone(true), i = o => prof.body.children.indexOf(o), body = root.children[0];
+  const head = body.children[i(prof.head)], belly = body.children[i(prof.belly)], arms = prof.arms.map(a => body.children[i(a)]);
+  const pupils = []; head.traverse(o => { if (o.name === 'pupil') pupils.push(o); });
+  root.position.x += caveRanchOff.dx; root.position.z += caveRanchOff.dz; root.visible = false; scene.add(root);
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: exclaimTex, depthTest: false })); mark.scale.setScalar(0.7); mark.renderOrder = 7; mark.position.y = 3.6; root.add(mark);
+  return { root, body, head, belly, arms, pupils, mark, tag: root.children.find(c => c.isSprite && c !== mark), face: 0, wave: 0, greeted: false, blink: 2 };
+})();
+function collideCave(x, z) {
+  if (!inCave(x)) return [x, z];
+  let [a, b] = collideRanch(x - caveRanchOff.dx, z - caveRanchOff.dz); x = a + caveRanchOff.dx; z = b + caveRanchOff.dz;
+  [a, b] = collideScrim(x - caveCampOff.dx, z - caveCampOff.dz); return [a + caveCampOff.dx, b + caveCampOff.dz];
+}
+function caveTarget() {
+  if (!inCave(player.x) || player.climb) return null;
+  const p = caveProf.root.position;
+  if (facingPoint(p.x, p.z, 3.4)) return { label: 'talk to Professor Loveopolis', act: talkCaveProf };
+  if (facingPoint(CAVE_GUY_X, CAVE_GUY_Z, 3.4)) return { label: 'talk to Scrimple Scrumple', act: talkCaveScrim };
+  if (scrimState.boardOn && facingPoint(CAVE_BOARD_X, CAVE_BOARD_Z, 3.2)) return { label: 'read the notice board', act: openBoard };
+  return null;
+}
+function talkCaveProf() {
+  caveProf.wave = 1.6; sfx.profHello();
+  if (caveState.profMet) return talkToProf();
+  openDialog([
+    { text: 'Ribbit-ho! You made it down in one piece! And not even slightly crispy. The suit works! I knew my sums were right. Mostly right.' },
+    { text: 'Oh, the ranch? Yes, I brought it down with me. A branch office, if you like. Loveopolis Ranch: Underground Edition!' },
+    { text: 'The scrumblies were finding the beach a bit nippy at night, you see. And down here it’s lovely and toasty all year round. Underfloor heating! Well. Under-everything heating.' },
+    { text: 'Don’t worry, the beach ranch is still open. I’m still there too. And at the top of the mountain. I get about, dear. Let’s not dwell on it, it gives me a headache.' },
+    { text: 'Your Box is right here, same as ever, and I’ll patch you up whenever you’re hurt. And when you want to go home, your teleporters will zap you right out. I checked. Twice.' }
+  ], () => { caveState.profMet = true; saveGame(); talkToProf(); });
+}
+function talkCaveScrim() {
+  caveGuy.wave = 1.6; scrimSfx.hello();
+  if (caveState.scrimMet) return talkToScrim();
+  openDialog([
+    { text: 'Whoa, friend! Peace! Welcome to the underground, man. Can you feel the vibes? They’re WARM vibes. Very warm. Possibly too warm.' },
+    { text: 'Why am I down here? Okay, so. I heard Loveopolis was opening a ranch under the mountain. UNDER. THE. MOUNTAIN.' },
+    { text: 'Scrumblies stuck under a whole mountain, man! That’s the least free a scrumbly could possibly be! So I followed him down to set up a liberation outpost.' },
+    { text: 'Purely on principle. ...Also my tent got a draught in it up on the beach and I’ve been cold since Tuesday. Down here my sandals have never been so cosy.' },
+    { text: 'And yeah, my beach shop’s still open too. I’m in two places at once. It’s a meditation thing. The Professor calls it a “plot hole”. Whatever that is.' },
+    { text: 'Same deal as always, friend. Bring me your scrumblies, I pay you in gold, and they go free. Even down here. ESPECIALLY down here.' }
+  ], () => { caveState.scrimMet = true; saveGame(); talkToScrim(); }, 'scrim');
+}
+
+/* ---------- getting down here ---------- */
+const caveSfx = {
+  whoosh() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'bandpass', 600, 0.35, 1.2, sfxBus, 1); tone(t, 600, 90, 1.1, 0.07, 'sine'); },
+  whump() { if (!actx) return; const t = actx.currentTime; noiseHit(t, 'lowpass', 300, 0.4, 0.5, sfxBus, 1); tone(t, 90, 40, 0.4, 0.12, 'sine'); },
+  bubble(v) { if (!actx || v < 0.05) return; const t = actx.currentTime; tone(t, 90 + Math.random() * 60, 200 + Math.random() * 120, 0.12, 0.05 * v, 'sine'); }
+};
+let caveDropping = false;
+function caveDescend() {
+  caveDropping = true; caveSfx.whoosh();
+  toast('The suit holds! WHOOOSH... down, down, down through the glowing heat...');
+  teleFlash.classList.remove('green', 'orange', 'purple'); teleFlash.classList.add('lava');
+  teleFlash.hidden = false; teleFlash.classList.remove('on'); void teleFlash.offsetWidth; teleFlash.classList.add('on');
+  for (const k in keys) keys[k] = false;
+  setTimeout(() => {
+    const [x, z] = caveWorld(CAVE_LAND.x, CAVE_LAND.z), [tx, tz] = caveWorld(-2, 14);
+    player.x = x; player.z = z; player.y = caveHeight(x, z) + 6; player.vx = player.vz = 0; player.vy = -2; player.grounded = false; player.climb = null;
+    player.yaw = Math.atan2(x - tx, z - tz); player.pitch = 0.05;
+    if (partner) { partner.x = x + 1.2; partner.z = z + 0.6; }
+    setUnderground(true); renderHotbar();
+    teleFlash.classList.remove('on'); setTimeout(() => { teleFlash.hidden = true; teleFlash.classList.remove('lava'); caveDropping = false; }, 700);
+    setTimeout(caveSfx.whump, 450);
+    if (!caveState.visited) { caveState.visited = true; setTimeout(() => toast('WHUMP! You land in a soft pile of warm ash, deep under the mountain... Wait. Is that the RANCH? And Scrimple’s tent?!'), 1400); }
+    saveGame();
+  }, 900);
+}
+
+/* ---------- lights, fog and sky: swapped over when you go underground ---------- */
+const hemiLight = scene.children.find(o => o.isHemisphereLight);
+const OVERWORLD = { hc: hemiLight.color.getHex(), hg: hemiLight.groundColor.getHex(), hi: hemiLight.intensity, si: sun.intensity, fog: scene.fog.color.getHex(), near: scene.fog.near, far: scene.fog.far, camFar: camera.far };
+function setUnderground(on) {
+  underground = on;
+  hemiLight.color.setHex(on ? 0xffb894 : OVERWORLD.hc); hemiLight.groundColor.setHex(on ? 0x5a2018 : OVERWORLD.hg); hemiLight.intensity = on ? 0.6 : OVERWORLD.hi;
+  sun.intensity = on ? 0 : OVERWORLD.si;
+  scene.fog.color.setHex(on ? 0x1e0d0b : OVERWORLD.fog); scene.fog.near = on ? 20 : OVERWORLD.near; scene.fog.far = on ? 160 : OVERWORLD.far;
+  sky.visible = !on; camera.far = on ? 450 : OVERWORLD.camFar; camera.updateProjectionMatrix();
+  caveLights.forEach(l => { l.intensity = on ? l.userData.i : 0; });
+  caveRoot.visible = caveRanch.visible = caveCamp.visible = caveProf.root.visible = on;
+}
+
+/* ---------- every frame ---------- */
+let caveRoom = null;
+function updateCave(dt) {
+  const u = playing && inCave(player.x);
+  if (u !== underground) setUnderground(u);
+  if (!underground) return;
+  const lx = player.x - CAVE.x, lz = player.z - CAVE.z;
+  // the lava breathes; the lavafall pours
+  lavaTex.offset.x = time * 0.015; lavaTex.offset.y = Math.sin(time * 0.2) * 0.05;
+  lavaFallTex.offset.y = time * 0.6;
+  const pulse = 0.85 + Math.sin(time * 1.6) * 0.1 + Math.sin(time * 4.1) * 0.05;
+  caveLavaMat.color.setRGB(1, pulse, pulse * 0.9);
+  caveGlows.forEach((g, i) => { g.material.opacity = 0.45 + Math.sin(time * 1.3 + i) * 0.15; });
+  caveLights.forEach((l, i) => { if (i < 3) l.intensity = l.userData.i * (0.85 + Math.sin(time * 2.1 + i * 1.7) * 0.15); });
+  caveGlowMats.forEach((m, i) => { if (m.emissive) m.emissive.setHSL(i ? 0.88 : 0.76, 0.6, 0.25 + Math.sin(time * 1.2 + i) * 0.06); });
+  // embers off the nearest lava
+  for (const e of caveEmbers) {
+    if (e.life <= 0) {
+      const near = CAVE_LAVA.filter(p => Math.hypot(p.x - lx, p.z - lz) < 50 + p.r);
+      if (near.length && Math.random() < dt * 6) { const p = pick1(near), a = Math.random() * 6.28, r = Math.random() * p.r * 0.8; Object.assign(e, { life: 2 + Math.random() * 2, x: p.x + Math.cos(a) * r, y: -0.4, z: p.z + Math.sin(a) * r, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4 }); e.sp.visible = true; }
+      else { e.sp.visible = false; continue; }
+    }
+    e.life -= dt; e.x += e.vx * dt; e.z += e.vz * dt; e.y += dt * (1.2 + Math.sin(time * 3 + e.x) * 0.3);
+    e.sp.position.set(e.x, e.y, e.z); e.sp.scale.setScalar(0.18 + 0.06 * Math.sin(time * 9 + e.z)); e.sp.material.opacity = Math.min(1, e.life);
+  }
+  if (Math.random() < dt * 0.8) caveSfx.bubble(clamp(1 - CAVE_LAVA.reduce((m, p) => Math.min(m, Math.hypot(p.x - lx, p.z - lz) - p.r), 99) / 25, 0, 1));
+  // which part of the cave you're in
+  const room = caveRoomAt(lx, lz);
+  if (room && room !== caveRoom) { if (caveRoom) showArea(room.name); caveRoom = room; }   // (arriving, the banner says Emberdeep Caverns; after that, each room's name)
+  // patched up at the underground ranch, too
+  if (!knocked && health < MAX_HEALTH && inRanchZone(player.x - caveRanchOff.dx, player.z - caveRanchOff.dz, 3)) { health = MAX_HEALTH; renderHealth(); sfx.love(1); toast('Patched up at the underground ranch. Full health! (The Professor says the warmth helps.)'); }
+  // the Professor
+  const P = caveProf, pp = P.root.position, d = Math.hypot(player.x - pp.x, player.z - pp.z);
+  const want = d < 14 ? clamp(angDiff(RANCH_YAW, Math.atan2(player.x - pp.x, player.z - pp.z)), -1.6, 1.6) : 0;
+  P.face += angDiff(P.face, want) * Math.min(1, dt * 3); P.root.rotation.y = RANCH_YAW + P.face;
+  const br = Math.sin(time * 1.8); P.belly.scale.set(1 + br * 0.02, 1.02 - br * 0.015, 0.92 + br * 0.02); P.head.position.y = 2.0 + br * 0.015;
+  if (P.wave > 0) P.wave -= dt;
+  P.arms[1].rotation.z = P.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.35 : 0.35 + br * 0.03; P.arms[0].rotation.z = -0.35 - br * 0.03;
+  P.blink -= dt; const bl = P.blink < 0.12; if (P.blink < 0) P.blink = 2.5 + Math.random() * 3; P.pupils.forEach(p => { p.scale.y = bl ? 0.15 : 1; });
+  if (!P.greeted && d < 13 && playing) { P.greeted = true; P.wave = 2.2; sfx.profHello(); if (caveState.profMet) toast('Professor Loveopolis: "Ribbit-ho! Toasty down here, isn’t it?"'); }
+  if (d > 30) P.greeted = false;
+  P.mark.visible = !caveState.profMet; if (P.mark.visible) P.mark.position.y = 3.6 + Math.abs(Math.sin(time * 3)) * 0.25;
+  if (P.tag) P.tag.visible = d < 12 && d > 4.5 && !dialogOpen;
+  // Scrimple, grooving by his (underground) campfire
+  const G = caveGuy, gd = Math.hypot(player.x - CAVE_GUY_X, player.z - CAVE_GUY_Z);
+  const [pu, pv] = scrimLocal(player.x - caveCampOff.dx, player.z - caveCampOff.dz), [gu, gv] = SCRIM_SPOT.guy;
+  G.face += angDiff(G.face, gd < 14 ? Math.atan2(pu - gu, pv - gv) : 0.5) * Math.min(1, dt * 3); G.root.rotation.y = G.face;
+  G.body.rotation.z = Math.sin(time * 1.3) * 0.05; G.head.rotation.z = Math.sin(time * 1.3 + 0.6) * 0.08; G.head.position.y = 1.86 + Math.abs(Math.sin(time * 2.6)) * 0.03;
+  if (G.wave > 0) G.wave -= dt;
+  const gt = dialogOpen && dlgWho === 'scrim' && gd < 6;
+  G.arms[1].rotation.z = G.wave > 0 ? 2.6 + Math.sin(time * 9) * 0.35 : gt ? 2.75 : 0.25 + Math.sin(time * 1.3) * 0.05;
+  G.arms[0].rotation.z = gt ? -0.6 - Math.sin(time * 5) * 0.25 : -0.25 - Math.sin(time * 1.3) * 0.05;
+  if (!G.greeted && gd < 15 && playing) { G.greeted = true; G.wave = 2.2; scrimSfx.hello(); if (caveState.scrimMet) toast('Scrimple Scrumple: "Peace, friend! Warm vibes only down here!"'); }
+  if (gd > 30) G.greeted = false;
+  G.mark.visible = !caveState.scrimMet; if (G.mark.visible) G.mark.position.y = 3.15 + Math.abs(Math.sin(time * 3)) * 0.25;
+  if (G.tag) G.tag.visible = gd < 12 && gd > 4.5 && !dialogOpen;
+  caveFlames.forEach((f, i) => { f.scale.set(1 + Math.sin(time * 11 + i) * 0.08, 1 + Math.sin(time * 13 + i * 2) * 0.15 + Math.sin(time * 7.3) * 0.08, 1); });
+  caveBoard.visible = scrimState.boardOn; caveBoardMark.visible = scrimState.boardOn && anyRequestReady();
+  if (caveBoardMark.visible) caveBoardMark.position.y = 2.75 + Math.abs(Math.sin(time * 3)) * 0.2;
+}
+function caveSave() { return { visited: caveState.visited, profMet: caveState.profMet, scrimMet: caveState.scrimMet }; }
+function caveLoad(o) {
+  o = o && typeof o === 'object' ? o : {};
+  caveState.visited = !!o.visited; caveState.profMet = !!o.profMet; caveState.scrimMet = !!o.scrimMet;
+  caveProf.greeted = caveGuy.greeted = false; caveRoom = null;
+}
+
+/* ---------- the cave's music: a slow, warm, echoing drone, with drips ---------- */
+const CAVE_CH = [[40, [52, 55, 59]], [36, [52, 55, 60]], [45, [52, 57, 60]], [35, [51, 54, 59]]];
+function caveStep(n, t, out) {
+  const st = n % 16, bar = Math.floor(n / 16) % 8, loop = Math.floor(n / 128), [root, ch] = CAVE_CH[Math.floor(bar / 2) % 4];
+  if (st === 0 && bar % 2 === 0) { musicPad(t, ch.map(m => m - 12), STEP * 32, out, 0.05); musicPad(t, [root - 12, root - 5], STEP * 32, out, 0.07); }
+  if (st === 0 || st === 10) drum(t, 70, 36, 0.6, 0.3, out);                      // a deep, slow heartbeat
+  if (st === 3 || st === 13) drum(t, 58, 32, 0.4, 0.16, out);
+  if ((st === 4 && bar % 2 === 0) || st === 9 || (st === 14 && bar % 4 === 1)) kalimba(t, ch[(st + bar) % 3] + 24, out, 0.5);   // drips
+  if (st === 8 && bar % 4 === 2) bell(t, ch[0] + 12, out, 0.5);
+  if (loop > 0 && st === 0 && bar % 4 === 3) flute(t, ch[2] + 12, STEP * 12, out, 0.55);
 }
 
 /* ---------- the old carved tree in Glimmerwood ---------- */
@@ -14040,8 +14398,8 @@ function updateForest(dt) {
   if (!player.climb && (appleGlow || targetTreeApple)) targetTreeApple = findTreeApple();   // climbed down: stop highlighting
   for (const t of appleTrees) for (const a of t.apples) if (!a.on) { a.t -= dt; if (a.t <= 0) showApple(a, true); }
   // the banner
-  const dHere = inland(player.x, player.z), here = dHere > FOREST_OUT + 3 ? 'mountain' : dHere > HEDGE_OUT + 0.5 ? 'forest' : 'beach';
-  if (playing && here !== areaNow) { areaNow = here; showArea(here === 'mountain' ? 'Mount Scrumble' : here === 'forest' ? 'Glimmerwood' : 'Pinksand Shore'); }
+  const dHere = inland(player.x, player.z), here = inCave(player.x) ? 'cave' : dHere > FOREST_OUT + 3 ? 'mountain' : dHere > HEDGE_OUT + 0.5 ? 'forest' : 'beach';
+  if (playing && here !== areaNow) { areaNow = here; showArea(here === 'cave' ? 'Emberdeep Caverns' : here === 'mountain' ? 'Mount Scrumble' : here === 'forest' ? 'Glimmerwood' : 'Pinksand Shore'); }
   // the four Sir Hopsalots
   const show = scrimHere();
   for (const h of hops) {
@@ -14163,6 +14521,7 @@ function tick(dt) {
   updateLionel(dt);
   updateFfan(dt);
   updatePeakProf(dt);
+  updateCave(dt);
   updateFroggles(dt);
   updateRanch(dt);
   updateScrim(dt);
@@ -14247,7 +14606,7 @@ window.addEventListener('resize', () => {
 });
 
 // test hook (used only for automated screenshots)
-window.__scrumbly = { peakProf, peakProfState: () => peakProfState, talkToPeakProf, peakProfTarget, inv, teleportHome, ffan, ffanState: () => ffanState, talkToFfan, ffanTarget, dialogAdvance, music: () => ({ on: Object.fromEntries(Object.entries(musicMix).map(([k, m]) => [k, m.on])), gain: trackBus ? { beach: +trackBus.beach.gain.value.toFixed(2), forest: +trackBus.forest.gain.value.toFixed(2), mountain: +trackBus.mountain.gain.value.toFixed(2) } : null, area: areaNow, state: actx && actx.state }), BLESS_TREE, BLESS_STONE, touchBless: b => touchBless(b), blessTarget: () => blessTarget(), blessings: () => blessings, maxHealth: () => MAX_HEALTH, gleep, rockHitsGleep: r => rockHitsGleep(r), netGleep: () => netGleep(), lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
+window.__scrumbly = { caveDescend, caveState, setUnderground, CAVE, caveProf, caveTarget, caveWalk, peakProf, peakProfState: () => peakProfState, talkToPeakProf, peakProfTarget, inv, teleportHome, ffan, ffanState: () => ffanState, talkToFfan, ffanTarget, dialogAdvance, music: () => ({ on: Object.fromEntries(Object.entries(musicMix).map(([k, m]) => [k, m.on])), gain: trackBus ? { beach: +trackBus.beach.gain.value.toFixed(2), forest: +trackBus.forest.gain.value.toFixed(2), mountain: +trackBus.mountain.gain.value.toFixed(2) } : null, area: areaNow, state: actx && actx.state }), BLESS_TREE, BLESS_STONE, touchBless: b => touchBless(b), blessTarget: () => blessTarget(), blessings: () => blessings, maxHealth: () => MAX_HEALTH, gleep, rockHitsGleep: r => rockHitsGleep(r), netGleep: () => netGleep(), lovepills, netLovepills: () => netLovepills(), eatPill: c => eatPill(c), lovepillTarget: () => lovepillTarget(), setHealth: n => { health = n; renderHealth(); }, blob, beribois, berigals, appleHitsBlob: a => appleHitsBlob(a), rockHitsBlob: r => rockHitsBlob(r), netBerries: () => netBerries(), blobR: () => blobR(), blobReset: () => blobReset(), weckles, rockHitsWeckle: r => rockHitsWeckle(r), netWeckles: () => netWeckles(), weckleAte: c => weckleAte(c), lubbings, netLubbings: () => netLubbings(), rockHitsLubbing: r => rockHitsLubbing(r), geckolos, GECK_HOLES, rockHitsGeckolo: r => rockHitsGeckolo(r), netGeckolos: () => netGeckolos(), geckHeadPos: c => geckHeadPos(c), MZIP, startZip: L => startZip(L), debugInfinite: () => debugInfinite, renderDex: () => renderDex(), tiggly, tigglyRaft, TIGGLY_NEAR, TIGGLY_FAR, netTiggly: () => netTiggly(), rockHitsTiggly: r => rockHitsTiggly(r), growJiggly: () => growJiggly(), JIGGLY_APPLES, frigglies, fragglies, MTN_PONDS, footPondApple: p => footPondApple(p), netFrogs: () => netFrogs(), rockHitsFriggly: r => rockHitsFriggly(r), rockHitsFraggly: r => rockHitsFraggly(r), loopAt: (p, s) => loopAt(p, s), traps, placeTrapAt2: (x, z) => spawnTrapAt(x, z, 0), chupis, rockHitsChupi: r => rockHitsChupi(r), netChupis: () => netChupis(), palShot, pebbles, chupiSees: c => chupiSees(c), clearShot, updateChupis: dt => updateChupis(dt), health: () => health, lionel, lionelRanch, lionelState, talkToLionel: L => talkToLionel(L || lionel), makeGiant: sp => makeGiant(sp), lionelTarget: () => lionelTarget(), teleCools: () => [teleCool, teleCool2, teleCool3], LIONEL_PEAK, PILLAR, pillarState, giantBobo, touchPillar: () => touchPillar(), pillarTarget: () => pillarTarget(), renderPartyHud: () => renderPartyHud(), useItem: () => useItem(), pondY: () => pondY, pondApple: (x, z) => pondApple(x, z), pondState: () => ({ apples: pondApples, phase: giantRae.phase, next: giantRae.next, t: giantRae.t }), FPOND, giantRae, TITANS, titansScanned, titanCandidates: () => titanCandidates(), findScanTarget: () => findScanTarget(), finishScanNow: t => { scan = { target: t, t: 0 }; finishScan(); }, inPond: (x, z) => inPond(x, z), koneko, konekoCurve, konekoPassAt, netKoneko: () => netKoneko(), rockHitsKoneko: r => rockHitsKoneko(r), pretzellos, forestTrunks, partnerObj: () => partner, netPretzellos: () => netPretzellos(), setInputMode: v => setInputMode(v), usingPad: () => usingPad, padText: s => padText(s), plates, faces, spiral, MTN_TOP, MTN_RAVINES, mtnR1, mtnR2, mtnR3, mtnGround: (x, z, y) => mtnGround(x, z, y), rockClimbing: () => rockClimb, mtnEdge, carpetMesh, applyCarpet: () => applyCarpet(), ZIP, startZip: () => startZip(), zipping: () => !!zipRide, startSleep: () => startSleep(), sleeping: () => sleepT, openPaintPicker: () => openPaintPicker(), wallpaperGroup, resetWild: () => resetWild(), rockHitsFroggle: r => rockHitsFroggle(r), FLUFF, FLUFF_Y, pets: () => ({ license: houseState.license || 0, home: homePets().map(p => p.name), meshes: housePets.length, residents: residents.map(r => r.p.name) }), openPetPicker: () => openPetPicker(), setLicense: n => { houseState.license = n; showFurnishings(); refreshHousePets(); }, saveNow: () => saveGame(), treehouse, houseFurn, house: () => ({ ...houseState, items: HOUSE_ITEMS.filter(houseOwns), up: houseUp(), riding: !!houseRide, near: nearHouse && nearHouse.label, deck: HOUSE.deck, y: player.y }), HOUSE, houseWorld, bouncy, talkToBouncy: () => talkToBouncy(), startHouseRide: up => startHouseRide(up), houseTarget: () => houseTarget(), boxOpenNow: () => boxOpen, setDeed: v => { carlosState.deed = v; }, carlos: () => ({ ...carlosState, x: carlos.x, z: carlos.z, rocks: inv.rocks, apples: inv.apples, gold, open: scrimOpen, mode: scrimMenu.mode }), carlosObj: carlos, CARLOS, talkToCarlos: () => talkToCarlos(), carlosInReach: () => carlosInReach(), fluff: () => ({ ...fluffState, x: fluff.x, z: fluff.z, maxHealth: MAX_HEALTH, health, teleCool2, trapsOwned: inv.trapsOwned, tele2: !!inv.owned.tele2 }), fluffObj: fluff, FLUFF, talkToFluff: () => talkToFluff(), party, boxSlots, skipToForest: () => skipToForest(), teleportHome: id => teleportHome(id), selectSlot: i => selectSlot(i), inv, scrimState, GUY: [GUY_X, GUY_Z], dialogAdvance: () => dialogAdvance(), dlgOpen: () => dialogOpen, sitas, rosePatches, froggles, growSita: () => growSita(), sitaReady: () => sitaReady(), flopses, rockHitsFlops: r => rockHitsFlops(r), willowets, rabbitHoles, traps, placeTrapAt: (x, z) => spawnTrapAt(x, z, 0), blorbos, giantMerm, feedPartner: () => feedPartner(), raebits, rockHitsRaebit: r => rockHitsRaebit(r), glimmeries, lureGlimmery: g => lureGlimmery(g), rockHitsGlimmery: r => rockHitsGlimmery(r), forest: () => ({ ...forestState, apples: inv.apples, area: areaNow }), hops, appleTrees, bridges, groundAt: (x, z) => groundAt(x, z), canWalk: (x, z) => canWalk(x, z), talkToHop: h => talkToHop(h), moveChoice: d => moveChoice(d), appleShots, giantBee, GAP_TH, polar, riverD, forestColliders, teal: () => ({ ...tealState, maxHealth: MAX_HEALTH, health, teleCool, teleHold, x: teal.x, z: teal.z }), tealObj: teal, TEAL, talkToTeal: () => talkToTeal(), setTeleCool: n => { teleCool = n; }, setMouseFire: v => { mouseFire = v; }, catchScrumbly: (a, b, c, d) => catchScrumbly(a, b, c, d), scrim: () => ({ ...scrimState, gold, open: scrimOpen, mode: scrimMenu.mode, cur: scrimMenu.cur, items: scrimMenu.items.length, picked: scrimMenu.picked.size }), setGold: n => { gold = n; renderGold(); }, talkToScrim: () => talkToScrim(), openBoard: () => openBoard(), scrimActivate: () => scrimActivate(), scrimMove: (x, y) => scrimMove(x, y), scrimBack: () => scrimBack(), closeScrim: () => closeScrim(), fillRequests: () => fillRequests(), SCRIM, GUY: [0, 0], camp, guy, priceOf: p => priceOf(p), makeScrumbly: (a, b, c, d) => makeScrumbly(a, b, c, d), player, startGame, keys, heightAt, inland, palms, swing, tick, bobos, rocks, camera,
   mermigglies, speshuls, pengins, ducksharks, weevils, beeappies, bink, renderer, scene, giant, applyShiny: (c, on, sp) => applyShiny(c, on, sp), weevilTracks, health: () => health, hurtPlayer: n => hurtPlayer(n), nooks, traps, tut, dialogAdvance: () => dialogAdvance(), talkToProf: () => talkToProf(), dialog: () => dialogOpen, snapshot: () => snapshot(), applySnapshot: s => applySnapshot(s), readSave, SLOT_KEY, openPause: () => openPause(), inv_traps: () => inv.traps, placeTrap: () => placeTrap(), monkeyTrees, water, dexState, NAME_POOL, handL, petInfo: () => ({ petT, nearPartner }), partner: () => partner, showBond: () => showBond(), bondLines: () => BOND_LINES.length, boxSlots, openBox: () => openBox(), closeBox: () => closeBox(), boxSwap: (a, b) => boxSwap(a, b), residents: () => residents, prof, ranchWorld, applySize: (c, s) => applySize(c, s), openDex: () => openDex(), closeDex: () => closeDex(), scanInfo: () => ({ scan, target: scanTarget && scanTarget.id }), target: () => targetRock, caught: () => caughtCount, party, inv, selectSlot, pick: () => { pickQueued = true; }, fire: () => { swingQueued = true; }, jump: () => { jumpQueued = true; } };
 })();
 </script>
