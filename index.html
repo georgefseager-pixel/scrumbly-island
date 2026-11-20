@@ -500,7 +500,7 @@
       <li><kbd>Click</kbd>use item</li>
       <li><kbd>1–0</kbd>swap item</li>
       <li><kbd>E</kbd>pick up rock</li>
-      <li><kbd>3</kbd>Scrumblydex: click to scan, <kbd>Tab</kbd>to browse</li>
+      <li><kbd>6</kbd>Scrumblydex: click to scan, <kbd>Tab</kbd>to browse</li>
       <li><kbd>Walk into a palm</kbd>climb</li>
       <li><kbd>M</kbd>music</li>
     </ul></details>
@@ -5563,12 +5563,12 @@ const ITEM_DEFS = {
   , apple: { name: 'Apples', icon: '<svg viewBox="0 0 48 48"><path d="M24 14 C21 10 13 10 10 17 C6 26 11 40 18 42 C21 43 22 41 24 41 C26 41 27 43 30 42 C37 40 42 26 38 17 C35 10 27 10 24 14 Z" fill="#e8283c" stroke="#a81020" stroke-width="2"/><path d="M24 14 C24 10 25 7 27 5" stroke="#6b4226" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M26 9 C30 4 36 5 37 8 C33 10 29 10 26 9 Z" fill="#5cc277"/><ellipse cx="16" cy="22" rx="3" ry="5" fill="#fff" opacity=".45" transform="rotate(20 16 22)"/></svg>' }
 };
 ITEM_DEFS.glowcap = { name: 'Glowcaps', icon: '<svg viewBox="0 0 48 48"><path d="M20 26 Q19 38 18 42 L30 42 Q29 38 28 26 Z" fill="#f4f0e6" stroke="#c8c0b0" stroke-width="1.5"/><path d="M5 27 Q8 8 24 7 Q40 8 43 27 Q24 31 5 27 Z" fill="#5ff0e0" stroke="#2fb5a8" stroke-width="2"/><circle cx="16" cy="17" r="2.6" fill="#fff"/><circle cx="27" cy="13" r="2" fill="#fff"/><circle cx="33" cy="20" r="2.4" fill="#fff"/><circle cx="22" cy="22" r="1.6" fill="#fff"/><circle cx="8" cy="9" r="1.2" fill="#d8b0ff"/><circle cx="41" cy="11" r="1.4" fill="#9affe8"/><circle cx="38" cy="4" r="1" fill="#d8b0ff"/></svg>' };
-const inv = { slots: ['net', 'rock', 'dex', 'trap', 'tele', 'apple', 'tele2', 'tele3', 'tele4', 'glowcap'], active: 0, shown: 0, eq: 0, rocks: 0, apples: 0, glowcaps: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
+const inv = { slots: ['net', 'trap', 'rock', 'apple', 'glowcap', 'dex', 'tele', 'tele2', 'tele3', 'tele4'], active: 0, shown: 0, eq: 0, rocks: 0, apples: 0, glowcaps: 0, traps: 3, owned: { net: true, dex: true }, trapsOwned: 3 };
 const owns = id => id === 'rock' || (id === 'trap' ? inv.trapsOwned > 0 : !!(id && inv.owned[id]));
 const hotbarEl = document.getElementById('hotbar');
 inv.slots.forEach((id, i) => {
   const b = document.createElement('button'); b.className = 'slot'; b.dataset.i = i;
-  b.innerHTML = `<span class="key">${i + 1}</span>${id ? ITEM_DEFS[id].icon : ''}<span class="count"></span><span class="name">${id ? ITEM_DEFS[id].name : ''}</span>`;
+  b.innerHTML = `<span class="key">${(i + 1) % 10}</span>${id ? ITEM_DEFS[id].icon : ''}<span class="count"></span><span class="name">${id ? ITEM_DEFS[id].name : ''}</span>`;
   if (!id) b.classList.add('empty');
   const pick = e => { e.preventDefault(); e.stopPropagation(); selectSlot(i); canvas.focus(); };
   b.addEventListener('mousedown', pick);
@@ -5631,7 +5631,7 @@ function pickUpRock() {
   targetRock.state = 'inv'; targetRock.mesh.visible = false; targetRock = null;
   inv.rocks++; renderHotbar(); sfx.pickup();
   const el = hotbarEl.children[inv.slots.indexOf('rock')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-  if (!pickHintShown && activeItem() !== 'rock') { pickHintShown = true; toast('Got a rock! Press 2 or scroll to get it out.'); }
+  if (!pickHintShown && activeItem() !== 'rock') { pickHintShown = true; toast('Got a rock! Press 3 or scroll to get it out.'); }
 }
 let pickHintShown = false;
 const ROCK_SPEED = 17, ROCK_LOFT = 3, ROCK_G = 18;
@@ -7311,7 +7311,7 @@ function openPanel(which) {
     panelBody.innerHTML = `<div class="ctrl-cols">
       <table><caption>Keyboard &amp; mouse</caption>${[
         ['<kbd>WASD</kbd>', 'walk'], ['<kbd>Shift</kbd>', 'run'], ['<kbd>Space</kbd>', 'jump / leap off a tree'], ['<kbd>Mouse</kbd>', 'look'],
-        ['<kbd>Click</kbd>', 'use item'], ['<kbd>1</kbd>–<kbd>5</kbd> / scroll', 'swap item'], ['<kbd>E</kbd>', 'pick up / talk / pet / collect'],
+        ['<kbd>Click</kbd>', 'use item'], ['<kbd>1</kbd>–<kbd>0</kbd> / scroll', 'swap item'], ['<kbd>E</kbd>', 'pick up / talk / pet / collect'],
         ['<kbd>Tab</kbd>', 'Scrumblydex list (when held)'], ['<kbd>M</kbd>', 'music on/off'], ['<kbd>Esc</kbd>', 'pause']].map(r => row(...r)).join('')}</table>
       <table><caption>Controller</caption>${[
         ['Left stick', 'walk (push all the way to run)'], ['Right stick', 'look'], ['<kbd>A</kbd>', 'jump'], ['<kbd>RT</kbd> / <kbd>X</kbd>', 'use item'],
@@ -7566,9 +7566,9 @@ dlgEl.addEventListener('click', () => dialogAdvance());
 
 /* ---------- handing over items ---------- */
 const GIFT = {
-  net: { name: 'Catching Net', blurb: 'Click to swing it', give() { inv.owned.net = true; return 0; } },
-  dex: { name: 'Scrumblydex', blurb: 'Click to scan · Tab to browse', give() { inv.owned.dex = true; return 2; } },
-  trap: { name: 'Cage Trap', blurb: 'Click to set it down', give() { inv.trapsOwned = 1; inv.traps = Math.max(inv.traps, 1 - traps.length); return 3; } }
+  net: { name: 'Catching Net', blurb: 'Click to swing it', give() { inv.owned.net = true; return inv.slots.indexOf('net'); } },
+  dex: { name: 'Scrumblydex', blurb: 'Click to scan · Tab to browse', give() { inv.owned.dex = true; return inv.slots.indexOf('dex'); } },
+  trap: { name: 'Cage Trap', blurb: 'Click to set it down', give() { inv.trapsOwned = 1; inv.traps = Math.max(inv.traps, 1 - traps.length); return inv.slots.indexOf('trap'); } }
 };
 function giveItem(id) {
   const g = GIFT[id], slot = g.give();
@@ -8392,9 +8392,9 @@ function ranchHeal() {
 
 /* ---------- gifts she hands over ---------- */
 const INJECT_ICON = '<svg viewBox="0 0 48 48"><path d="M34 6 L42 14" stroke="#9aa6b8" stroke-width="4" stroke-linecap="round"/><path d="M38 10 L30 18" stroke="#9aa6b8" stroke-width="3"/><rect x="13" y="16" width="12" height="26" rx="3" transform="rotate(45 24 24)" fill="#e9fbff" stroke="#2fb5a8" stroke-width="2.5"/><rect x="14.5" y="25" width="9" height="12" rx="2" transform="rotate(45 24 24)" fill="#ff4f86"/><path d="M8 40 L12 36" stroke="#9aa6b8" stroke-width="2" stroke-linecap="round"/><path d="M33 33 C30 30.5 28.5 29 28.5 27.3 C28.5 26 29.5 25 30.7 25 C31.5 25 32.4 25.5 33 26.3 C33.6 25.5 34.5 25 35.3 25 C36.5 25 37.5 26 37.5 27.3 C37.5 29 36 30.5 33 33Z" fill="#ff4f86"/></svg>';
-GIFT.trap2 = { name: 'Cage Trap', blurb: 'Now you can set two at once', icon: 'trap', give() { inv.trapsOwned = Math.max(inv.trapsOwned, 2); inv.traps = clamp(inv.traps + 1, 0, inv.trapsOwned - traps.length); return 3; } };
+GIFT.trap2 = { name: 'Cage Trap', blurb: 'Now you can set two at once', icon: 'trap', give() { inv.trapsOwned = Math.max(inv.trapsOwned, 2); inv.traps = clamp(inv.traps + 1, 0, inv.trapsOwned - traps.length); return inv.slots.indexOf('trap'); } };
 GIFT.health = { name: 'Health Injection', blurb: 'Maximum health +1', svg: INJECT_ICON, give() { setMaxHealth(MAX_HEALTH + 1); health = MAX_HEALTH; renderHealth(); return null; } };
-GIFT.tele = { name: 'Teleporter', blurb: 'Hold the button to zap back to the ranch', icon: 'tele', give() { inv.owned.tele = true; teleCool = 0; return 4; } };
+GIFT.tele = { name: 'Teleporter', blurb: 'Hold the button to zap back to the ranch', icon: 'tele', give() { inv.owned.tele = true; teleCool = 0; return inv.slots.indexOf('tele'); } };
 
 /* ---------- the experiments ---------- */
 const hasInParty = sp => party.some(p => p.species === sp);
@@ -8819,7 +8819,7 @@ function pickTreeApple(a) {
   showApple(a, false); a.t = rr(...APPLE_REGROW); appleGlow = null; targetTreeApple = null;
   inv.apples++; inv.owned.apple = true; renderHotbar(); sfx.pickup();
   const el = hotbarEl.children[inv.slots.indexOf('apple')]; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-  if (!appleHints.first) { appleHints.first = true; toast('Got an apple! Press 6 to get it out and throw it like a rock. Scrumblies might like them...'); }
+  if (!appleHints.first) { appleHints.first = true; toast('Got an apple! Press 4 to get it out and throw it like a rock. Scrumblies might like them...'); }
   saveGame();
 }
 function throwApple() {
@@ -9096,9 +9096,9 @@ const fluffSfx = {
 };
 const FLUFF_PIC = '<svg viewBox="0 0 64 64"><ellipse cx="22" cy="14" rx="5.5" ry="14" fill="#fbf3f6" transform="rotate(-14 22 14)"/><ellipse cx="42" cy="14" rx="5.5" ry="14" fill="#fbf3f6" transform="rotate(14 42 14)"/><ellipse cx="22" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(-14 22 15)"/><ellipse cx="42" cy="15" rx="2.8" ry="10" fill="#ffa6c0" transform="rotate(14 42 15)"/><circle cx="46" cy="8" r="3" fill="#e8528e"/><circle cx="40" cy="8" r="3" fill="#e8528e"/><path d="M14 64 L18 52 Q32 46 46 52 L50 64 Z" fill="#ff7eb3"/><path d="M20 52 Q32 57 44 52" stroke="#fff" stroke-width="3" fill="none"/><circle cx="32" cy="36" r="17" fill="#fbf3f6"/><path d="M21 22 L24 15 L28 21 L32 12 L36 21 L40 15 L43 22 Z" fill="#f2c230"/><path d="M32 22 c-2-2.5-5-1-3.5 1.5 L32 26 L35.5 23.5 C37 21 34 19.5 32 22Z" fill="#ff3d8a"/><circle cx="25" cy="36" r="2.8" fill="#1d1b22"/><circle cx="39" cy="36" r="2.8" fill="#1d1b22"/><circle cx="24" cy="35" r=".9" fill="#fff"/><circle cx="38" cy="35" r=".9" fill="#fff"/><path d="M21 33 l-2.5 -2 M23 32 l-1 -2.6 M43 33 l2.5 -2 M41 32 l1 -2.6" stroke="#1d1b22" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="20" cy="42" rx="3.4" ry="2" fill="#ff9cc0"/><ellipse cx="44" cy="42" rx="3.4" ry="2" fill="#ff9cc0"/><ellipse cx="32" cy="41" rx="2.2" ry="1.6" fill="#ffa6c0"/><path d="M29 45 Q32 47.5 35 45" stroke="#c0305a" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
 const KISS_ICON = '<svg viewBox="0 0 48 48"><path d="M24 40 C12 31 6 25 6 17 C6 11 11 7 16 7 C19.5 7 22.5 9 24 12 C25.5 9 28.5 7 32 7 C37 7 42 11 42 17 C42 25 36 31 24 40 Z" fill="#ff7eb3" stroke="#e8528e" stroke-width="2"/><path d="M15 21 Q19 17 23 21 Q19 25 15 21 Z M25 21 Q29 17 33 21 Q29 25 25 21 Z" fill="#e8384f"/><path d="M15 21 Q24 23 33 21" stroke="#a81020" stroke-width="1.2" fill="none"/></svg>';
-GIFT.trap3 = { name: 'Cage Trap', blurb: 'Now you can set three at once', icon: 'trap', give() { inv.trapsOwned = Math.max(inv.trapsOwned, 3); inv.traps = clamp(inv.traps + 1, 0, inv.trapsOwned - traps.length); return 3; } };
+GIFT.trap3 = { name: 'Cage Trap', blurb: 'Now you can set three at once', icon: 'trap', give() { inv.trapsOwned = Math.max(inv.trapsOwned, 3); inv.traps = clamp(inv.traps + 1, 0, inv.trapsOwned - traps.length); return inv.slots.indexOf('trap'); } };
 GIFT.kiss = { name: 'Royal Kiss', blurb: 'Maximum health +1', svg: KISS_ICON, give() { fluffSfx.kiss(); setMaxHealth(MAX_HEALTH + 1); health = MAX_HEALTH; renderHealth(); return null; } };
-GIFT.tele2 = { name: 'Green Teleporter', blurb: 'Hold the green button to zap to Scrimple’s shop', icon: 'tele2', give() { inv.owned.tele2 = true; teleCool2 = 0; return 6; } };
+GIFT.tele2 = { name: 'Green Teleporter', blurb: 'Hold the green button to zap to Scrimple’s shop', icon: 'tele2', give() { inv.owned.tele2 = true; teleCool2 = 0; return inv.slots.indexOf('tele2'); } };
 const shiniesInParty = () => party.filter(p => p.shiny).length;
 const fluffReady = () => (fluffState.stage === 'shiny' && shiniesInParty() >= 1) || (fluffState.stage === 'three' && shiniesInParty() >= 3) || (fluffState.stage === 'rose' && hasInParty('rosita'));
 const FLUFF_QUEST_THREE = [
@@ -11619,7 +11619,7 @@ function lionelLoad(o) {
   if (o.tip && SPECIES[o.tip]) setTimeout(() => toast(pick1(RUNAWAY).replace('{X}', SPECIES[o.tip].name)), 2500);
   lionel.greeted = lionelRanch.greeted = false; placeLionel();
 }
-GIFT.tele3 = { name: 'Orange Teleporter', blurb: 'Hold the orange button to zap to the foot of your treehouse', icon: 'tele3', give() { inv.owned.tele3 = true; teleCool3 = 0; return 7; } };
+GIFT.tele3 = { name: 'Orange Teleporter', blurb: 'Hold the orange button to zap to the foot of your treehouse', icon: 'tele3', give() { inv.owned.tele3 = true; teleCool3 = 0; return inv.slots.indexOf('tele3'); } };
 
 /* =========================================================
    Scrumblies: Chupi, the mischievous little slingshot scamp of Mount Scrumble
@@ -13898,7 +13898,7 @@ function peakProfTarget() {
 
 /* ---------- his gifts: the fourth teleporter, and the suit ---------- */
 const SUIT_ICON = '<svg viewBox="0 0 48 48"><circle cx="24" cy="11" r="8.5" fill="#d8dde6" stroke="#8a94a4" stroke-width="2"/><rect x="18" y="8" width="12" height="7" rx="3" fill="#ffb03a" stroke="#b8641a" stroke-width="1.5"/><circle cx="21" cy="10" r="1.2" fill="#fff" opacity=".8"/><path d="M13 22 Q24 17 35 22 L36 36 L30 36 L30 44 L18 44 L18 36 L12 36 Z" fill="#ff8a1f" stroke="#b8541a" stroke-width="2" stroke-linejoin="round"/><rect x="13" y="25" width="22" height="3.4" fill="#d8dde6"/><rect x="13" y="31" width="22" height="3.4" fill="#d8dde6"/><path d="M24 22 L24 44" stroke="#b8541a" stroke-width="1.5"/><path d="M38 6 c2 3 -1 4 1 7 M42 9 c2 3 -1 4 1 7" stroke="#ff5a2a" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>';
-GIFT.tele4 = { name: 'Purple Teleporter', blurb: 'Hold the purple button to zap to the top of Mount Scrumble', icon: 'tele4', give() { inv.owned.tele4 = true; teleCool4 = 0; return 8; } };
+GIFT.tele4 = { name: 'Purple Teleporter', blurb: 'Hold the purple button to zap to the top of Mount Scrumble', icon: 'tele4', give() { inv.owned.tele4 = true; teleCool4 = 0; return inv.slots.indexOf('tele4'); } };
 GIFT.suit = { name: 'Heat-Resistant Suit', blurb: 'For the depths of Scrumbly Island', svg: SUIT_ICON, give() { peakProfState.suit = true; return null; } };
 
 /* ---------- what he says ---------- */
@@ -15402,7 +15402,7 @@ function pickGlowcap(g) {
   g.state = 'gone'; g.t = 0; g.regrow = 120 + Math.random() * 90; g.mesh.visible = false;
   inv.glowcaps++; inv.owned.glowcap = true; renderHotbar(); sfx.pickup();
   const el = hotbarEl.children[inv.slots.indexOf('glowcap')]; if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-  if (!glowHints.pick) { glowHints.pick = true; toast('A Glowcap! Soft, squishy and glowing, and it smells ever so sleepy. Throw one (slot 0) and see what the spores do to a scrumbly...'); }
+  if (!glowHints.pick) { glowHints.pick = true; toast('A Glowcap! Soft, squishy and glowing, and it smells ever so sleepy. Throw one (slot 5) and see what the spores do to a scrumbly...'); }
 }
 function updateGlowcapPatches(dt) {
   for (const g of caveGlowcaps) {
