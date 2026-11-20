@@ -1847,7 +1847,7 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 function blockedMessage(x, z) {
-  if (x > 2300) { toast(caveLavaD(x - CAVE.x, z - CAVE.z) > -1 ? 'Lava! Even the suit is not THAT heat-resistant.' : 'Solid rock. No way through there.'); return; }
+  if (x > 2300) { toast('Solid rock. No way through there.'); return; }
   const w = mtnWall(x, z, player.x, player.z, player.y);
   if (w) toast(w.kind === 'radial' ? 'Too smooth and steep to climb here. Look for the tan rock covered in knobbly handholds!' : w.look === 'pine' ? 'A little mountain pine is in the way.' : 'Too big to step up on. Try jumping!');
   else if (inMtnPond(x, z, 0.3)) toast('That little pond is far too deep to wade into.');
@@ -2011,9 +2011,9 @@ function updatePlayer(dt) {
   if (rockClimb) { updateRockClimb(dt, ix, iz); swingQueued = pickQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
   if (houseRide) { updateHouseRide(dt); swingQueued = pickQueued = jumpQueued = false; targetRock = null; nearHouse = null; updatePrompt(); return; }
 
-  const ground = heightAt(player.x, player.z), wy = water.position.y;
+  const ground = heightAt(player.x, player.z), wy = underground ? -99 : water.position.y;   // (no sea down in the caverns)
   const depth = Math.max(0, wy - ground), wet = clamp(depth / MAX_DEPTH, 0, 1);
-  const speed = (run ? 9.5 : 5) * (1 - 0.5 * wet);
+  const speed = (run ? 9.5 : 5) * (1 - 0.5 * wet) * (caveWading ? 0.55 : 1);   // wading through lava is slow going
   const tvx = (fwd.x * iz + right.x * ix) * speed, tvz = (fwd.z * iz + right.z * ix) * speed;
   const acc = player.grounded ? 11 : 2.5;
   player.vx += (tvx - player.vx) * Math.min(1, acc * dt);
@@ -13976,7 +13976,10 @@ function peakProfLoad(o) {
    ========================================================= */
 const CAVE = { x: 2600, z: 0 };
 const inCave = x => x > 2300;
-var underground = false;
+var underground = false, caveWading = false;
+// wading in the lava: the suit keeps most of the heat out, but not all of it
+let lavaBurnT = 0, lavaHinted = false;
+const LAVA_OUCH = ['SIZZLE! Hot hot hot!', 'Ow! Ow! Toasty toes!', 'The suit is smoking! Get out of the lava!', 'HOT! That is definitely lava!'];
 const caveState = { visited: false, profMet: false, scrimMet: false };
 const caveWorld = (lx, lz) => [CAVE.x + lx, CAVE.z + lz];
 // the rooms (ellipses) and the tunnels between them, in cave-local metres
@@ -14029,7 +14032,7 @@ function caveHeight(x, z) { return caveFloorL(x - CAVE.x, z - CAVE.z); }
 const caveSpikes = [];   // stalagmites you can't walk through
 function caveWalk(x, z) {
   const lx = x - CAVE.x, lz = z - CAVE.z;
-  if (caveS(lx, lz) < 1.2 || caveLavaD(lx, lz) > -0.4) return false;
+  if (caveS(lx, lz) < 1.2) return false;                 // (you CAN wade into the lava: it just burns)
   for (const p of caveSpikes) if (Math.abs(lx - p.x) < 2 && Math.abs(lz - p.z) < 2 && Math.hypot(lx - p.x, lz - p.z) < p.r + 0.25) return false;
   return true;
 }
@@ -14225,7 +14228,7 @@ function caveDescend() {
 const hemiLight = scene.children.find(o => o.isHemisphereLight);
 const OVERWORLD = { hc: hemiLight.color.getHex(), hg: hemiLight.groundColor.getHex(), hi: hemiLight.intensity, si: sun.intensity, fog: scene.fog.color.getHex(), near: scene.fog.near, far: scene.fog.far, camFar: camera.far };
 function setUnderground(on) {
-  underground = on;
+  underground = on; if (!on) caveWading = false;
   hemiLight.color.setHex(on ? 0xffb894 : OVERWORLD.hc); hemiLight.groundColor.setHex(on ? 0x5a2018 : OVERWORLD.hg); hemiLight.intensity = on ? 0.6 : OVERWORLD.hi;
   sun.intensity = on ? 0 : OVERWORLD.si;
   scene.fog.color.setHex(on ? 0x1e0d0b : OVERWORLD.fog); scene.fog.near = on ? 20 : OVERWORLD.near; scene.fog.far = on ? 160 : OVERWORLD.far;
@@ -14260,6 +14263,13 @@ function updateCave(dt) {
     e.sp.position.set(e.x, e.y, e.z); e.sp.scale.setScalar(0.18 + 0.06 * Math.sin(time * 9 + e.z)); e.sp.material.opacity = Math.min(1, e.life);
   }
   if (Math.random() < dt * 0.8) caveSfx.bubble(clamp(1 - CAVE_LAVA.reduce((m, p) => Math.min(m, Math.hypot(p.x - lx, p.z - lz) - p.r), 99) / 25, 0, 1));
+  // wading in the lava (your feet below its surface): slow going, a heart every second or so, and a trail of embers
+  caveWading = !knocked && !player.climb && caveLavaD(lx, lz) > 0 && player.y < -0.3;
+  if (caveWading) {
+    lavaBurnT -= dt;
+    if (lavaBurnT <= 0) { lavaBurnT = 1.1; pitSfx.sizzle(); hurtPlayer(1, lavaHinted ? pick1(LAVA_OUCH) : 'SIZZLE! The suit keeps out most of the heat... but not all of it! Get out of the lava!'); lavaHinted = true; }
+    const e = caveEmbers.find(o => o.life <= 0); if (e && Math.random() < dt * 14) { const a = Math.random() * 6.28; Object.assign(e, { life: 1 + Math.random(), x: lx + Math.cos(a) * 0.5, y: -0.4, z: lz + Math.sin(a) * 0.5, vx: Math.cos(a) * 0.6, vz: Math.sin(a) * 0.6 }); e.sp.visible = true; }
+  } else lavaBurnT = 0;
   // which part of the cave you're in
   const room = caveRoomAt(lx, lz);
   if (room && room !== caveRoom) { if (caveRoom) showArea(room.name); caveRoom = room; }   // (arriving, the banner says Emberdeep Caverns; after that, each room's name)
