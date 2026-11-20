@@ -14660,9 +14660,23 @@ const figglyFolk = [];
 for (let i = 0; i < FIG_N; i++) {
   const fig = compactCreature(makeFigglyMesh(false)), zom = compactCreature(makeFigglyMesh(true));
   const root = new THREE.Group(); root.add(fig.root); root.add(zom.root); zom.root.visible = false; root.visible = false; scene.add(root);
-  figglyFolk.push({ root, fig, zom, species: 'figgly', form: 'figgly', state: 'gone', t: 0, i, x: 0, y: -50, z: 0, tx: 0, tz: 0, face: 0, s: 1, size: null, shiny: false, zt: 0, bite: 0, flinch: 0, retarget: 0, respawn: 0.5 + i * 0.3, step: 0 });
+  figglyFolk.push({ root, fig, zom, species: 'figgly', form: 'figgly', state: 'gone', t: 0, i, x: 0, y: -50, z: 0, tx: 0, tz: 0, face: 0, s: 1, size: null, shiny: false, zt: 0, bite: 0, flinch: 0, retarget: 0, respawn: 0.5 + i * 0.3, step: 0, dazeK: 1.6 });
 }
-const figHome = c => { const a = figRingA + c.i / FIG_N * Math.PI * 2; return caveWorld(FIG_C.x + Math.cos(a) * FIG_RING, FIG_C.z + Math.sin(a) * FIG_RING); };
+// each Figgly has its own little dance floor, spread out across the grotto (as far from the others as it'll go)
+const FIG_SPOTS = (() => {
+  const cands = [];
+  for (let i = 0; i < 600; i++) {
+    const a = i * 2.399, k = Math.sqrt((i % 60) / 60) * 0.72, lx = FIG_ROOM.x + Math.cos(a) * FIG_ROOM.rx * k, lz = FIG_ROOM.z + Math.sin(a) * FIG_ROOM.rz * k;
+    let ok = true; for (let j = 0; j < 8 && ok; j++) { const b = j / 8 * Math.PI * 2, [x, z] = caveWorld(lx + Math.cos(b) * 2, lz + Math.sin(b) * 2); ok = corOK(x, z); }
+    if (ok) cands.push({ x: lx, z: lz });
+  }
+  const spots = [cands.reduce((b, p) => Math.hypot(p.x - FIG_C.x, p.z - FIG_C.z) < Math.hypot(b.x - FIG_C.x, b.z - FIG_C.z) ? p : b, cands[0] || FIG_C)];
+  while (spots.length < FIG_N) { let best = null, bd = -1; for (const p of cands) { const m = Math.min(...spots.map(s => Math.hypot(p.x - s.x, p.z - s.z))); if (m > bd) { bd = m; best = p; } } spots.push(best || FIG_C); }
+  return spots;
+})();
+const figHome = c => { const s = FIG_SPOTS[c.i], a = figRingA * 1.6 + c.i * 1.9; return caveWorld(s.x + Math.cos(a) * 1.0, s.z + Math.sin(a) * 1.0); };
+// how far out of the grotto each one has to be lured before it's dazed (a bit different every time)
+const figDazeK = () => 1.45 + Math.random() * 0.45;
 const figCur = c => c.form === 'zombie' ? c.zom : c.fig;
 function figForm(c, form) {
   c.form = form; c.species = form === 'zombie' ? 'zombiggly' : 'figgly';
@@ -14746,16 +14760,17 @@ function updateFigglies(dt) {
     }
     let speed = 0, tx = c.x, tz = c.z;
     if (c.flinch > 0) c.flinch -= dt;
-    if (c.state === 'dance') { [tx, tz] = figHome(c); c.x = tx; c.z = tz; c.face = figRingA + c.i / FIG_N * Math.PI * 2 + Math.PI; if (Math.random() < dt * 0.4) figSfx.ribbit(vol * 0.5); }
+    if (c.state === 'dance') { [tx, tz] = figHome(c); c.x = tx; c.z = tz; c.face = figRingA * 1.6 + c.i * 1.9 + Math.PI; if (Math.random() < dt * 0.4) figSfx.ribbit(vol * 0.5); }
     else if (c.state === 'turning') {
-      if (c.t > 1.4) { figForm(c, 'zombie'); c.state = 'shamble'; c.t = 0; c.zt = 0; c.bite = 1; figSfx.groan(vol + 0.3); }
+      if (c.t > 1.4) { figForm(c, 'zombie'); c.state = 'shamble'; c.t = 0; c.zt = 0; c.bite = 1; c.dazeK = figDazeK(); figSfx.groan(vol + 0.3); }
     } else if (c.state === 'shamble') {
       // stagger after you if you're about, otherwise wander the grotto
-      if (near && d < 28) { speed = 1.7; tx = player.x; tz = player.z; }
-      else { speed = 0.8; c.retarget -= dt; if (c.retarget <= 0 || Math.hypot(c.tx - c.x, c.tz - c.z) < 0.5) { c.retarget = 3 + Math.random() * 3; const a = Math.random() * 6.28, r = Math.random() * 8; [c.tx, c.tz] = caveWorld(FIG_C.x + Math.cos(a) * r, FIG_C.z + Math.sin(a) * r); } tx = c.tx; tz = c.tz; }
+      // (each comes at you from its own angle, so they fan out rather than queueing up behind each other)
+      if (near && d < 30) { speed = 2.6; const a = c.i / FIG_N * Math.PI * 2, k = Math.min(1, d / 6) * 2.2; tx = player.x + Math.cos(a) * k; tz = player.z + Math.sin(a) * k; }
+      else { speed = 1.2; c.retarget -= dt; if (c.retarget <= 0 || Math.hypot(c.tx - c.x, c.tz - c.z) < 0.5) { c.retarget = 3 + Math.random() * 3; const s = FIG_SPOTS[c.i], a = Math.random() * 6.28, r = Math.random() * 7; [c.tx, c.tz] = caveWorld(s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); } tx = c.tx; tz = c.tz; }
       if (Math.random() < dt * 0.35) figSfx.groan(vol);
       // out of the spores' reach: dazed
-      if (!figInGrotto(c.x, c.z, 1.25)) { c.state = 'dazed'; c.t = 0; c.zom.stars.forEach(s => { s.visible = true; }); toast(figHints.daze ? 'Away from the spores, the Zombiggly sways and sits down, dazed. Net it!' : 'Out here, away from the glowcaps\' spores, the Zombiggly wobbles... and sits down with a bump, dazed. Now\'s your chance!'); figHints.daze = true; }
+      if (!figInGrotto(c.x, c.z, c.dazeK)) { c.state = 'dazed'; c.t = 0; c.zom.stars.forEach(s => { s.visible = true; }); toast(figHints.daze ? 'Away from the spores, the Zombiggly sways and sits down, dazed. Net it!' : 'Out here, away from the glowcaps\' spores, the Zombiggly wobbles... and sits down with a bump, dazed. Now\'s your chance!'); figHints.daze = true; }
       // a slimy bite
       c.bite = Math.max(0, c.bite - dt);
       if (near && d < 0.75 * Math.max(1, c.s) && c.bite <= 0) {
@@ -14765,12 +14780,12 @@ function updateFigglies(dt) {
     } else if (c.state === 'dazed') {
       if (c.t > FIG_DAZE) { c.state = 'return'; c.t = 0; c.zom.stars.forEach(s => { s.visible = false; }); }
     } else if (c.state === 'return') {
-      speed = 1.7; [tx, tz] = caveWorld(FIG_C.x, FIG_C.z);
-      if (figInGrotto(c.x, c.z, 0.85)) { c.state = 'shamble'; c.t = 0; }
+      speed = 2.4; [tx, tz] = caveWorld(FIG_SPOTS[c.i].x, FIG_SPOTS[c.i].z);
+      if (figInGrotto(c.x, c.z, 0.85)) { c.state = 'shamble'; c.t = 0; c.dazeK = figDazeK(); }
     } else if (c.state === 'groggy') {
       if (c.t > FIG_GROGGY) { c.state = 'home'; c.t = 0; c.fig.stars.forEach(s => { s.visible = false; }); }
     } else if (c.state === 'home') {
-      speed = 2.2; [tx, tz] = figHome(c);
+      speed = 2.8; [tx, tz] = figHome(c);
       if (Math.hypot(tx - c.x, tz - c.z) < 0.3) { c.state = 'dance'; c.t = 0; }
     }
     if (speed > 0 && c.flinch <= 0) {
@@ -14780,6 +14795,12 @@ function updateFigglies(dt) {
         for (const off of [0, 0.5, -0.5, 1, -1, 1.6, -1.6]) { const a = base + off, px = c.x + Math.sin(a) * st, pz = c.z + Math.cos(a) * st; if (corOK(px, pz)) { c.x = px; c.z = pz; break; } }
         c.face += angDiff(c.face, base) * Math.min(1, dt * 4);
       }
+    }
+    // zombies keep a little elbow room from each other
+    if (c.form === 'zombie' && c.state !== 'dazed') for (const o of figglyFolk) {
+      if (o === c || !o.root.visible || o.form !== 'zombie') continue;
+      const ox = c.x - o.x, oz = c.z - o.z, od = Math.hypot(ox, oz);
+      if (od < 1.6 && od > 0.01) { const k = (1.6 - od) * 0.5 * Math.min(1, dt * 6), px = c.x + ox / od * k, pz = c.z + oz / od * k; if (corOK(px, pz)) { c.x = px; c.z = pz; } }
     }
     c.y = heightAt(c.x, c.z);
     // how they move: a bouncy, twirly dance; a stiff-armed zombie shuffle; a dizzy sit
